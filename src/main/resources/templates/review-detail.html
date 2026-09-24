@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Manuelle Prüfung')}"></head>
+<body>
+<header th:replace="~{layout :: topbar('pruefung')}"></header>
+<main>
+    <p><a th:href="@{/pruefung}">‹ Zurück zur Übersicht</a></p>
+    <h1 th:text="${dir}">Vorgang</h1>
+    <p class="subtitle">Mandant <span th:text="${tenant}"></span></p>
+
+    <section class="card">
+        <h2>Plausibilitätsfehler</h2>
+        <pre class="mono" style="white-space:pre-wrap" th:text="${reason}"></pre>
+        <p class="small muted">Ein Korrektur- oder Freigabeprozess ist noch nicht definiert. Nach Anpassung von Profil oder Quelldokument kann der Vorgang über die Detailansicht der Ausgangsrechnung als Reprocess neu verarbeitet werden.</p>
+    </section>
+
+    <div class="grid grid-3" th:if="${extraction != null}">
+        <section class="card" style="grid-column: span 2">
+            <h2>Extrahierte Werte und Fundstellen</h2>
+            <table class="data compact">
+                <thead><tr><th>BT</th><th>Wert</th><th>Quelltext</th><th>Seite</th><th>Fundstelle</th><th>Regel</th><th>Status</th></tr></thead>
+                <tbody>
+                <tr th:each="f : ${extraction.get('fields')}">
+                    <td class="nowrap" th:text="${f.get('businessTerm').asText()}"></td>
+                    <td th:text="${f.get('value').isNull()} ? '–' : ${f.get('value').asText()}"></td>
+                    <td class="small" th:text="${f.get('sourceText').isNull()} ? '–' : ${f.get('sourceText').asText()}"></td>
+                    <td th:text="${f.get('page').isNull()} ? '–' : ${f.get('page').asText()}"></td>
+                    <td class="small mono" th:text="${f.get('boundingBox').isNull()} ? '–' : ('x=' + ${#numbers.formatDecimal(f.get('boundingBox').get('x').asDouble(), 1, 0)} + ' y=' + ${#numbers.formatDecimal(f.get('boundingBox').get('y').asDouble(), 1, 0)} + ' w=' + ${#numbers.formatDecimal(f.get('boundingBox').get('width').asDouble(), 1, 0)})"></td>
+                    <td class="small" th:text="${f.get('ruleId').asText()}"></td>
+                    <td><span th:class="${f.get('status').asText() == 'OK'} ? 'badge badge-ok' : (${f.get('status').asText() == 'ERROR'} ? 'badge badge-error' : 'badge badge-muted')" th:text="${f.get('status').asText()}"></span>
+                        <div class="small muted" th:if="${!f.get('message').isNull()}" th:text="${f.get('message').asText()}"></div></td>
+                </tr>
+                </tbody>
+            </table>
+            <h2 style="margin-top:1rem" th:text="'Positionen (' + ${extraction.get('lines').size()} + ')'"></h2>
+            <table class="data compact">
+                <thead><tr><th>Pos.</th><th>BT</th><th>Wert</th><th>Seite</th><th>Status</th></tr></thead>
+                <tbody>
+                <th:block th:each="l : ${extraction.get('lines')}">
+                    <tr th:each="entry : ${l.get('fields')}">
+                        <td th:text="${l.get('lineNumber').asText()}"></td><td th:text="${entry.key}"></td>
+                        <td th:text="${entry.value.get('value').isNull()} ? '–' : ${entry.value.get('value').asText()}"></td>
+                        <td th:text="${entry.value.get('page').isNull()} ? '–' : ${entry.value.get('page').asText()}"></td>
+                        <td th:text="${entry.value.get('status').asText()}"></td>
+                    </tr>
+                </th:block>
+                </tbody>
+            </table>
+            <h2 style="margin-top:1rem">Plausibilitätsprüfung</h2>
+            <ul><li th:each="i : ${extraction.get('plausibility').get('issues')}" th:text="(${i.get('check').isNull()} ? '' : ${i.get('check').asText()} + ': ') + ${i.get('message').asText()}"></li></ul>
+        </section>
+        <section class="card">
+            <h2>PDF</h2>
+            <iframe class="pdf" th:if="${hasPdf}" th:src="@{/pruefung/{t}/{d}/original.pdf(t=${tenant}, d=${dir})}" title="Original-PDF"></iframe>
+            <p class="muted" th:unless="${hasPdf}">Keine PDF vorhanden.</p>
+        </section>
+    </div>
+</main>
+<footer th:replace="~{layout :: footer}"></footer>
+</body>
+</html>

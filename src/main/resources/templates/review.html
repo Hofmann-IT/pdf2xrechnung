@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Manuelle Prüfung')}"></head>
+<body>
+<header th:replace="~{layout :: topbar('pruefung')}"></header>
+<main>
+    <h1>Manuelle Prüfung</h1>
+    <p class="subtitle">Rechnungen aus <code>manual-review/</code>, bei denen die Plausibilitätsprüfung eine Abweichung gefunden hat. Werte werden nicht automatisch verändert.</p>
+    <table class="data">
+        <thead><tr><th>Vorgang</th><th>Mandant</th><th>Run</th><th>Begründung</th><th>Abgelegt</th></tr></thead>
+        <tbody>
+        <tr th:each="i : ${items}">
+            <td><a th:href="@{/pruefung/{t}/{d}(t=${i.tenantId}, d=${i.directory})}" th:text="${i.directory}"></a></td>
+            <td th:text="${i.tenantId}"></td>
+            <td class="mono" th:text="${i.correlationId}"></td>
+            <td class="small" th:text="${i.reason}"></td>
+            <td class="nowrap" th:text="${@fmt.dateTime(i.modified)}"></td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(items)}"><td colspan="5" class="muted">Keine Vorgänge zur manuellen Prüfung.</td></tr>
+        </tbody>
+    </table>
+</main>
+<footer th:replace="~{layout :: footer}"></footer>
+</body>
+</html>

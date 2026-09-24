@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Systemstatus')}"></head>
+<body>
+<header th:replace="~{layout :: topbar('status')}"></header>
+<main>
+    <h1>Systemstatus</h1>
+    <p class="subtitle">Konfiguration, Verzeichnisse und lokale Validierungsressourcen. Keine Netzwerkverbindung außer dem konfigurierten SMTP-Server.</p>
+
+    <div class="grid grid-3">
+        <section class="card"><h2>Anwendung</h2>
+            <dl class="kv">
+                <dt>Version</dt><dd th:text="${version}"></dd>
+                <dt>Java</dt><dd th:text="${javaVersion}"></dd>
+                <dt>Offene Runs</dt><dd th:text="${openRuns}"></dd>
+                <dt>Watcher</dt><dd th:text="${watcher.enabled} ? ('aktiv, Intervall ' + ${watcher.pollInterval} + ', ' + ${watcher.stableChecks} + ' stabile Prüfungen') : 'deaktiviert'"></dd>
+                <dt>Parallelität</dt><dd th:text="${processing.tenantParallelism} + ' Mandant(en) gleichzeitig'"></dd>
+            </dl>
+        </section>
+        <section class="card"><h2>Validierung</h2>
+            <dl class="kv">
+                <dt>KoSIT-Konfiguration</dt><dd><span th:class="${kositAvailable} ? 'badge badge-ok' : 'badge badge-error'" th:text="${kositAvailable} ? 'vorhanden' : 'fehlt'"></span>
+                    <div class="small" th:text="${kositConfig != null} ? ${kositConfig} : 'noch nicht geladen (wird beim ersten Prüfvorgang geladen)'"></div>
+                    <div class="small mono muted" th:text="${kositScenarios}"></div></dd>
+                <dt>Mustang</dt><dd>2.17.0 (ZUGFeRD/Factur-X, PDF/A über veraPDF)</dd>
+                <dt>Prüfprotokolle</dt><dd th:text="${storeReports} ? 'werden gespeichert' : 'nur temporär'"></dd>
+            </dl>
+        </section>
+        <section class="card"><h2>Versand</h2>
+            <dl class="kv">
+                <dt>SMTP</dt><dd><span th:class="${smtpEnabled} ? 'badge badge-ok' : 'badge badge-muted'" th:text="${smtpEnabled} ? 'aktiv' : 'deaktiviert'"></span></dd>
+                <dt>Server</dt><dd th:text="${smtpEnabled} ? (${smtp.host} + ':' + ${smtp.port} + (${smtp.starttls} ? ' STARTTLS' : '') + (${smtp.ssl} ? ' SSL' : '')) : '–'"></dd>
+                <dt>Absender</dt><dd th:text="${smtpEnabled} ? ${smtp.from} : '–'"></dd>
+                <dt>Zugangsdaten</dt><dd class="small muted">aus SMTP_USERNAME / SMTP_PASSWORD</dd>
+            </dl>
+        </section>
+    </div>
+
+    <section class="card"><h2>Verzeichnisse</h2>
+        <table class="data compact">
+            <thead><tr><th>Name</th><th>Pfad</th><th>Vorhanden</th><th>Beschreibbar</th></tr></thead>
+            <tbody>
+            <tr th:each="d : ${directories}">
+                <td th:text="${d.name}"></td><td class="mono small" th:text="${d.path}"></td>
+                <td><span th:class="${d.exists} ? 'badge badge-ok' : 'badge badge-warn'" th:text="${d.exists} ? 'ja' : 'nein'"></span></td>
+                <td><span th:class="${d.writable} ? 'badge badge-ok' : 'badge badge-muted'" th:text="${d.writable} ? 'ja' : 'nein'"></span></td>
+            </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section class="card"><h2>Mandanten und Profile</h2>
+        <table class="data compact">
+            <thead><tr><th>Mandant</th><th>Aktiv</th><th>Inbox-Unterverzeichnis</th><th>Profile</th></tr></thead>
+            <tbody><tr th:each="t : ${tenants}"><td th:text="${t.name} + ' (' + ${t.id} + ')'"></td><td th:text="${t.enabled} ? 'ja' : 'nein'"></td><td class="mono" th:text="${#strings.isEmpty(t.inboxSubdirectory)} ? '(Wurzel)' : ${t.inboxSubdirectory}"></td><td th:text="${#strings.listJoin(t.profiles, ', ')}"></td></tr></tbody>
+        </table>
+    </section>
+</main>
+<footer th:replace="~{layout :: footer}"></footer>
+</body>
+</html>

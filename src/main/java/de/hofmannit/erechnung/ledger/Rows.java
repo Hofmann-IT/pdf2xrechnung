@@ -26,6 +26,10 @@ public final class Rows {
     }
 
     public record ArtifactRow(long id, long processingRunId, ArtifactType type, String path, String sha256, long sizeBytes, Instant createdAt) {
+        public String fileName() {
+            int idx = path.lastIndexOf('/');
+            return idx < 0 ? path : path.substring(idx + 1);
+        }
     }
 
     public record LedgerEntryRow(long id, long processingRunId, String tenantId, String documentType, String invoiceNumber,
@@ -41,5 +45,23 @@ public final class Rows {
     public record ValidationResultRow(long id, long processingRunId, Long validatedArtifactId, String validator, String targetFormat,
                                       String outcome, String ruleset, int errorCount, int warningCount,
                                       Long reportXmlArtifactId, Long reportHtmlArtifactId, Instant validatedAt) {
+    }
+
+    /**
+     * Listenzeile für die Oberfläche: Run + Quelldokument + (optional) Ledger-Eintrag.
+     * Der Status wird aus den Events projiziert.
+     */
+    public record InvoiceListRow(ProcessingRunRow run, SourceDocumentRow source, LedgerEntryRow entry, InvoiceStatus status) {
+        public InvoiceListRow withStatus(InvoiceStatus s) {
+            return new InvoiceListRow(run, source, entry, s);
+        }
+    }
+
+    /** Filter für die Rechnungsliste; alle Felder optional. */
+    public record InvoiceFilter(String tenantId, String search, String status, String format, String dateFrom, String dateTo,
+                                String customer, int limit) {
+        public static InvoiceFilter none() {
+            return new InvoiceFilter(null, null, null, null, null, null, null, 200);
+        }
     }
 }

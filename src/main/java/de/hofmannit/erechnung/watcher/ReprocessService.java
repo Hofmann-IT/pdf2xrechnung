@@ -85,6 +85,35 @@ public class ReprocessService {
      */
     public RunOutcome reprocess(String tenantId, String sha256, String requestedBy, String reason, boolean confirmed)
             throws ReprocessException, IOException {
+        Prepared p = prepare(tenantId, sha256, requestedBy, reason, confirmed);
+        return execute(p);
+    }
+
+    /**
+     * Für die Oberfläche: Vorbedingungen synchron prüfen, Verarbeitung im Mandanten-Executor
+     * (sequentiell je Mandant, wie beim Watcher). Liefert die Korrelations-ID des Vorgänger-Runs.
+     */
+    public String reprocessAsync(String tenantId, String sha256, String requestedBy, String reason, boolean confirmed, TenantExecutors executors)
+            throws ReprocessException, IOException {
+        Prepared p = prepare(tenantId, sha256, requestedBy, reason, confirmed);
+        executors.submit(tenantId, () -> execute(p));
+        return p.parent().correlationId();
+    }
+
+    /** Vorbereiteter Reprocess: Datei liegt in processing/, REPROCESS_REQUESTED ist protokolliert. */
+    public record Prepared(ProcessingJob job, ProcessingRunRow parent) {
+    }
+
+    private RunOutcome execute(Prepared p) {
+        RunOutcome outcome = pipeline.process(p.job());
+        ledger.appendEvent(outcome.runId(), EventType.REPROCESS_COMPLETED, clock.instant(), p.job().requestedBy(),
+                "Reprocess abgeschlossen mit " + outcome.result() + ": " + outcome.message(),
+                details(Map.of("parentRunId", p.parent().id(), "result", outcome.result().name())));
+        return outcome;
+    }
+
+    private Prepared prepare(String tenantId, String sha256, String requestedBy, String reason, boolean confirmed)
+            throws ReprocessException, IOException {
         if (requestedBy == null || requestedBy.isBlank()) {
             throw new ReprocessException("Benutzer ist erforderlich", false);
         }
@@ -115,11 +144,7 @@ public class ReprocessService {
         log.info("Reprocess für {} (Run {}, Status {}) durch {}: {}", source.originalFilename(), latest.correlationId(), status, requestedBy, reason);
         ProcessingJob job = new ProcessingJob(tenant, target, source.originalFilename(), source.sha256(),
                 de.hofmannit.erechnung.ledger.RunTrigger.MANUAL_REPROCESS, latest.id(), requestedBy, reason);
-        RunOutcome outcome = pipeline.process(job);
-        ledger.appendEvent(outcome.runId(), EventType.REPROCESS_COMPLETED, clock.instant(), requestedBy,
-                "Reprocess abgeschlossen mit " + outcome.result() + ": " + outcome.message(),
-                details(Map.of("parentRunId", latest.id(), "result", outcome.result().name())));
-        return outcome;
+        return new Prepared(job, latest);
     }
 
     private SourceDocumentRow resolveSource(String tenantId, String sha256) throws ReprocessException {

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Profile')}"></head>
+<body>
+<header th:replace="~{layout :: topbar('profile')}"></header>
+<main>
+    <h1>Profile</h1>
+    <p class="subtitle">Mandantenprofile aus <code th:text="${profilesDir}"></code>. Änderungen erfolgen in den YAML-Dateien; der Profil-Hash wird je Run gespeichert.</p>
+
+    <table class="data">
+        <thead><tr><th>Name</th><th>Beschreibung</th><th>Formate</th><th>Felder</th><th>Geschäftsfälle</th><th>SHA-256</th></tr></thead>
+        <tbody>
+        <tr th:each="p : ${profiles}">
+            <td th:text="${p.name}"></td>
+            <td class="small" th:text="${p.definition.profile.description}"></td>
+            <td class="small" th:text="${#strings.listJoin(p.definition.generation.formats, ', ')}"></td>
+            <td class="num" th:text="${#lists.size(p.definition.fields)}"></td>
+            <td class="small"><span th:each="b, it : ${p.definition.classification.businessCases}"><span th:text="${b.id}"></span><span th:if="${!it.last}">, </span></span></td>
+            <td class="mono small" th:text="${p.sha256}"></td>
+        </tr>
+        </tbody>
+    </table>
+
+    <section class="card" style="margin-top:1.5rem">
+        <h2>Profil testen</h2>
+        <p class="small muted">PDF hochladen: Das System zeigt das erkannte Profil, alle Business Terms mit Fundstellen und Regeln sowie die Plausibilität. Es wird nichts erzeugt, abgelegt, versendet oder im Ledger vermerkt.</p>
+        <form th:action="@{/profile/test}" method="post" enctype="multipart/form-data" hx-post="/profile/test" hx-encoding="multipart/form-data" hx-target="#test" hx-indicator="#busy" class="filters">
+            <label class="field">PDF<input type="file" name="file" accept=".pdf,application/pdf" required></label>
+            <label class="field">Mandant<select name="tenant"><option th:each="t : ${tenants}" th:value="${t.id}" th:text="${t.name}"></option></select></label>
+            <button class="btn accent" type="submit">Testen</button>
+            <span id="busy" class="htmx-indicator">Analyse läuft …</span>
+        </form>
+    </section>
+
+    <div id="test" th:fragment="test">
+        <th:block th:if="${test != null}">
+            <div class="notice error" th:if="${test.error != null}" th:text="${test.error}"></div>
+            <th:block th:if="${test.error == null}">
+                <section class="card">
+                    <h2 th:text="${test.fileName}"></h2>
+                    <dl class="kv">
+                        <dt>Seiten</dt><dd th:text="${test.pages}"></dd>
+                        <dt>Erkanntes Profil</dt><dd th:text="${test.profile != null} ? ${test.profile.name} : 'keines (Nicht-Rechnung)'"></dd>
+                        <dt>Klassifizierung</dt><dd><span th:if="${test.classification != null}"><span th:text="${test.classification.isInvoice()} ? (${test.classification.documentType} + ', Geschäftsfall ' + ${test.classification.businessCase.id}) : 'NICHT-RECHNUNG'"></span>
+                            <ul class="small muted"><li th:each="r : ${test.classification.reasons}" th:text="${r}"></li></ul></span></dd>
+                        <dt>Plausibilität</dt><dd th:if="${test.plausibility != null}"><span th:class="${test.plausibility.passed()} ? 'badge badge-ok' : 'badge badge-warn'" th:text="${test.plausibility.passed()} ? 'bestanden' : 'nicht bestanden'"></span>
+                            <ul class="small"><li th:each="i : ${test.plausibility.issues}" th:text="(${i.check} != null ? ${i.check} + ': ' : '') + ${i.message}"></li></ul></dd>
+                    </dl>
+                </section>
+                <section class="card" th:if="${test.data != null}">
+                    <h2>Business Terms</h2>
+                    <table class="data compact">
+                        <thead><tr><th>BT</th><th>Bezeichnung</th><th>Wert</th><th>Quelltext</th><th>Seite</th><th>Fundstelle</th><th>Regel</th><th>Status</th></tr></thead>
+                        <tbody>
+                        <tr th:each="f : ${test.data.fields.values()}">
+                            <td class="nowrap" th:text="${f.businessTerm.id()}"></td>
+                            <td class="small" th:text="${f.businessTerm.germanLabel()}"></td>
+                            <td th:text="${f.value != null} ? ${f.value} : '–'"></td>
+                            <td class="small" th:text="${f.sourceText != null} ? ${f.sourceText} : '–'"></td>
+                            <td th:text="${f.page != null} ? ${f.page} : '–'"></td>
+                            <td class="small mono" th:text="${f.boundingBox != null} ? ('x=' + ${#numbers.formatDecimal(f.boundingBox.x, 1, 0)} + ' y=' + ${#numbers.formatDecimal(f.boundingBox.y, 1, 0)} + ' w=' + ${#numbers.formatDecimal(f.boundingBox.width, 1, 0)}) : '–'"></td>
+                            <td class="small" th:text="${f.ruleId} + ' · ' + ${f.transformation}"></td>
+                            <td><span th:class="${f.status.name() == 'OK'} ? 'badge badge-ok' : (${f.status.name() == 'ERROR'} ? 'badge badge-error' : 'badge badge-muted')" th:text="${f.status}"></span>
+                                <div class="small muted" th:if="${f.message != null}" th:text="${f.message}"></div></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                    <h2 style="margin-top:1rem" th:text="'Positionen (' + ${#lists.size(test.data.lines)} + ')'"></h2>
+                    <table class="data compact">
+                        <thead><tr><th>Pos.</th><th>BT</th><th>Wert</th><th>Seite</th><th>Fundstelle</th><th>Status</th></tr></thead>
+                        <tbody>
+                        <th:block th:each="l : ${test.data.lines}">
+                            <tr th:each="f : ${l.fields.values()}">
+                                <td th:text="${l.lineNumber}"></td><td th:text="${f.businessTerm.id()}"></td>
+                                <td th:text="${f.value != null} ? ${f.value} : '–'"></td>
+                                <td th:text="${f.page != null} ? ${f.page} : '–'"></td>
+                                <td class="small mono" th:text="${f.boundingBox != null} ? ('x=' + ${#numbers.formatDecimal(f.boundingBox.x, 1, 0)} + ' y=' + ${#numbers.formatDecimal(f.boundingBox.y, 1, 0)}) : '–'"></td>
+                                <td th:text="${f.status}"></td>
+                            </tr>
+                        </th:block>
+                        </tbody>
+                    </table>
+                </section>
+            </th:block>
+        </th:block>
+    </div>
+</main>
+<footer th:replace="~{layout :: footer}"></footer>
+</body>
+</html>

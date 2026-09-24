@@ -141,7 +141,8 @@ public final class InboundReportWriter {
         sb.append("<tr><th>").append(k).append("</th><td>").append(v).append("</td></tr>");
     }
 
-    static String describeType(InboundDocumentType t) {
+    /** Lesbare Bezeichnung des Dokumenttyps (auch für die Oberfläche). */
+    public static String describeType(InboundDocumentType t) {
         return switch (t) {
             case CII_XML -> "XML, UN/CEFACT CII (CrossIndustryInvoice)";
             case UBL_XML -> "XML, OASIS UBL (Invoice/CreditNote)";

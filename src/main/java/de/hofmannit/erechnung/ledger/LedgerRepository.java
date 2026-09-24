@@ -251,6 +251,127 @@ public class LedgerRepository {
         return jdbc.query("SELECT * FROM validation_result WHERE processing_run_id = ? ORDER BY id", VALIDATION, runId);
     }
 
+    // ------------------------------------------------------------------ Abfragen für die Oberfläche
+
+    /**
+     * Rechnungsliste: alle Runs (neueste zuerst) mit Quelldokument und Ledger-Eintrag. Status wird
+     * je Zeile aus den Events projiziert; Statusfilter wird deshalb in Java angewendet.
+     */
+    public List<Rows.InvoiceListRow> listInvoices(Rows.InvoiceFilter f) {
+        StringBuilder sql = new StringBuilder("""
+                SELECT r.id AS r_id, r.source_document_id, r.run_number, r.trigger_type, r.parent_run_id, r.requested_by, r.reason,
+                       r.profile_name, r.profile_hash, r.application_version, r.correlation_id, r.started_at, r.finished_at, r.result,
+                       s.id AS s_id, s.tenant_id AS s_tenant, s.sha256 AS s_sha, s.original_filename, s.size_bytes, s.first_seen_at,
+                       e.id AS e_id, e.tenant_id AS e_tenant, e.document_type, e.invoice_number, e.invoice_date, e.customer_name, e.currency,
+                       e.net_total, e.tax_total, e.gross_total, e.payable_amount, e.generated_formats, e.source_sha256, e.profile_name AS e_profile,
+                       e.profile_hash AS e_profile_hash, e.application_version AS e_app, e.business_case, e.recorded_at
+                FROM processing_run r
+                JOIN source_document s ON s.id = r.source_document_id
+                LEFT JOIN ledger_entry e ON e.processing_run_id = r.id
+                WHERE 1 = 1
+                """);
+        List<Object> params = new java.util.ArrayList<>();
+        if (notBlank(f.tenantId())) {
+            sql.append(" AND s.tenant_id = ?");
+            params.add(f.tenantId());
+        }
+        if (notBlank(f.search())) {
+            sql.append(" AND (e.invoice_number LIKE ? OR e.customer_name LIKE ? OR s.original_filename LIKE ?)");
+            String like = "%" + f.search().trim() + "%";
+            params.add(like);
+            params.add(like);
+            params.add(like);
+        }
+        if (notBlank(f.customer())) {
+            sql.append(" AND e.customer_name LIKE ?");
+            params.add("%" + f.customer().trim() + "%");
+        }
+        if (notBlank(f.format())) {
+            sql.append(" AND e.generated_formats LIKE ?");
+            params.add("%" + f.format().trim() + "%");
+        }
+        if (notBlank(f.dateFrom())) {
+            sql.append(" AND e.invoice_date >= ?");
+            params.add(f.dateFrom().trim());
+        }
+        if (notBlank(f.dateTo())) {
+            sql.append(" AND e.invoice_date <= ?");
+            params.add(f.dateTo().trim());
+        }
+        sql.append(" ORDER BY r.started_at DESC, r.id DESC LIMIT ?");
+        params.add(Math.max(1, Math.min(f.limit() <= 0 ? 200 : f.limit(), 1000)));
+        List<Rows.InvoiceListRow> rows = jdbc.query(sql.toString(), LIST_ROW, params.toArray());
+        List<Rows.InvoiceListRow> withStatus = new java.util.ArrayList<>();
+        for (Rows.InvoiceListRow row : rows) {
+            InvoiceStatus status = StatusProjection.derive(events(row.run().id()));
+            if (notBlank(f.status()) && !status.name().equalsIgnoreCase(f.status().trim())) {
+                continue;
+            }
+            withStatus.add(row.withStatus(status));
+        }
+        return withStatus;
+    }
+
+    public Optional<Rows.InvoiceListRow> findInvoice(long runId) {
+        List<Rows.InvoiceListRow> rows = jdbc.query("""
+                SELECT r.id AS r_id, r.source_document_id, r.run_number, r.trigger_type, r.parent_run_id, r.requested_by, r.reason,
+                       r.profile_name, r.profile_hash, r.application_version, r.correlation_id, r.started_at, r.finished_at, r.result,
+                       s.id AS s_id, s.tenant_id AS s_tenant, s.sha256 AS s_sha, s.original_filename, s.size_bytes, s.first_seen_at,
+                       e.id AS e_id, e.tenant_id AS e_tenant, e.document_type, e.invoice_number, e.invoice_date, e.customer_name, e.currency,
+                       e.net_total, e.tax_total, e.gross_total, e.payable_amount, e.generated_formats, e.source_sha256, e.profile_name AS e_profile,
+                       e.profile_hash AS e_profile_hash, e.application_version AS e_app, e.business_case, e.recorded_at
+                FROM processing_run r
+                JOIN source_document s ON s.id = r.source_document_id
+                LEFT JOIN ledger_entry e ON e.processing_run_id = r.id
+                WHERE r.id = ?""", LIST_ROW, runId);
+        return rows.stream().findFirst().map(row -> row.withStatus(StatusProjection.derive(events(runId))));
+    }
+
+    public int countOpenRuns() {
+        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM processing_run WHERE finished_at IS NULL", Integer.class);
+        return n == null ? 0 : n;
+    }
+
+    public int countRunsFinishedSince(Instant since, RunResult result) {
+        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM processing_run WHERE finished_at >= ? AND result = ?", Integer.class,
+                since.toString(), result.name());
+        return n == null ? 0 : n;
+    }
+
+    public int countEventsSince(Instant since, EventType type) {
+        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM processing_event WHERE occurred_at >= ? AND event_type = ?", Integer.class,
+                since.toString(), type.name());
+        return n == null ? 0 : n;
+    }
+
+    public Optional<ArtifactRow> findArtifact(long id) {
+        return jdbc.query("SELECT * FROM artifact WHERE id = ?", ARTIFACT, id).stream().findFirst();
+    }
+
+    private static boolean notBlank(String s) {
+        return s != null && !s.isBlank();
+    }
+
+    private static final RowMapper<Rows.InvoiceListRow> LIST_ROW = (rs, i) -> {
+        ProcessingRunRow run = new ProcessingRunRow(rs.getLong("r_id"), rs.getLong("source_document_id"), rs.getInt("run_number"),
+                RunTrigger.valueOf(rs.getString("trigger_type")), nullableLong(rs, "parent_run_id"), rs.getString("requested_by"),
+                rs.getString("reason"), rs.getString("profile_name"), rs.getString("profile_hash"), rs.getString("application_version"),
+                rs.getString("correlation_id"), instant(rs, "started_at"), instant(rs, "finished_at"),
+                rs.getString("result") == null ? null : RunResult.valueOf(rs.getString("result")));
+        SourceDocumentRow source = new SourceDocumentRow(rs.getLong("s_id"), rs.getString("s_tenant"), rs.getString("s_sha"),
+                rs.getString("original_filename"), rs.getLong("size_bytes"), instant(rs, "first_seen_at"));
+        LedgerEntryRow entry = null;
+        long entryId = rs.getLong("e_id");
+        if (!rs.wasNull()) {
+            entry = new LedgerEntryRow(entryId, run.id(), rs.getString("e_tenant"), rs.getString("document_type"),
+                    rs.getString("invoice_number"), rs.getString("invoice_date"), rs.getString("customer_name"), rs.getString("currency"),
+                    rs.getString("net_total"), rs.getString("tax_total"), rs.getString("gross_total"), rs.getString("payable_amount"),
+                    rs.getString("generated_formats"), rs.getString("source_sha256"), rs.getString("e_profile"), rs.getString("e_profile_hash"),
+                    rs.getString("e_app"), rs.getString("business_case"), instant(rs, "recorded_at"));
+        }
+        return new Rows.InvoiceListRow(run, source, entry, InvoiceStatus.PROCESSING);
+    };
+
     // ------------------------------------------------------------------ Hilfsfunktionen
 
     private long insert(org.springframework.jdbc.core.PreparedStatementCreator creator) {

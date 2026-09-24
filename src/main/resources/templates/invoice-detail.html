@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Rechnung ' + (${row.entry != null and row.entry.invoiceNumber != null} ? ${row.entry.invoiceNumber} : ${row.source.originalFilename}))}"></head>
+<body>
+<header th:replace="~{layout :: topbar('rechnungen')}"></header>
+<main>
+    <p><a th:href="@{/rechnungen}">‹ Zurück zur Liste</a></p>
+    <h1 th:text="${row.entry != null and row.entry.invoiceNumber != null} ? ${row.entry.invoiceNumber} : ${row.source.originalFilename}">RE</h1>
+    <p class="subtitle">
+        <span th:class="${@fmt.statusClass(row.status)}" th:text="${@fmt.status(row.status)}"></span>
+        &nbsp; Run <span class="mono" th:text="${row.run.correlationId}"></span>
+        &nbsp; · Datei <span th:text="${row.source.originalFilename}"></span>
+    </p>
+    <div th:replace="~{layout :: flash}"></div>
+
+    <section class="card">
+        <h2>Prozess</h2>
+        <div class="timeline">
+            <div th:each="s : ${timeline}" class="tstep" th:classappend="${s.state}">
+                <span class="mark" th:text="${s.state == 'done'} ? '✓' : (${s.state == 'failed'} ? '✕' : '○')"></span>
+                <span th:text="${s.label}"></span>
+                <span class="detail" th:if="${s.detail != null and !#strings.isEmpty(s.detail)}" th:text="${s.detail}"></span>
+            </div>
+        </div>
+    </section>
+
+    <div class="grid grid-3">
+        <section class="card">
+            <h2>Überblick</h2>
+            <dl class="kv">
+                <dt>Dokumenttyp</dt><dd th:text="${row.entry != null} ? ${row.entry.documentType} : '–'"></dd>
+                <dt>Rechnungsdatum</dt><dd th:text="${row.entry != null} ? ${@fmt.date(row.entry.invoiceDate)} : '–'"></dd>
+                <dt>Kunde</dt><dd th:text="${row.entry != null and row.entry.customerName != null} ? ${row.entry.customerName} : '–'"></dd>
+                <dt>Netto</dt><dd th:text="${row.entry != null} ? ${@fmt.money(row.entry.netTotal, row.entry.currency)} : '–'"></dd>
+                <dt>Steuer</dt><dd th:text="${row.entry != null} ? ${@fmt.money(row.entry.taxTotal, row.entry.currency)} : '–'"></dd>
+                <dt>Brutto</dt><dd th:text="${row.entry != null} ? ${@fmt.money(row.entry.grossTotal, row.entry.currency)} : '–'"></dd>
+                <dt>Zahlbetrag</dt><dd th:text="${row.entry != null} ? ${@fmt.money(row.entry.payableAmount, row.entry.currency)} : '–'"></dd>
+                <dt>Formate</dt><dd th:text="${row.entry != null} ? ${@fmt.formats(row.entry.generatedFormats)} : '–'"></dd>
+                <dt>Geschäftsfall</dt><dd th:text="${row.entry != null and row.entry.businessCase != null} ? ${row.entry.businessCase} : '–'"></dd>
+            </dl>
+            <table class="data compact" th:if="${!#lists.isEmpty(taxLines)}" style="margin-top:.8rem">
+                <thead><tr><th>Kategorie</th><th class="num">Satz %</th><th class="num">Netto</th><th class="num">Steuer</th></tr></thead>
+                <tbody><tr th:each="t : ${taxLines}"><td th:text="${t.vatCategoryCode}"></td><td class="num" th:text="${t.vatRate}"></td><td class="num" th:text="${@fmt.money(t.taxableAmount)}"></td><td class="num" th:text="${@fmt.money(t.taxAmount)}"></td></tr></tbody>
+            </table>
+        </section>
+        <section class="card">
+            <h2>Verarbeitung</h2>
+            <dl class="kv">
+                <dt>Mandant</dt><dd th:text="${row.source.tenantId}"></dd>
+                <dt>Source SHA-256</dt><dd class="mono" th:text="${row.source.sha256}"></dd>
+                <dt>Run</dt><dd><span th:text="${row.run.runNumber}"></span> (<span th:text="${row.run.trigger}"></span>)</dd>
+                <dt>Vorgänger-Run</dt><dd th:text="${row.run.parentRunId != null} ? ${row.run.parentRunId} : '–'"></dd>
+                <dt>Angefordert von</dt><dd th:text="${row.run.requestedBy != null} ? ${row.run.requestedBy} : '–'"></dd>
+                <dt>Begründung</dt><dd th:text="${row.run.reason != null} ? ${row.run.reason} : '–'"></dd>
+                <dt>Profil</dt><dd th:text="${row.run.profileName}"></dd>
+                <dt>Profil-Hash</dt><dd class="mono" th:text="${row.run.profileHash}"></dd>
+                <dt>Anwendungsversion</dt><dd th:text="${row.run.applicationVersion}"></dd>
+                <dt>Gestartet</dt><dd th:text="${@fmt.dateTime(row.run.startedAt)}"></dd>
+                <dt>Beendet</dt><dd th:text="${@fmt.dateTime(row.run.finishedAt)}"></dd>
+                <dt>Ergebnis</dt><dd th:text="${@fmt.result(row.run.result)}"></dd>
+            </dl>
+            <p class="small muted" th:if="${#lists.size(runs) > 1}">Weitere Runs dieses Dokuments:
+                <span th:each="r, it : ${runs}"><a th:href="@{/rechnungen/{id}(id=${r.id})}" th:text="'Run ' + ${r.runNumber}"></a><span th:if="${!it.last}">, </span></span>
+            </p>
+        </section>
+        <section class="card">
+            <h2>Validierung</h2>
+            <table class="data compact" th:if="${!#lists.isEmpty(validations)}">
+                <thead><tr><th>Validator</th><th>Format</th><th>Ergebnis</th><th class="num">Fehler</th><th class="num">Warn.</th></tr></thead>
+                <tbody>
+                <tr th:each="v : ${validations}">
+                    <td th:text="${v.validator}"></td><td class="small" th:text="${v.targetFormat}"></td>
+                    <td><span th:class="${v.outcome == 'VALID'} ? 'badge badge-ok' : (${v.outcome == 'INVALID'} ? 'badge badge-error' : 'badge badge-muted')" th:text="${v.outcome}"></span></td>
+                    <td class="num" th:text="${v.errorCount}"></td><td class="num" th:text="${v.warningCount}"></td>
+                </tr>
+                </tbody>
+            </table>
+            <p class="muted" th:if="${#lists.isEmpty(validations)}">Keine Validierung durchgeführt.</p>
+            <h2 style="margin-top:1rem">Artefakte</h2>
+            <ul>
+                <li th:each="a : ${artifacts}">
+                    <a th:href="@{/rechnungen/{run}/artefakt/{id}(run=${row.run.id}, id=${a.id})}" th:text="${a.fileName()}"></a>
+                    <span class="small muted" th:text="' (' + ${a.type} + ', ' + ${@fmt.bytes(a.sizeBytes)} + ')'"></span>
+                    <div class="small mono muted" th:text="${a.sha256}"></div>
+                </li>
+            </ul>
+        </section>
+    </div>
+
+    <section class="card" th:if="${extraction != null}">
+        <h2>Extraktion</h2>
+        <p class="small muted">Jedes Feld mit Wert, Quelle, Seite, Fundstelle, Regel und Status. Positionen darunter.</p>
+        <table class="data compact">
+            <thead><tr><th>BT</th><th>Bezeichnung</th><th>Wert</th><th>Quelle</th><th>Seite</th><th>Fundstelle</th><th>Regel</th><th>Status</th></tr></thead>
+            <tbody>
+            <tr th:each="f : ${extraction.get('fields')}">
+                <td class="nowrap" th:text="${f.get('businessTerm').asText()}"></td>
+                <td class="small" th:text="${f.get('businessTerm').asText()}"></td>
+                <td th:text="${f.get('value').isNull()} ? '–' : ${f.get('value').asText()}"></td>
+                <td class="small" th:text="${f.get('sourceText').isNull()} ? '–' : ${f.get('sourceText').asText()}"></td>
+                <td th:text="${f.get('page').isNull()} ? '–' : ${f.get('page').asText()}"></td>
+                <td class="small mono" th:text="${f.get('boundingBox').isNull()} ? '–' : ('x=' + ${#numbers.formatDecimal(f.get('boundingBox').get('x').asDouble(), 1, 0)} + ' y=' + ${#numbers.formatDecimal(f.get('boundingBox').get('y').asDouble(), 1, 0)})"></td>
+                <td class="small" th:text="${f.get('ruleType').asText()} + ' · ' + ${f.get('transformation').asText()}"></td>
+                <td><span th:class="${f.get('status').asText() == 'OK'} ? 'badge badge-ok' : (${f.get('status').asText() == 'ERROR'} ? 'badge badge-error' : 'badge badge-muted')" th:text="${f.get('status').asText()}"></span></td>
+            </tr>
+            </tbody>
+        </table>
+        <details style="margin-top:.8rem" th:if="${extraction.get('lines') != null and extraction.get('lines').size() > 0}">
+            <summary th:text="'Positionen (' + ${extraction.get('lines').size()} + ')'"></summary>
+            <table class="data compact" style="margin-top:.5rem">
+                <thead><tr><th>Pos.</th><th>BT</th><th>Wert</th><th>Seite</th><th>Status</th></tr></thead>
+                <tbody>
+                <th:block th:each="l : ${extraction.get('lines')}">
+                    <tr th:each="entry : ${l.get('fields')}">
+                        <td th:text="${l.get('lineNumber').asText()}"></td>
+                        <td th:text="${entry.key}"></td>
+                        <td th:text="${entry.value.get('value').isNull()} ? '–' : ${entry.value.get('value').asText()}"></td>
+                        <td th:text="${entry.value.get('page').isNull()} ? '–' : ${entry.value.get('page').asText()}"></td>
+                        <td th:text="${entry.value.get('status').asText()}"></td>
+                    </tr>
+                </th:block>
+                </tbody>
+            </table>
+        </details>
+    </section>
+
+    <section class="card">
+        <h2>Historie</h2>
+        <table class="data compact">
+            <thead><tr><th>Zeitpunkt</th><th>Ereignis</th><th>Akteur</th><th>Meldung</th></tr></thead>
+            <tbody>
+            <tr th:each="e : ${events}">
+                <td class="nowrap" th:text="${@fmt.dateTime(e.occurredAt)}"></td>
+                <td class="mono" th:text="${e.type}"></td>
+                <td th:text="${e.actor}"></td>
+                <td><span th:text="${e.message}"></span>
+                    <details th:if="${e.detailsJson != null}" style="margin-top:.3rem"><summary class="small">Details</summary><code th:text="${e.detailsJson}"></code></details></td>
+            </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <div class="grid grid-3">
+        <section class="card">
+            <h2>Reprocess</h2>
+            <p class="small muted">Technische Neuverarbeitung desselben Quelldokuments in einem neuen Run. Kein erneuter Versand, keine Korrektur, kein Storno.</p>
+            <form th:action="@{/rechnungen/{id}/reprocess(id=${row.run.id})}" method="post">
+                <label class="field">Benutzer<input type="text" name="user" required></label>
+                <label class="field" style="margin-top:.5rem">Begründung<textarea name="reason" rows="2" required></textarea></label>
+                <label th:if="${needsConfirmation}" style="display:block;margin:.6rem 0"><input type="checkbox" name="confirm"> Ich bestätige ausdrücklich den Reprocess dieser bereits <span th:text="${@fmt.status(row.status)}"></span>en Rechnung.</label>
+                <button class="btn secondary" type="submit" style="margin-top:.5rem">Reprocess starten</button>
+            </form>
+        </section>
+        <section class="card" th:if="${canDispatch}">
+            <h2>Versand</h2>
+            <p class="small muted">Erneuter Versand per SMTP an die im Profil hinterlegten Empfänger. Jeder Versuch wird protokolliert.</p>
+            <form th:action="@{/rechnungen/{id}/versand(id=${row.run.id})}" method="post">
+                <label class="field">Benutzer<input type="text" name="user" required></label>
+                <button class="btn" type="submit" style="margin-top:.5rem">Jetzt versenden</button>
+            </form>
+        </section>
+    </div>
+</main>
+<footer th:replace="~{layout :: footer}"></footer>
+</body>
+</html>

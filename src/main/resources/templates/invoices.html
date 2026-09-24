@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Ausgangsrechnungen')}"></head>
+<body>
+<header th:replace="~{layout :: topbar('rechnungen')}"></header>
+<main>
+    <h1>Ausgangsrechnungen</h1>
+    <p class="subtitle">Alle Verarbeitungsläufe mit Status, Formaten und Versand. Der Status wird aus der Ereignishistorie abgeleitet.</p>
+
+    <form class="filters" th:action="@{/rechnungen}" method="get" hx-get="/rechnungen" hx-target="#rows" hx-trigger="submit, change from:select, keyup changed delay:400ms from:input[name=q]">
+        <label class="field">Suche<input type="search" name="q" th:value="${filter.search}" placeholder="Rechnungsnummer, Kunde, Datei"></label>
+        <label class="field">Status
+            <select name="status">
+                <option value="">alle</option>
+                <option th:each="s : ${statuses}" th:value="${s}" th:text="${@fmt.status(s)}" th:selected="${filter.status == s.name()}"></option>
+            </select>
+        </label>
+        <label class="field">Format
+            <select name="format">
+                <option value="">alle</option>
+                <option value="XRECHNUNG_CII" th:selected="${filter.format == 'XRECHNUNG_CII'}">XRechnung CII</option>
+                <option value="XRECHNUNG_UBL" th:selected="${filter.format == 'XRECHNUNG_UBL'}">XRechnung UBL</option>
+                <option value="ZUGFERD" th:selected="${filter.format == 'ZUGFERD'}">ZUGFeRD</option>
+            </select>
+        </label>
+        <label class="field">Mandant
+            <select name="tenant">
+                <option value="">alle</option>
+                <option th:each="t : ${tenants}" th:value="${t.id}" th:text="${t.name}" th:selected="${filter.tenantId == t.id}"></option>
+            </select>
+        </label>
+        <label class="field">Kunde<input type="text" name="kunde" th:value="${filter.customer}"></label>
+        <label class="field">Datum von<input type="date" name="von" th:value="${filter.dateFrom}"></label>
+        <label class="field">Datum bis<input type="date" name="bis" th:value="${filter.dateTo}"></label>
+        <button class="btn" type="submit">Filtern</button>
+        <span class="htmx-indicator">Lade …</span>
+    </form>
+
+    <table class="data">
+        <thead><tr><th>Rechnungsnummer</th><th>Datum</th><th>Kunde</th><th class="num">Betrag</th><th>Format</th><th>Status</th><th>Verarbeitung</th><th>Versand</th></tr></thead>
+        <tbody id="rows" th:fragment="rows">
+        <tr th:each="r : ${rows}">
+            <td><a th:href="@{/rechnungen/{id}(id=${r.run.id})}" th:text="${r.entry != null and r.entry.invoiceNumber != null} ? ${r.entry.invoiceNumber} : ${r.source.originalFilename}"></a>
+                <div class="small muted" th:text="${r.source.originalFilename}"></div></td>
+            <td th:text="${r.entry != null} ? ${@fmt.date(r.entry.invoiceDate)} : '–'"></td>
+            <td th:text="${r.entry != null and r.entry.customerName != null} ? ${r.entry.customerName} : '–'"></td>
+            <td class="num" th:text="${r.entry != null} ? ${@fmt.money(r.entry.grossTotal, r.entry.currency)} : '–'"></td>
+            <td class="small" th:text="${r.entry != null} ? ${@fmt.formats(r.entry.generatedFormats)} : '–'"></td>
+            <td><span th:class="${@fmt.statusClass(r.status)}" th:text="${@fmt.status(r.status)}"></span></td>
+            <td class="small"><span class="mono" th:text="${r.run.correlationId}"></span><br><span th:text="${@fmt.result(r.run.result)}"></span> · <span th:text="${r.run.trigger}"></span></td>
+            <td class="small" th:text="${r.status.name() == 'DISPATCHED'} ? 'versendet' : (${r.status.name() == 'DISPATCH_FAILED'} ? 'fehlgeschlagen' : (${r.status.name() == 'DISPATCH_PENDING'} ? 'läuft' : '–'))"></td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(rows)}"><td colspan="8" class="muted">Keine Einträge für diese Auswahl.</td></tr>
+        </tbody>
+    </table>
+</main>
+<footer th:replace="~{layout :: footer}"></footer>
+</body>
+</html>

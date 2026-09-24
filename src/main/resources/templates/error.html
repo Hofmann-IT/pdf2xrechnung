@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head(${title})}"></head>
+<body>
+<header th:replace="~{layout :: topbar('')}"></header>
+<main>
+    <h1 th:text="${title}">Fehler</h1>
+    <div class="card">
+        <p th:text="${message}">Es ist ein Fehler aufgetreten.</p>
+        <a class="btn secondary" th:href="@{/}">Zum Dashboard</a>
+    </div>
+</main>
+<footer th:replace="~{layout :: footer}"></footer>
+</body>
+</html>

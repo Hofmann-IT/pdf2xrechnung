@@ -12,6 +12,7 @@ Ein ADR wird nie umgeschrieben; Änderungen erfolgen durch ein neues ADR, das da
 | 0005 | [Inbound-Validierung](0005-inbound-validierung.md)       | Akzeptiert  |
 | 0006 | [Archivierungsmodell](0006-archivierungsmodell.md)       | Akzeptiert  |
 | 0007 | [Postprozess, Reprocess und CLI](0007-postprozess-reprocess-cli.md) | Akzeptiert |
+| 0008 | [Web-Oberfläche](0008-web-oberflaeche.md)                | Akzeptiert  |
 
 ## Modulabhängigkeiten (verbindlich, geprüft durch `ModuleDependencyTest`)
 

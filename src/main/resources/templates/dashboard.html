@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Dashboard')}"></head>
+<body>
+<header th:replace="~{layout :: topbar('dashboard')}"></header>
+<main>
+    <h1>Dashboard</h1>
+    <p class="subtitle">Überblick über Eingang, Verarbeitung, Prüfung und Versand Ihrer Ausgangsrechnungen.</p>
+
+    <section class="grid grid-4" aria-label="Kennzahlen">
+        <div class="metric"><div class="value" th:text="${metrics.inbox}">0</div><div class="label">Dateien in der Inbox</div></div>
+        <div class="metric"><div class="value" th:text="${metrics.processing}">0</div><div class="label">In Verarbeitung</div></div>
+        <div class="metric warn"><div class="value" th:text="${metrics.review}">0</div><div class="label">Manuelle Prüfung</div></div>
+        <div class="metric error"><div class="value" th:text="${metrics.failed}">0</div><div class="label">Fehlgeschlagen</div></div>
+        <div class="metric ok"><div class="value" th:text="${metrics.successToday}">0</div><div class="label">Heute erfolgreich verarbeitet</div></div>
+        <div class="metric ok"><div class="value" th:text="${metrics.dispatchedToday}">0</div><div class="label">Heute versendet</div></div>
+        <div class="metric error"><div class="value" th:text="${metrics.dispatchFailedToday}">0</div><div class="label">Versandfehler heute</div></div>
+    </section>
+
+    <section class="card" style="margin-top:1.25rem">
+        <h2>So läuft eine Rechnung durch das System</h2>
+        <div class="process">
+            <div class="step"><div class="icon">1</div><div class="name">Rechnung</div><div class="hint">PDF aus Word/Excel</div></div>
+            <div class="arrow">›</div>
+            <div class="step"><div class="icon">2</div><div class="name">Drucken / Übernahme</div><div class="hint">Ablage in inbox/, automatische Erkennung</div></div>
+            <div class="arrow">›</div>
+            <div class="step"><div class="icon">3</div><div class="name">Umwandeln</div><div class="hint">Extraktion, Mapping, Plausibilität, XRechnung/ZUGFeRD</div></div>
+            <div class="arrow">›</div>
+            <div class="step"><div class="icon">4</div><div class="name">Validieren</div><div class="hint">KoSIT und Mustang, lokal</div></div>
+            <div class="arrow">›</div>
+            <div class="step"><div class="icon">5</div><div class="name">Archivieren</div><div class="hint">Revisionsnah, mit SHA-256</div></div>
+            <div class="arrow">›</div>
+            <div class="step"><div class="icon">6</div><div class="name">Versenden</div><div class="hint">optional per SMTP</div></div>
+        </div>
+    </section>
+
+    <section>
+        <h2>Letzte Verarbeitungsvorgänge</h2>
+        <table class="data">
+            <thead><tr><th>Rechnungsnummer</th><th>Datum</th><th>Kunde</th><th class="num">Betrag</th><th>Status</th><th>Run</th><th>Gestartet</th></tr></thead>
+            <tbody>
+            <tr th:each="r : ${recent}">
+                <td><a th:href="@{/rechnungen/{id}(id=${r.run.id})}" th:text="${r.entry != null and r.entry.invoiceNumber != null} ? ${r.entry.invoiceNumber} : ${r.source.originalFilename}">RE-1</a></td>
+                <td th:text="${r.entry != null} ? ${@fmt.date(r.entry.invoiceDate)} : '–'"></td>
+                <td th:text="${r.entry != null and r.entry.customerName != null} ? ${r.entry.customerName} : '–'"></td>
+                <td class="num" th:text="${r.entry != null} ? ${@fmt.money(r.entry.grossTotal, r.entry.currency)} : '–'"></td>
+                <td><span th:class="${@fmt.statusClass(r.status)}" th:text="${@fmt.status(r.status)}"></span></td>
+                <td class="mono" th:text="${r.run.correlationId}"></td>
+                <td class="nowrap" th:text="${@fmt.dateTime(r.run.startedAt)}"></td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(recent)}"><td colspan="7" class="muted">Noch keine Verarbeitungsvorgänge. Legen Sie eine PDF-Rechnung in die Inbox.</td></tr>
+            </tbody>
+        </table>
+    </section>
+</main>
+<footer th:replace="~{layout :: footer}"></footer>
+</body>
+</html>

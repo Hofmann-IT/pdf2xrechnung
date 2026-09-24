@@ -25,3 +25,6 @@ logs/
 # Lokale Secrets / Umgebungsdateien
 .env
 *.env
+
+# Lokale Werkzeugkonfiguration (maschinenspezifische Pfade)
+.claude/

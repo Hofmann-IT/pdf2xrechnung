@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('E-Rechnung prüfen')}"></head>
+<body>
+<header th:replace="~{layout :: topbar('pruefen')}"></header>
+<main>
+    <h1>E-Rechnung prüfen</h1>
+    <p class="subtitle">Empfangene XRechnung (XML) oder ZUGFeRD/Factur-X (PDF) gezielt gegen die Regelwerke prüfen. Es wird nichts weiterverarbeitet, konvertiert oder versendet.</p>
+
+    <form id="upload" th:action="@{/pruefen}" method="post" enctype="multipart/form-data"
+          hx-post="/pruefen" hx-encoding="multipart/form-data" hx-target="#result" hx-indicator="#busy">
+        <label class="dropzone" id="dropzone" for="file">
+            <div class="big">E-Rechnung hier ablegen oder Datei auswählen</div>
+            <div class="muted">Akzeptiert werden .xml und .pdf</div>
+            <div class="privacy">Die Prüfung erfolgt vollständig lokal. Ihre Rechnung verlässt dieses System nicht.</div>
+            <div class="filename" id="filename"></div>
+            <input type="file" id="file" name="file" accept=".xml,.pdf,application/xml,text/xml,application/pdf" required>
+        </label>
+        <div class="actions" style="margin-top:.8rem;align-items:center">
+            <button class="btn accent" type="submit">Jetzt prüfen</button>
+            <span id="busy" class="htmx-indicator">Prüfung läuft …</span>
+        </div>
+    </form>
+
+    <div id="result" style="margin-top:1.5rem" th:fragment="result">
+        <div class="notice error" th:if="${error}" th:text="${error}"></div>
+        <th:block th:if="${result != null}">
+            <div class="verdict" th:classappend="${result.overall.name() == 'VALID'} ? 'valid' : (${result.overall.name() == 'INVALID'} ? 'invalid' : 'error')" role="status">
+                <div class="icon" th:text="${result.overall.name() == 'VALID'} ? '✓' : (${result.overall.name() == 'INVALID'} ? '✕' : '!')"></div>
+                <div>
+                    <div class="title" th:text="${result.overall.name() == 'VALID'} ? 'E-Rechnung gültig' : (${result.overall.name() == 'INVALID'} ? 'E-Rechnung nicht gültig' : 'E-Rechnung nicht prüfbar')"></div>
+                    <div class="text" th:text="${result.overall.name() == 'VALID'} ? 'Alle verpflichtenden Prüfungen wurden bestanden.' : (${result.overall.name() == 'INVALID'} ? (${#lists.size(result.errors())} + ' Fehler, ' + ${#lists.size(result.warnings())} + ' Warnungen') : ${result.message})"></div>
+                </div>
+            </div>
+
+            <div class="grid grid-3">
+                <section class="card"><h2>Dokument</h2>
+                    <dl class="kv">
+                        <dt>Datei</dt><dd th:text="${result.originalFilename}"></dd>
+                        <dt>Größe</dt><dd th:text="${@fmt.bytes(result.sizeBytes)}"></dd>
+                        <dt>Format</dt><dd th:text="${T(de.hofmannit.erechnung.inboundvalidation.InboundReportWriter).describeType(result.documentType)}"></dd>
+                        <dt>Syntax</dt><dd th:text="${result.syntax != null} ? ${result.syntax} : '–'"></dd>
+                        <dt>SHA-256</dt><dd class="mono" th:text="${result.sha256}"></dd>
+                        <dt>Geprüft am</dt><dd th:text="${@fmt.dateTime(result.validatedAt)}"></dd>
+                        <th:block th:if="${result.documentType.name() == 'ZUGFERD_PDF' or result.documentType.name() == 'PDF_WITHOUT_XML'}">
+                            <dt>Eingebettete XML</dt><dd th:text="${result.embeddedXmlPresent} ? ('ja (' + ${result.embeddedXmlFilename} + ')') : 'nein'"></dd>
+                            <dt>Anhänge</dt><dd th:text="${#lists.isEmpty(result.attachmentNames)} ? 'keine' : ${#strings.listJoin(result.attachmentNames, ', ')}"></dd>
+                        </th:block>
+                    </dl>
+                </section>
+                <section class="card"><h2>Standard und Profil</h2>
+                    <dl class="kv">
+                        <dt>Profil / Standard</dt><dd th:text="${result.profileName}"></dd>
+                        <dt>Version</dt><dd th:text="${result.xrechnungVersion != null} ? ('XRechnung ' + ${result.xrechnungVersion}) : '–'"></dd>
+                        <dt>Kennung (BT-24)</dt><dd class="mono small" th:text="${result.customizationId != null} ? ${result.customizationId} : '–'"></dd>
+                        <dt>Prozess (BT-23)</dt><dd class="mono small" th:text="${result.processId != null} ? ${result.processId} : '–'"></dd>
+                    </dl>
+                </section>
+                <section class="card"><h2>Validatoren</h2>
+                    <table class="data compact">
+                        <thead><tr><th>Validator</th><th>Pflicht</th><th>Ergebnis</th><th class="num">Fehler</th><th class="num">Warn.</th></tr></thead>
+                        <tbody>
+                        <tr th:each="rep : ${result.reports}">
+                            <td th:text="${rep.validator}"></td><td th:text="${rep.mandatory} ? 'ja' : 'nein'"></td>
+                            <td><span th:class="${rep.outcome.name() == 'VALID'} ? 'badge badge-ok' : (${rep.outcome.name() == 'INVALID'} ? 'badge badge-error' : 'badge badge-muted')" th:text="${rep.outcome}"></span></td>
+                            <td class="num" th:text="${rep.errorCount()}"></td><td class="num" th:text="${rep.warningCount()}"></td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(result.reports)}"><td colspan="5" class="muted">Keine Validierung möglich.</td></tr>
+                        </tbody>
+                    </table>
+                    <p class="small muted" th:each="rs : ${result.rulesets()}" th:text="'Regelwerk ' + ${rs}"></p>
+                    <div class="actions" style="margin-top:.6rem">
+                        <a class="btn small secondary" th:href="@{/pruefen/{t}/report.html(t=${token})}">HTML-Report</a>
+                        <a class="btn small secondary" th:href="@{/pruefen/{t}/zusammenfassung.txt(t=${token})}">Zusammenfassung</a>
+                        <a class="btn small secondary" th:if="${kosit != null and kosit.reportXml() != null}" th:href="@{/pruefen/{t}/report-kosit.xml(t=${token})}">KoSIT XML</a>
+                        <a class="btn small secondary" th:if="${kosit != null and kosit.reportHtml() != null}" th:href="@{/pruefen/{t}/report-kosit.html(t=${token})}">KoSIT HTML</a>
+                        <a class="btn small secondary" th:if="${mustang != null and mustang.reportXml() != null}" th:href="@{/pruefen/{t}/report-mustang.xml(t=${token})}">Mustang XML</a>
+                    </div>
+                </section>
+            </div>
+
+            <section class="card"><h2 th:text="'Fehler (' + ${#lists.size(result.errors())} + ')'"></h2>
+                <p class="muted" th:if="${#lists.isEmpty(result.errors())}">Keine Fehler.</p>
+                <div th:each="f : ${result.errors()}" style="margin-bottom:.6rem">
+                    <span class="badge badge-error" th:text="${f.ruleId != null} ? ${f.ruleId} : 'Fehler'"></span>
+                    <span th:text="${f.description}"></span>
+                    <details class="small" style="margin-top:.3rem"><summary>Technische Details</summary>
+                        <dl class="kv"><dt>Position</dt><dd class="mono" th:text="${f.location != null} ? ${f.location} : '–'"></dd>
+                            <dt>Wert / Kriterium</dt><dd class="mono" th:text="${f.affectedValue != null} ? ${f.affectedValue} : '–'"></dd>
+                            <dt>Originalmeldung</dt><dd class="mono" th:text="${f.originalMessage}"></dd></dl>
+                    </details>
+                </div>
+            </section>
+            <section class="card"><h2 th:text="'Warnungen (' + ${#lists.size(result.warnings())} + ')'"></h2>
+                <p class="muted" th:if="${#lists.isEmpty(result.warnings())}">Keine Warnungen.</p>
+                <div th:each="f : ${result.warnings()}" style="margin-bottom:.6rem">
+                    <span class="badge badge-warn" th:text="${f.ruleId != null} ? ${f.ruleId} : 'Warnung'"></span>
+                    <span th:text="${f.description}"></span>
+                    <details class="small" style="margin-top:.3rem"><summary>Technische Details</summary>
+                        <dl class="kv"><dt>Position</dt><dd class="mono" th:text="${f.location != null} ? ${f.location} : '–'"></dd>
+                            <dt>Originalmeldung</dt><dd class="mono" th:text="${f.originalMessage}"></dd></dl>
+                    </details>
+                </div>
+            </section>
+            <details class="card"><summary th:text="'Technische Details und Hinweise (' + ${#lists.size(result.informations())} + ')'"></summary>
+                <dl class="kv" style="margin-top:.6rem">
+                    <dt>Dokumenttyp</dt><dd th:text="${result.documentType}"></dd>
+                    <dt>Meldung</dt><dd th:text="${result.message != null} ? ${result.message} : '–'"></dd>
+                    <dt>Ablage</dt><dd th:text="${result.storedDirectory != null} ? ${result.storedDirectory} : 'nur temporär (keine Ablage konfiguriert)'"></dd>
+                </dl>
+                <ul><li th:each="f : ${result.informations()}"><span class="badge badge-info" th:text="${f.ruleId != null} ? ${f.ruleId} : 'Hinweis'"></span> <span th:text="${f.description}"></span></li></ul>
+            </details>
+        </th:block>
+    </div>
+
+    <script>
+        (function () {
+            var zone = document.getElementById('dropzone');
+            var input = document.getElementById('file');
+            var name = document.getElementById('filename');
+            if (!zone || !input) { return; }
+            input.addEventListener('change', function () { name.textContent = input.files.length ? input.files[0].name : ''; });
+            ['dragenter', 'dragover'].forEach(function (ev) { zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add('hover'); }); });
+            ['dragleave', 'drop'].forEach(function (ev) { zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.remove('hover'); }); });
+            zone.addEventListener('drop', function (e) {
+                if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+                    input.files = e.dataTransfer.files;
+                    name.textContent = input.files[0].name;
+                }
+            });
+        })();
+    </script>
+</main>
+<footer th:replace="~{layout :: footer}"></footer>
+</body>
+</html>

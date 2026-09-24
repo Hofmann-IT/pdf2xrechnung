@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${title} + ' – PDF-zu-E-Rechnung'">PDF-zu-E-Rechnung</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+    <script th:src="@{/webjars/htmx.org/2.0.6/dist/htmx.min.js}" defer></script>
+</head>
+<body>
+<header th:fragment="topbar(active)" class="topbar">
+    <div class="topbar-inner">
+        <a class="brand" th:href="@{/}"><span class="brand-mark">E</span> PDF-zu-E-Rechnung</a>
+        <nav class="main" aria-label="Hauptnavigation">
+            <a th:href="@{/}" th:classappend="${active == 'dashboard'} ? 'active'">Dashboard</a>
+            <a th:href="@{/rechnungen}" th:classappend="${active == 'rechnungen'} ? 'active'">Ausgangsrechnungen</a>
+            <a th:href="@{/pruefen}" th:classappend="${active == 'pruefen'} ? 'active highlight' : 'highlight'">E-Rechnung prüfen</a>
+            <a th:href="@{/pruefung}" th:classappend="${active == 'pruefung'} ? 'active'">Manuelle Prüfung</a>
+            <a th:href="@{/profile}" th:classappend="${active == 'profile'} ? 'active'">Profile</a>
+            <a th:href="@{/status}" th:classappend="${active == 'status'} ? 'active'">Systemstatus</a>
+        </nav>
+    </div>
+</header>
+<div th:fragment="flash">
+    <div class="notice ok" th:if="${notice}" th:text="${notice}"></div>
+    <div class="notice error" th:if="${error}" th:text="${error}"></div>
+</div>
+<footer th:fragment="footer">
+    PDF-zu-E-Rechnung · On-Premises · Keine Rechnungsdaten verlassen dieses System.
+</footer>
+</body>
+</html>
