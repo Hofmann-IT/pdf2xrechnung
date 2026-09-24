@@ -24,6 +24,7 @@ import de.hofmannit.erechnung.configuration.DirectoryLayout;
 import de.hofmannit.erechnung.configuration.TenantProperties.Tenant;
 import de.hofmannit.erechnung.configuration.profile.LoadedProfile;
 import de.hofmannit.erechnung.configuration.profile.ProfileRegistry;
+import de.hofmannit.erechnung.dispatch.PostProcessService;
 import de.hofmannit.erechnung.extraction.ExtractedDocument;
 import de.hofmannit.erechnung.extraction.ExtractionException;
 import de.hofmannit.erechnung.extraction.PdfTextExtractor;
@@ -85,11 +86,13 @@ public class ProcessingPipeline {
     private final ApplicationVersion version;
     private final Clock clock;
     private final ObjectMapper json;
+    private final PostProcessService postProcess;
 
     public ProcessingPipeline(LedgerRepository ledger, ProfileRegistry profiles, DirectoryLayout layout, PdfTextExtractor extractor,
                               Classifier classifier, MappingEngine mappingEngine, PlausibilityChecker plausibilityChecker,
                               EInvoiceGenerator generator, ValidationService validationService, ArchiveService archive,
-                              ApplicationVersion version, Clock clock, ObjectMapper json) {
+                              ApplicationVersion version, Clock clock, ObjectMapper json, PostProcessService postProcess) {
+        this.postProcess = postProcess;
         this.ledger = ledger;
         this.profiles = profiles;
         this.layout = layout;
@@ -260,6 +263,12 @@ public class ProcessingPipeline {
                 cleanupWorkDir();
                 ledger.finishRun(run.id(), clock.instant(), RunResult.SUCCESS);
                 log.info("Run {} erfolgreich: {}", runNumber, outputFiles);
+                // 9. Postprozess (Versand/Kommando) nur automatisch bei Erstverarbeitung; nie bei Reprocess.
+                if (automaticPostProcessAllowed()) {
+                    postProcess.afterSuccessfulRun(run.id());
+                } else {
+                    log.info("Run {}: kein automatischer Postprozess (Trigger {})", runNumber, job.trigger());
+                }
                 return new RunOutcome(run.id(), runNumber, RunResult.SUCCESS, "Erfolgreich verarbeitet");
             } catch (Exception e) {
                 log.error("Run {} technisch fehlgeschlagen", runNumber, e);
@@ -270,6 +279,19 @@ public class ProcessingPipeline {
                     return new RunOutcome(run.id(), runNumber, RunResult.FAILED, "Technischer Fehler: " + e);
                 }
             }
+        }
+
+        /**
+         * AUTO: ja. MANUAL_REPROCESS: nie (Vorgabe Abschnitt 16). RESTART_RECOVERY: nur, wenn der
+         * abgebrochene Vorgänger noch keinen Versandversuch unternommen hatte.
+         */
+        private boolean automaticPostProcessAllowed() {
+            return switch (job.trigger()) {
+                case AUTO -> true;
+                case MANUAL_REPROCESS -> false;
+                case RESTART_RECOVERY -> job.parentRunId() == null || ledger.events(job.parentRunId()).stream()
+                        .noneMatch(e -> e.type() == EventType.DISPATCH_ATTEMPTED);
+            };
         }
 
         // ------------------------------------------------------------ Ergebniszweige

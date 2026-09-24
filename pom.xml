@@ -30,8 +30,7 @@
       org.apache.commons:commons-lang3: Laufzeitabhängigkeiten von de.kosit:validationtool 1.5.0,
       die in dessen veröffentlichtem POM nicht deklariert sind.
 
-  Bewusst noch NICHT eingebunden:
-    - com.icegreen:greenmail (Phase 4, Test-Scope).
+  Test-Scope (Phase 4): com.icegreen:greenmail-junit5 (Apache 2.0) für den SMTP-Versandtest.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -65,6 +64,7 @@
         <jaxb2.api.version>2.3.1</jaxb2.api.version>
         <jaxb2.runtime.version>2.3.9</jaxb2.runtime.version>
         <htmx.version>2.0.6</htmx.version>
+        <greenmail.version>2.1.14</greenmail.version>
     </properties>
 
     <dependencyManagement>
@@ -215,6 +215,13 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- GreenMail (Apache 2.0): lokaler SMTP-Server für den Versandtest (Vorgabe Phase 4). -->
+        <dependency>
+            <groupId>com.icegreen</groupId>
+            <artifactId>greenmail-junit5</artifactId>
+            <version>${greenmail.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

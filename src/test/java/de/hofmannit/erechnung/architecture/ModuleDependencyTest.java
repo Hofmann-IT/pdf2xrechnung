@@ -50,6 +50,7 @@ class ModuleDependencyTest {
             Map.entry("dispatch", Set.of("ledger", "configuration", "model", "security")),
             Map.entry("watcher", Set.of("extraction", "mapping", "plausibility", "generation", "validation",
                     "ledger", "archive", "dispatch", "configuration", "model", "security")),
+            // Das Wurzelpaket (Einstiegsklasse) darf den CLI-Einstieg kennen; es ist kein Modul.
             Map.entry("web", allExcept("web", "cli")),
             Map.entry("cli", allExcept("cli", "web")));
 

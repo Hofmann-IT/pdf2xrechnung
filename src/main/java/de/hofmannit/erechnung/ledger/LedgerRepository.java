@@ -46,6 +46,12 @@ public class LedgerRepository {
         return rows.stream().findFirst();
     }
 
+    /** Quelldokumente eines Mandanten, deren SHA-256 mit dem Präfix beginnt (für CLI/UI-Auswahl). */
+    public List<SourceDocumentRow> findSourcesByShaPrefix(String tenantId, String shaPrefix) {
+        String escaped = shaPrefix.replace("%", "").replace("_", "");
+        return jdbc.query("SELECT * FROM source_document WHERE tenant_id = ? AND sha256 LIKE ? ORDER BY id", SOURCE, tenantId, escaped + "%");
+    }
+
     public Optional<SourceDocumentRow> findSourceById(long id) {
         return jdbc.query("SELECT * FROM source_document WHERE id = ?", SOURCE, id).stream().findFirst();
     }

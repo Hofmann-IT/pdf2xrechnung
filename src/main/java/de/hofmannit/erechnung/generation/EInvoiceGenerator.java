@@ -246,7 +246,13 @@ public class EInvoiceGenerator {
                 "runNumber", String.format(Locale.ROOT, "%03d", runNumber));
         Map<String, LocalDate> dates = new java.util.HashMap<>();
         dates.put("invoiceDate", data.date(BusinessTerm.BT_2).orElse(null));
-        return FilenameTemplate.render(profile.generation().filenameTemplate(), values, dates);
+        String base = FilenameTemplate.render(profile.generation().filenameTemplate(), values, dates);
+        // Reprocess/Wiederanlauf: neue Artefakte dürfen frühere Ergebnisse nie überschreiben (Vorgabe 16).
+        // Enthält das Template die Run-Nummer nicht, wird sie ab Run 2 angehängt.
+        if (runNumber > 1 && !profile.generation().filenameTemplate().contains("{runNumber}")) {
+            base = base + "_run-" + String.format(Locale.ROOT, "%03d", runNumber);
+        }
+        return base;
     }
 
     static String utf8(byte[] b) {
