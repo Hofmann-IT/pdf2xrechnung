@@ -1,0 +1,43 @@
+# =====================================================================================
+# Mandanten (config/tenant.yaml)
+#
+# Jeder Mandant besitzt eine stabile technische ID. Die Kombination aus
+#   tenant_id + SHA-256 der Quell-PDF
+# ist im System eindeutig (Idempotenz).
+#
+# fixed-values: Unternehmensangaben, die auf der PDF nur grafisch (Briefpapier) vorhanden sind
+# und daher nicht extrahiert werden können. Sie werden über Mapping-Regeln vom Typ "fixed"
+# (profiles/*.yaml, rule.key) auf Business Terms abgebildet. Schlüssel in Kleinbuchstaben mit
+# Bindestrich (kebab-case), damit sie unverändert gebunden werden.
+#
+# KEINE SECRETS in dieser Datei.
+# =====================================================================================
+tenants:
+  - id: hofmann-it
+    name: "Hofmann IT"
+    enabled: true
+    # Unterverzeichnis unterhalb von app.directories.inbox; "" = Wurzel von inbox/.
+    # Bei mehreren Mandanten muss jeder aktive Mandant ein eigenes Unterverzeichnis verwenden.
+    inbox-subdirectory: ""
+    # Profile in Prüfreihenfolge; das erste Profil, dessen Klassifizierung trifft, wird verwendet.
+    profiles:
+      - standard
+    fixed-values:
+      # --- Verkäufer (BG-4) ---
+      seller-name: "Hofmann IT"                       # BT-27
+      seller-street: "Musterstraße 1"                 # BT-35
+      seller-post-code: "12345"                       # BT-38
+      seller-city: "Musterstadt"                      # BT-37
+      seller-country-code: "DE"                       # BT-40
+      seller-vat-id: "DE123456789"                    # BT-31
+      seller-tax-number: "12/345/67890"               # BT-32
+      seller-email: "rechnung@example.invalid"        # BT-43 / BT-34
+      seller-contact-name: "Uwe Hofmann"              # BT-41
+      seller-phone: "+49 000 0000000"                 # BT-42
+      # --- Zahlungsinformationen (BG-16/BG-17) ---
+      payment-means-type-code: "58"                   # BT-81, UNTDID 4461: 58 = SEPA credit transfer
+      payment-account-iban: "DE00000000000000000000"  # BT-84
+      payment-account-name: "Hofmann IT"              # BT-85
+      payment-bic: "XXXXDEXXXXX"                      # BT-86
+      # --- Sonstiges ---
+      invoice-currency: "EUR"                         # BT-5

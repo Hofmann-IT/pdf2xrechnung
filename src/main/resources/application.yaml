@@ -1,0 +1,82 @@
+# Technische Grundeinstellungen der Anwendung (im JAR enthalten).
+# Betriebs-/Standortkonfiguration erfolgt in ./config/application.yaml (wird von Spring Boot
+# automatisch geladen und überschreibt diese Werte) sowie ./config/tenant.yaml.
+spring:
+  application:
+    name: pdf-zu-erechnung
+  config:
+    import:
+      - "optional:file:./config/tenant.yaml"
+  main:
+    banner-mode: "off"
+  datasource:
+    url: "jdbc:sqlite:${app.directories.data:./data}/erechnung.db"
+    driver-class-name: org.sqlite.JDBC
+    hikari:
+      # SQLite erlaubt nur einen Schreiber; ein einzelner Pool-Slot vermeidet SQLITE_BUSY-Konflikte.
+      maximum-pool-size: 1
+      connection-timeout: 30000
+      data-source-properties:
+        # Fremdschlüssel sind in SQLite je Verbindung zu aktivieren.
+        foreign_keys: true
+        journal_mode: WAL
+        busy_timeout: 5000
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # Bereits veröffentlichte Migrationen werden niemals verändert (Vorgabe Abschnitt 47).
+    validate-on-migrate: true
+  thymeleaf:
+    cache: true
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 55MB
+  web:
+    resources:
+      # Keine externen Ressourcen; HTMX wird als WebJar lokal ausgeliefert.
+      add-mappings: true
+
+server:
+  port: 8080
+  shutdown: graceful
+
+app:
+  directories:
+    inbox: ./inbox
+    processing: ./processing
+    output: ./output
+    failed: ./failed
+    manual-review: ./manual-review
+    rejected: ./rejected
+    archive: ./archive
+    data: ./data
+    inbound-validation: ./inbound-validation
+    profiles: ./profiles
+    validator-resources: ./validator
+  watcher:
+    enabled: true
+    poll-interval: 5s
+    stable-checks: 2
+  processing:
+    tenant-parallelism: 1
+  validation:
+    kosit-repository: ./validator/xrechnung
+    kosit-scenarios: ./validator/xrechnung/scenarios.xml
+  inbound-validation:
+    store-reports: false
+    max-upload-size: 50MB
+  smtp:
+    enabled: false
+    host: ""
+    port: 587
+    starttls: true
+    ssl: false
+    auth: true
+    # Secrets ausschließlich aus Umgebungsvariablen (Vorgabe Abschnitte 22 und 34).
+    username: "${SMTP_USERNAME:}"
+    password: "${SMTP_PASSWORD:}"
+    from: ""
+    timeout: 30s
+  logging:
+    directory: ./logs

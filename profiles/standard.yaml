@@ -1,0 +1,512 @@
+# =====================================================================================
+# Mandantenprofil "standard" (profiles/standard.yaml)
+#
+# Ein Profil beschreibt, wie eine PDF-Rechnung erkannt, klassifiziert, auf EN-16931-Business-
+# Terms abgebildet, plausibilisiert und in E-Rechnungsformate überführt wird.
+#
+# Dieses Profil ist vollständig kommentiert und demonstriert JEDE unterstützte Regelart:
+#   anchor  – Label/Textanker + relative Position
+#   regex   – regulärer Ausdruck über den Seitentext
+#   region  – definierter Bereich auf der Seite
+#   table   – Tabellen-Mapping für Rechnungspositionen (unter lineItems)
+#   fixed   – fester Wert aus config/tenant.yaml (fixedValues)
+#
+# Koordinaten: PDF-Punkte (1/72 Zoll), Ursprung LINKS OBEN der Seite, y wächst nach unten.
+# DIN A4 = 595 x 842 Punkte. Werte werden mit der CLI "calibrate" ermittelt (Phase 4).
+#
+# Business-Term-Nummern (BT-n) entsprechen EN 16931-1 und wurden gegen die Peppol-BIS-
+# Billing-3.0-Syntaxdokumentation verifiziert. Der Profilname muss dem Dateinamen entsprechen.
+#
+# Der SHA-256 dieser Datei wird je Verarbeitungslauf als profile_hash im Ledger gespeichert.
+# Jede Änderung an dieser Datei ist damit später nachvollziehbar.
+# =====================================================================================
+
+profile:
+  name: standard
+  description: "Standardprofil für Inlandsrechnungen (ein- und mehrseitig) mit Steuerfällen Inland, ohne USt, EU Reverse Charge, Drittland"
+  schemaVersion: 1
+
+# -------------------------------------------------------------------------------------
+# 1. Klassifizierung (Vorgabe Abschnitt 6)
+#
+# Reihenfolge der Auswertung:
+#   1. nonInvoiceIndicators  – trifft einer, ist das Dokument KEINE Rechnung -> rejected/
+#   2. creditNoteIndicators  – trifft einer, ist es eine Gutschrift (BT-3 = 381)
+#   3. invoiceIndicators     – trifft einer, ist es eine Rechnung (BT-3 = 380)
+#   4. sonst                 – Nicht-Rechnung -> rejected/ (Begründung wird protokolliert)
+# Einseitig/mehrseitig wird aus der Seitenzahl bestimmt und muss nicht konfiguriert werden.
+# Jeder Indikator ist ein Java-Regex; "page" schränkt auf eine Seite ein (weglassen = alle).
+# -------------------------------------------------------------------------------------
+classification:
+  invoiceIndicators:
+    - regex: "(?i)\\bRechnung\\b"
+      page: 1
+    - regex: "(?i)Rechnungs-?Nr\\.?|Rechnungsnummer"
+      page: 1
+  creditNoteIndicators:
+    - regex: "(?i)\\bGutschrift\\b"
+      page: 1
+    - regex: "(?i)\\bRechnungskorrektur\\b"
+      page: 1
+  nonInvoiceIndicators:
+    - regex: "(?i)\\bAngebot\\b"
+      page: 1
+    - regex: "(?i)\\bAuftragsbestätigung\\b"
+      page: 1
+    - regex: "(?i)\\bLieferschein\\b"
+      page: 1
+    - regex: "(?i)\\bMahnung\\b"
+      page: 1
+
+  # Geschäftsfall = Steuerbehandlung. Der erste treffende Fall gewinnt; genau ein Fall ist
+  # defaultCase (gilt, wenn kein Indikator trifft).
+  # vatCategoryCode = BT-118 (Dokumentebene) / BT-151 (Position), Codeliste UNTDID 5305:
+  #   S  = Standard rate            (Inland mit Umsatzsteuer)
+  #   AE = VAT Reverse Charge       (innergemeinschaftliche B2B-Leistung, Steuerschuld beim Empfänger)
+  #   G  = Free export item, VAT not charged (Ausfuhr Drittland)
+  #   E  = Exempt from tax          (steuerbefreit, z. B. Kleinunternehmer)
+  # HINWEIS: Für AE, G und E verlangt EN 16931 einen Befreiungsgrund (BT-120 Text und/oder
+  # BT-121 Code, Codeliste VATEX). Die konkreten Codes/Texte je Fall sind fachlich vor Phase 2
+  # festzulegen und werden hier bewusst NICHT erfunden (siehe Offene Punkte Phase 1).
+  businessCases:
+    - id: EU_REVERSE_CHARGE
+      vatCategoryCode: AE
+      exemptionReasonText: "Steuerschuldnerschaft des Leistungsempfängers (Reverse Charge)"
+      indicators:
+        - regex: "(?i)Reverse[- ]?Charge|Steuerschuldnerschaft des Leistungsempf"
+    - id: THIRD_COUNTRY
+      vatCategoryCode: G
+      exemptionReasonText: "Steuerfreie Ausfuhrlieferung"
+      indicators:
+        - regex: "(?i)steuerfreie Ausfuhr|Ausfuhrlieferung|Export outside"
+    - id: NO_VAT
+      vatCategoryCode: E
+      exemptionReasonText: "Kein Ausweis von Umsatzsteuer gemäß § 19 UStG"
+      indicators:
+        - regex: "(?i)§\\s*19\\s*UStG|Kleinunternehmer"
+    - id: DOMESTIC_STANDARD
+      vatCategoryCode: S
+      defaultCase: true
+      indicators: []
+
+# -------------------------------------------------------------------------------------
+# 2. Kopf- und Fußfelder (fields)
+#
+# Jedes Feld: businessTerm, required (Pflicht -> Fehlen führt zu REVIEW), rule, transform.
+#
+# Transformationen (in Reihenfolge angewendet):
+#   trim                       Leerzeichen entfernen
+#   upper                      Großschreibung
+#   removeWhitespace           alle Leerzeichen entfernen (z. B. IBAN)
+#   date:<Pattern>             Datum nach java.time-Pattern parsen, Ausgabe ISO (yyyy-MM-dd)
+#   decimal:de                 "1.234,56" -> 1234.56 ; decimal:en "1,234.56" -> 1234.56
+#   percent:de                 "19 %" -> 19
+#   regexReplace:/<regex>/<ersatz>/   Ersetzung
+# -------------------------------------------------------------------------------------
+fields:
+
+  # ---- anchor: Text rechts vom Label "Rechnungsnummer:" auf Seite 1 ----
+  # direction: RIGHT (gleiche Zeile, rechts vom Label) oder BELOW (nächste Zeile unter dem Label)
+  # maxDistance: maximale Entfernung in Punkten vom Label-Ende (RIGHT) bzw. Label-Unterkante (BELOW)
+  - businessTerm: BT-1
+    required: true
+    rule:
+      type: anchor
+      page: 1
+      label: "Rechnungsnummer:"
+      direction: RIGHT
+      maxDistance: 200
+    transform: [trim]
+
+  # ---- regex: Datum hinter "Rechnungsdatum:", Gruppe 1 ----
+  - businessTerm: BT-2
+    required: true
+    rule:
+      type: regex
+      page: 1
+      pattern: "Rechnungsdatum:\\s*(\\d{2}\\.\\d{2}\\.\\d{4})"
+      group: 1
+    transform: [trim, "date:dd.MM.yyyy"]
+
+  # ---- regex: Fälligkeitsdatum, optional ----
+  - businessTerm: BT-9
+    required: false
+    rule:
+      type: regex
+      pattern: "(?i)(?:zahlbar bis|fällig am|Fälligkeit):?\\s*(\\d{2}\\.\\d{2}\\.\\d{4})"
+      group: 1
+    transform: [trim, "date:dd.MM.yyyy"]
+
+  # ---- anchor: Zahlungsbedingungen als Textzeile ----
+  - businessTerm: BT-20
+    required: false
+    rule:
+      type: anchor
+      label: "Zahlungsbedingungen:"
+      direction: RIGHT
+      maxDistance: 400
+    transform: [trim]
+
+  # ---- anchor: Leistungsdatum ----
+  - businessTerm: BT-72
+    required: false
+    rule:
+      type: anchor
+      page: 1
+      label: "Leistungsdatum:"
+      direction: RIGHT
+      maxDistance: 150
+    transform: [trim, "date:dd.MM.yyyy"]
+
+  # ---- anchor: Bestellreferenz / Leitweg-ID des Käufers ----
+  - businessTerm: BT-13
+    required: false
+    rule:
+      type: anchor
+      page: 1
+      label: "Ihre Bestellung:"
+      direction: RIGHT
+      maxDistance: 200
+    transform: [trim]
+
+  - businessTerm: BT-10
+    required: false
+    rule:
+      type: anchor
+      page: 1
+      label: "Leitweg-ID:"
+      direction: RIGHT
+      maxDistance: 250
+    transform: [trim]
+
+  # ---- region: Empfängeradresse im Anschriftenfeld (DIN 5008, Seite 1) ----
+  # regionMode: FIRST_LINE (nur erste Zeile), JOIN_LINES (Zeilen mit \n), JOIN_WORDS (Leerzeichen)
+  # Aus dem Adressblock werden hier Name, Straße, PLZ/Ort über getrennte Regionen gelesen.
+  - businessTerm: BT-44
+    required: true
+    rule:
+      type: region
+      page: 1
+      x: 70
+      y: 150
+      width: 240
+      height: 14
+      regionMode: FIRST_LINE
+    transform: [trim]
+
+  - businessTerm: BT-50
+    required: false
+    rule:
+      type: region
+      page: 1
+      x: 70
+      y: 164
+      width: 240
+      height: 14
+      regionMode: FIRST_LINE
+    transform: [trim]
+
+  # PLZ und Ort stehen in einer Zeile ("12345 Musterstadt"); zwei Regionen mit Regex-Nachbearbeitung
+  - businessTerm: BT-53
+    required: false
+    rule:
+      type: region
+      page: 1
+      x: 70
+      y: 178
+      width: 240
+      height: 14
+      regionMode: FIRST_LINE
+    transform: [trim, "regexReplace:/^(\\d{5})\\s+.*$/$1/"]
+
+  - businessTerm: BT-52
+    required: false
+    rule:
+      type: region
+      page: 1
+      x: 70
+      y: 178
+      width: 240
+      height: 14
+      regionMode: FIRST_LINE
+    transform: [trim, "regexReplace:/^\\d{5}\\s+(.*)$/$1/"]
+
+  # ---- regex: USt-IdNr. des Käufers (falls aufgedruckt) ----
+  - businessTerm: BT-48
+    required: false
+    rule:
+      type: regex
+      page: 1
+      pattern: "(?i)USt-?Id(?:Nr\\.?)?\\s*(?:des\\s+Kunden|Kunde)?:?\\s*([A-Z]{2}[0-9A-Z]{2,12})"
+      group: 1
+    transform: [trim, upper]
+
+  # ---- Summen (Seite = letzte Seite -> page weglassen, Regex sucht auf allen Seiten) ----
+  - businessTerm: BT-106
+    required: true
+    rule:
+      type: regex
+      pattern: "(?i)(?:Summe\\s+netto|Zwischensumme|Nettobetrag)\\s*:?\\s*([\\d.]+,\\d{2})"
+      group: 1
+    transform: ["decimal:de"]
+
+  - businessTerm: BT-109
+    required: true
+    rule:
+      type: regex
+      pattern: "(?i)(?:Gesamt\\s+netto|Nettosumme|Netto\\s+gesamt)\\s*:?\\s*([\\d.]+,\\d{2})"
+      group: 1
+    transform: ["decimal:de"]
+
+  - businessTerm: BT-110
+    required: true
+    rule:
+      type: regex
+      pattern: "(?i)(?:zzgl\\.?\\s*)?(?:USt|MwSt|Umsatzsteuer)\\s*(?:gesamt)?\\s*:?\\s*([\\d.]+,\\d{2})"
+      group: 1
+    transform: ["decimal:de"]
+
+  - businessTerm: BT-112
+    required: true
+    rule:
+      type: regex
+      pattern: "(?i)(?:Gesamtbetrag|Bruttobetrag|Rechnungsbetrag|Summe\\s+brutto)\\s*:?\\s*([\\d.]+,\\d{2})"
+      group: 1
+    transform: ["decimal:de"]
+
+  - businessTerm: BT-115
+    required: true
+    rule:
+      type: regex
+      pattern: "(?i)(?:Zahlbetrag|zu\\s+zahlen|Zu\\s+zahlender\\s+Betrag)\\s*:?\\s*([\\d.]+,\\d{2})"
+      group: 1
+    transform: ["decimal:de"]
+
+  # ---- Steueraufschlüsselung (BG-23). Bei mehreren Steuersätzen je Satz eine Regel; die
+  #      Zuordnung erfolgt über den in der Zeile stehenden Prozentsatz. ----
+  - businessTerm: BT-119
+    required: false
+    rule:
+      type: regex
+      pattern: "(?i)(?:USt|MwSt|Umsatzsteuer)\\s*(\\d{1,2}(?:,\\d)?)\\s*%"
+      group: 1
+    transform: ["percent:de"]
+
+  - businessTerm: BT-116
+    required: false
+    rule:
+      type: regex
+      pattern: "(?i)(?:Netto|Steuerbasis)\\s*\\d{1,2}(?:,\\d)?\\s*%\\s*:?\\s*([\\d.]+,\\d{2})"
+      group: 1
+    transform: ["decimal:de"]
+
+  - businessTerm: BT-117
+    required: false
+    rule:
+      type: regex
+      pattern: "(?i)(?:USt|MwSt|Umsatzsteuer)\\s*\\d{1,2}(?:,\\d)?\\s*%\\s*:?\\s*([\\d.]+,\\d{2})"
+      group: 1
+    transform: ["decimal:de"]
+
+  # ---- fixed: Verkäuferangaben aus config/tenant.yaml (nur grafisch im Briefpapier) ----
+  # rule.key referenziert einen Schlüssel unter tenants[].fixed-values (kebab-case).
+  - businessTerm: BT-27
+    required: true
+    rule: { type: fixed, key: seller-name }
+  - businessTerm: BT-35
+    required: true
+    rule: { type: fixed, key: seller-street }
+  - businessTerm: BT-38
+    required: true
+    rule: { type: fixed, key: seller-post-code }
+  - businessTerm: BT-37
+    required: true
+    rule: { type: fixed, key: seller-city }
+  - businessTerm: BT-40
+    required: true
+    rule: { type: fixed, key: seller-country-code }
+  - businessTerm: BT-31
+    required: true
+    rule: { type: fixed, key: seller-vat-id }
+  - businessTerm: BT-32
+    required: false
+    rule: { type: fixed, key: seller-tax-number }
+  - businessTerm: BT-34
+    required: false
+    rule: { type: fixed, key: seller-email }
+  - businessTerm: BT-41
+    required: false
+    rule: { type: fixed, key: seller-contact-name }
+  - businessTerm: BT-42
+    required: false
+    rule: { type: fixed, key: seller-phone }
+  - businessTerm: BT-43
+    required: false
+    rule: { type: fixed, key: seller-email }
+  - businessTerm: BT-81
+    required: true
+    rule: { type: fixed, key: payment-means-type-code }
+  - businessTerm: BT-84
+    required: true
+    rule: { type: fixed, key: payment-account-iban }
+    transform: [removeWhitespace, upper]
+  - businessTerm: BT-85
+    required: false
+    rule: { type: fixed, key: payment-account-name }
+  - businessTerm: BT-86
+    required: false
+    rule: { type: fixed, key: payment-bic }
+  - businessTerm: BT-5
+    required: true
+    rule: { type: fixed, key: invoice-currency }
+
+  # ---- regex: Verwendungszweck (BT-83) – meist die Rechnungsnummer ----
+  - businessTerm: BT-83
+    required: false
+    rule:
+      type: regex
+      page: 1
+      pattern: "Rechnungsnummer:\\s*(\\S+)"
+      group: 1
+    transform: [trim]
+
+# -------------------------------------------------------------------------------------
+# 3. Rechnungspositionen – Tabellen-Mapping (Regelart "table")
+#
+# Die Tabelle beginnt nach dem startAnchor (Kopfzeile) und endet vor dem endAnchor.
+# Fortsetzungsseiten: Wird der Kopf auf Folgeseiten wiederholt (headerRepeatsOnContinuationPages),
+# wird er dort erneut gesucht; andernfalls beginnt die Tabelle auf Folgeseiten am Seitenanfang.
+# ignoreRows: Zeilen wie "Übertrag"/"Zwischensumme Seite" werden übersprungen.
+# rowDetection: Eine neue Position beginnt, wenn in der Schlüsselspalte ein Wert steht, der
+# auf das Muster passt (hier: Positionsnummer). Folgezeilen ohne Positionsnummer werden bei
+# multiLineDescription der Artikelbezeichnung der laufenden Position angefügt.
+# columns: x/width in Punkten; align RIGHT für rechtsbündige Zahlen (Zuordnung über rechte Kante).
+# -------------------------------------------------------------------------------------
+lineItems:
+  startAnchor:
+    regex: "^\\s*Pos\\.?\\s+(Artikel|Bezeichnung|Beschreibung)"
+  endAnchor:
+    regex: "(?i)^\\s*(Summe\\s+netto|Zwischensumme|Nettobetrag|Gesamt\\s+netto)"
+  headerRepeatsOnContinuationPages: true
+  ignoreRows:
+    - regex: "(?i)^\\s*(Übertrag|Zwischensumme\\s+Seite|Fortsetzung)"
+  rowDetection:
+    keyColumnBusinessTerm: BT-126
+    pattern: "^\\d{1,4}$"
+  multiLineDescription: true
+  columns:
+    - businessTerm: BT-126        # Positionsnummer
+      x: 56
+      width: 30
+      align: LEFT
+      required: true
+      transform: [trim]
+    - businessTerm: BT-153        # Artikelbezeichnung (mehrzeilig)
+      x: 90
+      width: 220
+      align: LEFT
+      required: true
+      transform: [trim]
+    - businessTerm: BT-129        # Menge
+      x: 315
+      width: 45
+      align: RIGHT
+      required: true
+      transform: ["decimal:de"]
+    - businessTerm: BT-130        # Einheit (UN/ECE Rec. 20, z. B. C62 = Stück, HUR = Stunde)
+      x: 362
+      width: 35
+      align: LEFT
+      required: false
+      transform: [trim, upper]
+    - businessTerm: BT-146        # Einzelpreis netto
+      x: 400
+      width: 60
+      align: RIGHT
+      required: true
+      transform: ["decimal:de"]
+    - businessTerm: BT-152        # Steuersatz der Position
+      x: 463
+      width: 35
+      align: RIGHT
+      required: false
+      transform: ["percent:de"]
+    - businessTerm: BT-131        # Positionsnetto
+      x: 500
+      width: 70
+      align: RIGHT
+      required: true
+      transform: ["decimal:de"]
+
+# -------------------------------------------------------------------------------------
+# 4. Plausibilität (Vorgabe Abschnitt 9)
+#
+# tolerance: absolute Toleranz je Vergleich (Standard 0,01). Eine abweichende Rundungsregel
+# muss hier ausdrücklich definiert und fachlich freigegeben sein.
+# checks:
+#   LINE_SUM             Summe BT-131 = BT-106
+#   NET_TOTAL            BT-106 - BT-107 + BT-108 = BT-109
+#   TAX_BASIS_PER_RATE   Summe BT-116 = BT-109
+#   TAX_AMOUNT_PER_RATE  BT-116 x BT-119 / 100 = BT-117 je Steuersatz
+#   TOTAL_TAX            Summe BT-117 = BT-110
+#   GROSS_TOTAL          BT-109 + BT-110 = BT-112
+#   PAYABLE_AMOUNT       BT-112 - BT-113 + BT-114 = BT-115
+# Bei Abweichung: manual-review/, Status REVIEW, keine Erzeugung.
+# -------------------------------------------------------------------------------------
+plausibility:
+  tolerance: 0.01
+  checks:
+    - LINE_SUM
+    - NET_TOTAL
+    - TAX_BASIS_PER_RATE
+    - TAX_AMOUNT_PER_RATE
+    - TOTAL_TAX
+    - GROSS_TOTAL
+    - PAYABLE_AMOUNT
+
+# -------------------------------------------------------------------------------------
+# 5. Erzeugung (Vorgabe Abschnitte 10 und 14)
+#
+# formats: XRECHNUNG_CII, XRECHNUNG_UBL, ZUGFERD_EN16931, ZUGFERD_XRECHNUNG (beliebige Kombination)
+# filenameTemplate: Platzhalter {invoiceNumber}, {invoiceDate:<Pattern>}, {customerName},
+#   {tenantId}, {runNumber}. Die Dateiendung wird je Format ergänzt (.xml / .pdf).
+#   Unerlaubte Zeichen werden sicher bereinigt; Namenskollisionen sind FEHLER (nie überschreiben).
+# invoiceTypeCodes: BT-3 je Dokumenttyp (UNTDID 1001): 380 = Rechnung, 381 = Gutschrift
+# -------------------------------------------------------------------------------------
+generation:
+  formats:
+    - XRECHNUNG_CII
+    - XRECHNUNG_UBL
+    - ZUGFERD_EN16931
+  filenameTemplate: "{invoiceNumber}_{invoiceDate:yyyyMMdd}_{customerName}"
+  invoiceTypeCodes:
+    invoice: "380"
+    credit-note: "381"
+  defaultCurrency: EUR
+
+# -------------------------------------------------------------------------------------
+# 6. Postprozess (optional, Vorgabe Abschnitte 22 und 23) – Implementierung Phase 4
+#
+# email: Versand nur bei vollständig validierter Rechnung; nie bei REVIEW/FAILED.
+#   Zugangsdaten kommen aus config/application.yaml (app.smtp) + Umgebungsvariablen.
+#   attachments: SOURCE_PDF, XRECHNUNG_CII, XRECHNUNG_UBL, ZUGFERD_PDF, VALIDATION_XML,
+#                VALIDATION_HTML, EXTRACTION_LOG
+# command: lokales Programm über ProcessBuilder; executable und arguments getrennt; keine Shell.
+#   Platzhalter in arguments (je Argument ersetzt, nie interpretiert):
+#   {sourcePdf} {zugferdPdf} {ciiXml} {ublXml} {archiveDir} {invoiceNumber} {runNumber}
+# -------------------------------------------------------------------------------------
+postProcess:
+  email:
+    enabled: false
+    to: []
+    cc: []
+    subjectTemplate: "Rechnung {invoiceNumber} vom {invoiceDate:dd.MM.yyyy}"
+    bodyTemplate: "Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie die Rechnung {invoiceNumber}.\n\nMit freundlichen Grüßen\nHofmann IT"
+    attachments:
+      - ZUGFERD_PDF
+  command:
+    enabled: false
+    executable: ""
+    arguments: []
+    timeout: 60s
+    workingDirectory: ""

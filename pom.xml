@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PDF-zu-E-Rechnung Converter & E-Rechnungs-Validator (On-Premises)
+
+  Verbindlicher Stack (siehe Projektvorgabe, Abschnitt 3):
+    Java 21 LTS, Spring Boot 3.x, Maven,
+    Apache PDFBox 3.x, Mustangproject, KoSIT-Validator,
+    SQLite + Spring JDBC + Flyway (kein JPA/Hibernate),
+    Spring MVC + Thymeleaf + HTMX,
+    SLF4J/Logback, JUnit 5 + AssertJ.
+
+  Versionsentscheidungen (alle am 2026-09-24 gegen Maven Central verifiziert):
+    - Spring Boot 3.5.16   : höchste 3.x-Version (4.x ist NICHT Teil des verbindlichen Stacks).
+    - Mustang 2.17.0       : aktuellste Version von org.mustangproject:library.
+    - PDFBox 3.0.5         : bewusst NICHT die neueste 3.0.x, sondern exakt die Version,
+                             gegen die Mustang 2.17.0 gebaut ist (org.apache.pdfbox:pdfbox:3.0.5),
+                             um Binärinkompatibilitäten zwischen Mustang und PDFBox auszuschließen.
+    - KoSIT validationtool 1.5.0 : aktuellste Version von de.kosit:validationtool.
+    - sqlite-jdbc, Flyway, Thymeleaf, Logback, JUnit, AssertJ: von Spring Boot verwaltete Versionen.
+    - Saxon-HE 12.4        : Mustang 2.17.0 bringt Saxon-HE 12.4 mit, KoSIT 1.5.0 wurde gegen 11.4
+                             gebaut. Es kann nur EINE Saxon-Version auf dem Classpath liegen. Die
+                             höhere Version wird hier explizit festgeschrieben; die Verträglichkeit
+                             mit dem KoSIT-Validator wird in Phase 3 durch Tests nachgewiesen
+                             (siehe docs/adr/0002-validator-einbindung.md).
+
+  Bewusst NICHT eingebunden (Freigabe erforderlich, siehe Phase-1-Abschlussbericht):
+    - org.mustangproject:validator (ZUGFeRD-/PDF/A-Validierung) zieht org.verapdf:* nach,
+      das dual-lizenziert ist (GPLv3 ODER MPL 2.0). Laut Dependency-Regel ist bei GPL zu stoppen.
+    - javax.xml.bind:jaxb-api + org.glassfish.jaxb:jaxb-runtime 2.3.x sowie
+      org.apache.commons:commons-lang3: werden von de.kosit:validationtool 1.5.0 zur Laufzeit
+      benötigt, sind aber in dessen veröffentlichtem POM nicht deklariert
+      (siehe docs/adr/0002-validator-einbindung.md). Ohne sie ist der KoSIT-Validator
+      nicht lauffähig.
+    - com.icegreen:greenmail (Phase 4, Test-Scope).
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.16</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>de.hofmannit</groupId>
+    <artifactId>pdf-zu-erechnung</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+    <name>PDF-zu-E-Rechnung</name>
+    <description>On-Premises PDF-zu-E-Rechnung Converter und E-Rechnungs-Validator (XRechnung, ZUGFeRD/Factur-X)</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <pdfbox.version>3.0.5</pdfbox.version>
+        <mustang.version>2.17.0</mustang.version>
+        <kosit-validationtool.version>1.5.0</kosit-validationtool.version>
+        <saxon.version>12.4</saxon.version>
+        <htmx.version>2.0.6</htmx.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Genau eine Saxon-Version auf dem Classpath (Mustang: 12.4, KoSIT: 11.4). -->
+            <dependency>
+                <groupId>net.sf.saxon</groupId>
+                <artifactId>Saxon-HE</artifactId>
+                <version>${saxon.version}</version>
+            </dependency>
+            <!-- Genau eine PDFBox-Version auf dem Classpath (identisch mit Mustang-Build). -->
+            <dependency>
+                <groupId>org.apache.pdfbox</groupId>
+                <artifactId>pdfbox</artifactId>
+                <version>${pdfbox.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.pdfbox</groupId>
+                <artifactId>preflight</artifactId>
+                <version>${pdfbox.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- ===== Spring Boot (Web, Thymeleaf, JDBC) ===== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
+        <!-- ===== Persistenz: SQLite + Flyway (kein JPA, kein Hibernate) ===== -->
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+
+        <!-- ===== PDF-Verarbeitung ===== -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <exclusions>
+                <!-- Spring Boot liefert die Commons-Logging-API über spring-jcl; ein zweites
+                     commons-logging.jar erzeugt Konflikte (Warnung beim Start). -->
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- ===== E-Rechnung: Mustangproject (ZUGFeRD/Factur-X/XRechnung, CII + UBL) ===== -->
+        <dependency>
+            <groupId>org.mustangproject</groupId>
+            <artifactId>library</artifactId>
+            <version>${mustang.version}</version>
+            <exclusions>
+                <!-- commons-logging kommt transitiv über Apache FOP; API wird von spring-jcl bereitgestellt. -->
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- ===== Validierung: KoSIT-Validator als lokale Java-Bibliothek ===== -->
+        <dependency>
+            <groupId>de.kosit</groupId>
+            <artifactId>validationtool</artifactId>
+            <version>${kosit-validationtool.version}</version>
+        </dependency>
+
+        <!-- ===== Web-UI: HTMX (lokal ausgeliefert als WebJar, kein CDN) ===== -->
+        <dependency>
+            <groupId>org.webjars.npm</groupId>
+            <artifactId>htmx.org</artifactId>
+            <version>${htmx.version}</version>
+        </dependency>
+
+        <!-- ===== Tests: JUnit 5 + AssertJ (über spring-boot-starter-test) ===== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <!-- Stellt META-INF/build-info.properties bereit (Anwendungsversion für Ledger/Run). -->
+                        <goals>
+                            <goal>build-info</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

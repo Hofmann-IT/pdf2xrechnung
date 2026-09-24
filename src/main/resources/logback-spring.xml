@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logging (Vorgabe Abschnitt 3 "Logging"):
+    - Konsole: menschenlesbar
+    - logs/erechnung.log: menschenlesbar, rotierend
+    - logs/erechnung.json.log: strukturiert (JSON, Elastic Common Schema) über Spring Boots
+      StructuredLogEncoder, rotierend – keine zusätzliche Bibliothek erforderlich
+  Die Korrelations-ID (Vorgabe Abschnitt 35) wird über MDC "correlationId" ausgegeben.
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <springProperty scope="context" name="LOG_DIR" source="app.logging.directory" defaultValue="./logs"/>
+
+    <property name="HUMAN_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [%X{correlationId:-}] %logger{36} - %msg%n%ex"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${HUMAN_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <appender name="FILE_HUMAN" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/erechnung.log</file>
+        <encoder>
+            <pattern>${HUMAN_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/erechnung.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>20MB</maxFileSize>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>2GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <appender name="FILE_JSON" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/erechnung.json.log</file>
+        <encoder class="org.springframework.boot.logging.logback.StructuredLogEncoder">
+            <format>ecs</format>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/erechnung.json.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>20MB</maxFileSize>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>2GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE_HUMAN"/>
+        <appender-ref ref="FILE_JSON"/>
+    </root>
+
+    <logger name="de.hofmannit.erechnung" level="INFO"/>
+</configuration>

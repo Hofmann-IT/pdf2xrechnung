@@ -1,0 +1,27 @@
+# Build
+target/
+*.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# Laufzeitverzeichnisse (enthalten Rechnungsdaten – niemals versionieren)
+inbox/
+processing/
+output/
+failed/
+manual-review/
+rejected/
+archive/
+data/
+inbound-validation/
+logs/
+
+# Lokale Secrets / Umgebungsdateien
+.env
+*.env

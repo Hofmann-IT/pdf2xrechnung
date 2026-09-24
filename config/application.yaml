@@ -1,0 +1,60 @@
+# =====================================================================================
+# Betriebskonfiguration PDF-zu-E-Rechnung
+#
+# Diese Datei wird von Spring Boot automatisch aus ./config/ geladen und überschreibt die im
+# JAR enthaltenen Standardwerte. Alle Pfade sind relativ zum Arbeitsverzeichnis des Prozesses
+# oder absolut anzugeben.
+#
+# KEINE SECRETS in dieser Datei. SMTP-Zugangsdaten ausschließlich über Umgebungsvariablen:
+#   SMTP_USERNAME, SMTP_PASSWORD
+# =====================================================================================
+
+server:
+  # UI-Port
+  port: 8080
+
+app:
+  directories:
+    inbox: ./inbox                     # überwachte Ablage fertiger PDF-Rechnungen
+    processing: ./processing           # in Verarbeitung (wird nach Neustart erneut geprüft)
+    output: ./output                   # erfolgreich erzeugte und validierte E-Rechnungen
+    failed: ./failed                   # Validierungs-/Erzeugungsfehler inkl. Reports
+    manual-review: ./manual-review     # Plausibilitätsabweichungen (Status REVIEW)
+    rejected: ./rejected               # Nicht-Rechnungen
+    archive: ./archive                 # revisionsnahes Archiv (nie überschreiben/löschen)
+    data: ./data                       # SQLite-Datenbank
+    inbound-validation: ./inbound-validation  # optionale Prüfprotokolle "E-Rechnung prüfen"
+    profiles: ./profiles               # Mandantenprofile
+    validator-resources: ./validator   # lokale Validierungsressourcen (KoSIT-Konfiguration)
+
+  watcher:
+    enabled: true
+    poll-interval: 5s                  # Prüfintervall der Inbox
+    stable-checks: 2                   # Dateigröße muss über N Intervalle stabil sein
+
+  processing:
+    tenant-parallelism: 1              # Mandanten parallel; innerhalb eines Mandanten sequentiell
+
+  validation:
+    # Lokale KoSIT-Validator-Konfiguration für XRechnung (kein Download zur Laufzeit).
+    kosit-repository: ./validator/xrechnung
+    kosit-scenarios: ./validator/xrechnung/scenarios.xml
+
+  inbound-validation:
+    store-reports: false               # true: Prüfprotokoll unter inbound-validation/{jahr}/{monat}/{sha-prefix}/
+    max-upload-size: 50MB
+
+  smtp:
+    enabled: false                     # optionaler Rechnungsversand (einzige erlaubte Netzwerkverbindung)
+    host: ""
+    port: 587
+    starttls: true
+    ssl: false
+    auth: true
+    username: "${SMTP_USERNAME:}"      # aus Umgebungsvariable
+    password: "${SMTP_PASSWORD:}"      # aus Umgebungsvariable – niemals hier eintragen
+    from: ""
+    timeout: 30s
+
+  logging:
+    directory: ./logs
