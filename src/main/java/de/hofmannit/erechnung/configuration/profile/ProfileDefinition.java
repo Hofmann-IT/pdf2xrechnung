@@ -68,6 +68,8 @@ public record ProfileDefinition(
      * @param exemptionReasonCode BT-121, sofern erforderlich
      * @param indicators      Indikatoren; trifft einer, gilt der Geschäftsfall
      * @param defaultCase     genau ein Geschäftsfall darf Standard sein
+     * @param defaultBuyerCountryCode BT-55, falls die PDF kein Käuferland ausweist (z. B. "DE" bei
+     *                        Inlandsfällen); {@code null} = BT-55 muss extrahiert werden
      */
     public record BusinessCase(
             String id,
@@ -75,7 +77,8 @@ public record ProfileDefinition(
             String exemptionReasonText,
             String exemptionReasonCode,
             List<Indicator> indicators,
-            @DefaultValue("false") boolean defaultCase) {
+            @DefaultValue("false") boolean defaultCase,
+            String defaultBuyerCountryCode) {
 
         public BusinessCase {
             indicators = indicators == null ? List.of() : List.copyOf(indicators);
@@ -213,6 +216,8 @@ public record ProfileDefinition(
 
     /** Die verpflichtenden Prüfungen (alle im Standardprofil aktiv). */
     public enum PlausibilityCheck {
+        /** Je Position: BT-146 × BT-129 (÷ BT-149, sofern vorhanden) = BT-131. */
+        LINE_AMOUNT,
         /** Summe BT-131 aller Positionen = BT-106. */
         LINE_SUM,
         /** BT-106 - BT-107 + BT-108 = BT-109. */
@@ -237,7 +242,9 @@ public record ProfileDefinition(
             /** BT-3 je Dokumenttyp (UNTDID 1001). */
             Map<String, String> invoiceTypeCodes,
             /** BT-5, sofern nicht aus der PDF extrahiert. */
-            @DefaultValue("EUR") String defaultCurrency) {
+            @DefaultValue("EUR") String defaultCurrency,
+            /** BT-130 je Position, sofern die Tabelle keine Einheit liefert (UN/ECE Rec. 20; C62 = Stück/Einheit). */
+            @DefaultValue("C62") String defaultUnitCode) {
 
         public Generation {
             formats = formats == null ? List.of() : List.copyOf(formats);

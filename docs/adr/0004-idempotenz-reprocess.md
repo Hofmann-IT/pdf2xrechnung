@@ -55,9 +55,14 @@ geprüft werden; kein kritischer Zustand darf nur im Speicher liegen.
   Rechnungsnummer; Kollisionen im Archiv/Output werden als Fehler behandelt (ADR 0006).
 - Duplikate sind in der UI am ursprünglichen Run sichtbar.
 
-## Offene Punkte
+## Entscheidung vom 2026-09-24 (Phase 2)
 
-- Punkt 6 (Wiederanlauf-Run mit `trigger=AUTO` und `parent_run_id`) weicht von der
-  `CHECK`-Bedingung ab, die `parent_run_id` nur bei `MANUAL_REPROCESS` zulässt. Vor Phase 2
-  ist zu entscheiden: eigener Trigger `RESTART_RECOVERY` (Schemaergänzung in Phase 2 zulässig)
-  oder Wiederanlauf ohne Parent-Verweis. Empfehlung: eigener Trigger, da nachvollziehbarer.
+- Wiederanlauf erhält den eigenen Trigger **`RESTART_RECOVERY`** mit `parent_run_id` auf den
+  abgebrochenen Run, ohne `requested_by`/`reason` (CHECK-Constraint in V1 entsprechend
+  erweitert). Umgesetzt in `StartupRecovery`; der End-to-End-Test weist nach: abgebrochener Run
+  → `PROCESSING_FAILED` + Abschluss `FAILED`, neuer Run `RESTART_RECOVERY` → `SUCCESS`.
+- Dateien in `processing/` ohne offenen Run, deren Quelldokument bereits abgeschlossene Runs
+  hat, werden nach `failed/verwaist/` verschoben und nicht erneut verarbeitet.
+- Duplikate werden am jüngsten Run des Quelldokuments mit `DUPLICATE_DETECTED` protokolliert
+  und nach `rejected/duplikate/` verschoben (Dateiname mit SHA-Präfix und Zeitstempel, damit
+  auch mehrfache Duplikate nie kollidieren).

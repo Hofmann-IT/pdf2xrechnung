@@ -37,6 +37,16 @@ kein ORM.
    mit genau einer Verbindung (SQLite kennt nur einen Schreiber). Mehrere Anwendungsinstanzen
    auf derselben Datenbank werden nicht unterstützt.
 
+## Ergänzung vom 2026-09-24 (Phase 2)
+
+- `ledger_entry`: Rechnungsnummer, Datum, Kunde, Währung und Summen sind **nullable**, damit
+  auch ein REVIEW-Run (Plausibilitätsabweichung) einen Ledger-Eintrag mit den bis dahin
+  bekannten Werten erhält (Vorgabe Abschnitt 52). `document_type`, `generated_formats`
+  (`[]` bei REVIEW), Quell-Hash, Profil und Anwendungsversion bleiben Pflicht.
+- `processing_run.trigger_type` kennt zusätzlich `RESTART_RECOVERY` (ADR 0004).
+- Ausgabepfade in `output/` werden im Event `ARCHIVED` (`details_json.output`) festgehalten;
+  `artifact.path` enthält ausschließlich Archivpfade relativ zur Archivwurzel.
+
 ## Alternativen
 
 - **Statusfeld mit UPDATE:** einfacher abzufragen, widerspricht der Vorgabe. Verworfen.

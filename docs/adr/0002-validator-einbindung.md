@@ -85,18 +85,42 @@ Verifizierte Artefakte (Maven Central, 2026-09-24):
 - **Versionspflege der XRechnung-Konfiguration** (Gültigkeitszeiträume der XRechnung-Versionen)
   ist Betriebsaufgabe; das verwendete Regelwerk wird je Validierung protokolliert.
 
-## Offene Punkte (Entscheidung erforderlich)
+## Entscheidungen vom 2026-09-24 (Freigabe zu Beginn Phase 2)
 
-1. `org.mustangproject:validator` zieht veraPDF, das **dual-lizenziert (GPLv3 oder MPL 2.0)**
-   ist. Laut Dependency-Regel ist bei GPL zu stoppen. Optionen: (a) Nutzung unter MPL 2.0
-   freigeben; (b) ZUGFeRD-Validierung auf das in `library` enthaltene Regelwerk beschränken und
-   PDF/A-Prüfung als "nicht zuverlässig prüfbar" ausweisen; (c) PDFBox Preflight (Apache 2.0)
-   für PDF/A-Aspekte prüfen – Preflight unterstützt PDF/A-1, nicht PDF/A-3, wäre also nur
-   eingeschränkt nutzbar.
-2. **Freigabe der vom KoSIT-Validator benötigten, nicht deklarierten Laufzeit-Abhängigkeiten:**
-   `javax.xml.bind:jaxb-api:2.3.1` + `org.glassfish.jaxb:jaxb-runtime:2.3.x` (beide EDL/CDDL,
-   Eclipse Distribution License 1.0 = BSD-3) und `org.apache.commons:commons-lang3` (Apache 2.0).
-   Alternative: KoSIT-Validator in einer neueren Version prüfen, sofern eine mit Jakarta-JAXB
-   existiert (am 2026-09-24 war 1.5.0 die höchste Version auf Maven Central).
-3. Welche XRechnung-Version(en) der KoSIT-Konfiguration ausgeliefert werden (aktuell gültige
-   Version plus Vorgängerversion für Eingangsrechnungen?).
+1. **veraPDF unter MPL 2.0:** `org.mustangproject:validator:2.17.0` ist eingebunden; veraPDF
+   wird als unveränderte Bibliothek unter der MPL-2.0-Option genutzt. In der README (Phase 6)
+   wird das unter "Drittanbieter-Lizenzen" ausgewiesen.
+2. **KoSIT-Laufzeitabhängigkeiten ergänzt:** `javax.xml.bind:jaxb-api:2.3.1` und
+   `org.apache.commons:commons-lang3`. Als JAXB-2-Implementierung wurde bewusst
+   `com.sun.xml.bind:jaxb-impl:2.3.9` gewählt, **nicht** `org.glassfish.jaxb:jaxb-runtime:2.3.x`:
+   Letzteres hat dieselben Maven-Koordinaten wie die von Mustang benötigte `jaxb-runtime:4.0.9`
+   und würde sie per Konfliktauflösung verdrängen (im Probelauf nachgewiesen:
+   "Implementation of Jakarta XML Binding-API has not been found"). Beide Implementierungen
+   liegen in unterschiedlichen Packages und koexistieren.
+3. **Saxon 12.4 mit KoSIT 1.5.0 nachgewiesen:** Der KoSIT-Modus `STRICT_LOCAL` ist mit Saxon 12
+   nicht lauffähig (setzt einen null-`URIResolver`, den Saxon 12 mit NullPointerException
+   ablehnt). Verwendet wird `ResolvingMode.CUSTOM` mit der eigenen
+   `LocalOnlyResolvingStrategy` (Basis: `StrictRelativeResolvingStrategy`), die zusätzlich jede
+   Auflösung mit Netzwerkschema (http, https, ftp) ablehnt. Der KoSIT-Report-DOM ist nicht
+   namespace-bewusst; Elemente werden über lokale Namen gesucht. Eingaben werden als Bytes
+   übergeben, da bei Pfad-Eingaben ein Dateihandle offen bleibt (Windows: Verschieben scheitert).
+4. **XRechnung-Konfiguration:** ausgeliefert wird das KoSIT-Release `v2026-08-31`
+   ("Validator Configuration 2026-08-31 compatible with XRechnung 3.0", 11 Szenarien, EN16931
+   Schematron 1.3.16, XRechnung Schematron 2.6.0) unter `validator/xrechnung/`. XRechnung 3.0.2
+   ist zugleich die aktuelle und die Vorgängerversion; eine ältere Konfiguration wird nicht
+   mitgeliefert. Lizenz des Pakets: Apache 2.0 (KoSIT); die enthaltenen EN16931-Schematron-
+   Artefakte (ConnectingEurope) tragen auf GitHub keine SPDX-Kennung ("Other") – siehe
+   Offene Punkte.
+5. **Anwendbarkeitsmatrix umgesetzt** in `ValidationService`; ZUGFeRD-Ausgaben werden
+   zusätzlich über die eingebettete XML mit KoSIT geprüft (EN16931-Szenario der Konfiguration,
+   verpflichtend nur bei Profil XRECHNUNG). Der End-to-End-Test weist für CII, UBL und ZUGFeRD
+   EN16931 jeweils `VALID` ohne Fehler nach.
+6. **PDF/A-Voraussetzung:** ZUGFeRD wird aus der unveränderten Quell-PDF erzeugt. Ist die
+   Quell-PDF kein PDF/A, ist das Ergebnis kein gültiges PDF/A-3 (Probelauf mit Standard-14-Font:
+   veraPDF meldet Verstöße) und der Run scheitert in der Mustang-Validierung. Word/Excel müssen
+   daher mit PDF/A-Option exportieren; das wird in der README dokumentiert.
+
+## Offene Punkte
+
+1. Lizenzkennung der EN16931-Schematron-Artefakte im KoSIT-Paket (GitHub meldet "Other"); vor
+   Aufnahme von `validator/` in das Repository bestätigen.

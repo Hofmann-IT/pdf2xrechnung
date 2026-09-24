@@ -36,8 +36,8 @@ tenants:
       seller-phone: "+49 000 0000000"                 # BT-42
       # --- Zahlungsinformationen (BG-16/BG-17) ---
       payment-means-type-code: "58"                   # BT-81, UNTDID 4461: 58 = SEPA credit transfer
-      payment-account-iban: "DE00000000000000000000"  # BT-84
+      payment-account-iban: "DE02120300000000202051"  # BT-84 (Beispiel-IBAN mit gültiger Prüfziffer; XRechnung prüft BR-DE-19)
       payment-account-name: "Hofmann IT"              # BT-85
-      payment-bic: "XXXXDEXXXXX"                      # BT-86
+      payment-bic: "BYLADEM1001"                      # BT-86
       # --- Sonstiges ---
       invoice-currency: "EUR"                         # BT-5

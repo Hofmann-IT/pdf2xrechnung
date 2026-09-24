@@ -185,6 +185,17 @@ class ApplicationContextAndSchemaTest {
 
         // Run-Nummer je Quelldokument eindeutig
         assertThatThrownBy(() -> insertRun(sourceId, 2)).isInstanceOf(DataAccessException.class);
+
+        // Wiederanlauf: RESTART_RECOVERY verlangt einen Vorgänger, aber keinen Benutzer
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO processing_run (source_document_id, run_number, trigger_type, profile_name, profile_hash,
+                  application_version, correlation_id, started_at) VALUES (?,?,?,?,?,?,?,?)""",
+                sourceId, 3, "RESTART_RECOVERY", "standard", "d".repeat(64), "test", "eeeeeeee/run-003", "2026-09-24T12:00:00Z"))
+                .isInstanceOf(DataAccessException.class);
+        jdbc.update("""
+                INSERT INTO processing_run (source_document_id, run_number, trigger_type, parent_run_id, profile_name, profile_hash,
+                  application_version, correlation_id, started_at) VALUES (?,?,?,?,?,?,?,?,?)""",
+                sourceId, 3, "RESTART_RECOVERY", runId, "standard", "d".repeat(64), "test", "eeeeeeee/run-003", "2026-09-24T12:00:00Z");
     }
 
     private long insertSource(String sha) {

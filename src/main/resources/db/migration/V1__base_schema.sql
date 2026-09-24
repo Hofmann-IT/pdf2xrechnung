@@ -25,7 +25,7 @@ CREATE TABLE processing_run (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     source_document_id  INTEGER NOT NULL REFERENCES source_document (id),
     run_number          INTEGER NOT NULL CHECK (run_number >= 1),
-    trigger_type        TEXT    NOT NULL CHECK (trigger_type IN ('AUTO', 'MANUAL_REPROCESS')),
+    trigger_type        TEXT    NOT NULL CHECK (trigger_type IN ('AUTO', 'MANUAL_REPROCESS', 'RESTART_RECOVERY')),
     parent_run_id       INTEGER REFERENCES processing_run (id),
     requested_by        TEXT,
     reason              TEXT,
@@ -38,9 +38,12 @@ CREATE TABLE processing_run (
     result              TEXT    CHECK (result IS NULL OR result IN ('SUCCESS', 'REVIEW', 'FAILED', 'REJECTED', 'DUPLICATE')),
     CONSTRAINT uq_processing_run_number UNIQUE (source_document_id, run_number),
     CONSTRAINT ck_processing_run_finished CHECK ((finished_at IS NULL) = (result IS NULL)),
+    -- AUTO: Erstverarbeitung ohne Vorgänger. MANUAL_REPROCESS: Benutzer, Begründung und Vorgänger
+    -- verpflichtend. RESTART_RECOVERY: Wiederanlauf nach Neustart mit Vorgänger, ohne Benutzer (ADR 0004).
     CONSTRAINT ck_processing_run_reprocess CHECK (
         (trigger_type = 'AUTO' AND parent_run_id IS NULL)
         OR (trigger_type = 'MANUAL_REPROCESS' AND parent_run_id IS NOT NULL AND requested_by IS NOT NULL AND reason IS NOT NULL)
+        OR (trigger_type = 'RESTART_RECOVERY' AND parent_run_id IS NOT NULL)
     )
 );
 
@@ -90,20 +93,22 @@ END;
 -- -------------------------------------------------------------------------------------
 -- Rechnungsausgangsbuch (append-only). Genau ein Eintrag je Run, der eine Rechnung
 -- fachlich erkannt hat. Spätere Zustände (Versand etc.) ausschließlich über processing_event.
+-- Bei REVIEW (Plausibilitätsabweichung) wird der Eintrag mit den bis dahin bekannten Werten
+-- angelegt; nicht ermittelbare Felder bleiben NULL (Vorgabe Abschnitt 52 "Plausibilitätsfehler").
 -- -------------------------------------------------------------------------------------
 CREATE TABLE ledger_entry (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     processing_run_id   INTEGER NOT NULL UNIQUE REFERENCES processing_run (id),
     tenant_id           TEXT    NOT NULL,
     document_type       TEXT    NOT NULL CHECK (document_type IN ('INVOICE', 'CREDIT_NOTE')),
-    invoice_number      TEXT    NOT NULL,
-    invoice_date        TEXT    NOT NULL,
-    customer_name       TEXT    NOT NULL,
-    currency            TEXT    NOT NULL,
-    net_total           TEXT    NOT NULL,
-    tax_total           TEXT    NOT NULL,
-    gross_total         TEXT    NOT NULL,
-    payable_amount      TEXT    NOT NULL,
+    invoice_number      TEXT,
+    invoice_date        TEXT,
+    customer_name       TEXT,
+    currency            TEXT,
+    net_total           TEXT,
+    tax_total           TEXT,
+    gross_total         TEXT,
+    payable_amount      TEXT,
     generated_formats   TEXT    NOT NULL,
     source_sha256       TEXT    NOT NULL CHECK (length(source_sha256) = 64),
     profile_name        TEXT    NOT NULL,

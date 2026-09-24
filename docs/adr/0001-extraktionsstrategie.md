@@ -57,7 +57,16 @@ Quelltext, Regel und Transformation.
 - Layoutänderungen des Briefpapiers erfordern Profilanpassung (erkennbar über `profile_hash`).
 - Die Extraktion ist deterministisch und offline; Ergebnisse sind reproduzierbar (Reprocess).
 
-## Offene Punkte
+## Ergänzung vom 2026-09-24 (Phase 2)
 
-- Verhalten bei mehreren Treffern eines Ankers (erster / eindeutigster) wird in Phase 2 mit
-  Testdaten festgelegt und im Profil konfigurierbar gemacht, falls erforderlich.
+- PDFBox liefert über `TextPosition.getXDirAdj()/getYDirAdj()` bereits Koordinaten mit Ursprung
+  links oben (y = Grundlinie); die Fragmenthöhe stammt aus `getHeightDir()`. Eine eigene
+  Achsenumrechnung entfällt.
+- Fragmente werden innerhalb eines Textlaufs an Leerzeichen und an horizontalen Lücken
+  größer als 0,6 × Schriftgröße getrennt. Die Leerzeichenbreite aus `getWidthOfSpace()` ist bei
+  eingebetteten Type0-Schriften nicht verlässlich und wird nicht verwendet.
+- Zeilen werden über die Unterkante (± halbe Zeilenhöhe) gruppiert; Tabellenzellen über die
+  linke (LEFT) bzw. rechte (RIGHT) Kante des Fragments im Spaltenbereich zugeordnet.
+- Bei mehreren Treffern eines Ankers gewinnt der erste in Leserichtung (Seite, Zeile, x).
+- Fehlt BT-55 (Käuferland) in der PDF, liefert der Geschäftsfall einen konfigurierten
+  Standardwert (`defaultBuyerCountryCode`), nachvollziehbar als Regelart `fixed` protokolliert.

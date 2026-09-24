@@ -68,6 +68,9 @@ classification:
   # HINWEIS: Für AE, G und E verlangt EN 16931 einen Befreiungsgrund (BT-120 Text und/oder
   # BT-121 Code, Codeliste VATEX). Die konkreten Codes/Texte je Fall sind fachlich vor Phase 2
   # festzulegen und werden hier bewusst NICHT erfunden (siehe Offene Punkte Phase 1).
+  # defaultBuyerCountryCode: BT-55 (Pflichtfeld in EN 16931), falls die PDF kein Käuferland
+  # ausweist. Inlandsrechnungen drucken das Land meist nicht; bei EU-/Drittlandsfällen muss es
+  # aus der PDF kommen (BT-55-Regel unter fields, z. B. letzte Adresszeile), daher dort kein Standard.
   businessCases:
     - id: EU_REVERSE_CHARGE
       vatCategoryCode: AE
@@ -82,11 +85,13 @@ classification:
     - id: NO_VAT
       vatCategoryCode: E
       exemptionReasonText: "Kein Ausweis von Umsatzsteuer gemäß § 19 UStG"
+      defaultBuyerCountryCode: DE
       indicators:
         - regex: "(?i)§\\s*19\\s*UStG|Kleinunternehmer"
     - id: DOMESTIC_STANDARD
       vatCategoryCode: S
       defaultCase: true
+      defaultBuyerCountryCode: DE
       indicators: []
 
 # -------------------------------------------------------------------------------------
@@ -230,6 +235,16 @@ fields:
       height: 14
       regionMode: FIRST_LINE
     transform: [trim, "regexReplace:/^\\d{5}\\s+(.*)$/$1/"]
+
+  # ---- regex: elektronische Adresse des Käufers (BT-49), falls aufgedruckt ----
+  - businessTerm: BT-49
+    required: false
+    rule:
+      type: regex
+      page: 1
+      pattern: "(?i)E-?Mail(?:-Adresse)?\\s*(?:des\\s+Kunden)?:?\\s*([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,})"
+      group: 1
+    transform: [trim, lower]
 
   # ---- regex: USt-IdNr. des Käufers (falls aufgedruckt) ----
   - businessTerm: BT-48
@@ -444,6 +459,7 @@ lineItems:
 # tolerance: absolute Toleranz je Vergleich (Standard 0,01). Eine abweichende Rundungsregel
 # muss hier ausdrücklich definiert und fachlich freigegeben sein.
 # checks:
+#   LINE_AMOUNT          je Position: BT-146 x BT-129 (/ BT-149) = BT-131
 #   LINE_SUM             Summe BT-131 = BT-106
 #   NET_TOTAL            BT-106 - BT-107 + BT-108 = BT-109
 #   TAX_BASIS_PER_RATE   Summe BT-116 = BT-109
@@ -456,6 +472,7 @@ lineItems:
 plausibility:
   tolerance: 0.01
   checks:
+    - LINE_AMOUNT
     - LINE_SUM
     - NET_TOTAL
     - TAX_BASIS_PER_RATE
@@ -483,6 +500,8 @@ generation:
     invoice: "380"
     credit-note: "381"
   defaultCurrency: EUR
+  # BT-130 je Position, wenn die Tabelle keine Einheit liefert (UN/ECE Rec. 20): C62 = Stück/Einheit
+  defaultUnitCode: C62
 
 # -------------------------------------------------------------------------------------
 # 6. Postprozess (optional, Vorgabe Abschnitte 22 und 23) – Implementierung Phase 4

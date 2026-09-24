@@ -42,6 +42,21 @@ Ausgangsdokumente folgen einem Profil-Template; Kollisionen sind Fehler.
    Integritätsprüfung (Rehash und Vergleich) wird als Systemstatus-Funktion (Phase 5)
    vorgesehen, verändert nichts.
 
+## Ergänzung vom 2026-09-24 (Phase 2)
+
+- **Kollision gleicher Rechnungsnummern:** Zwei verschiedene Quell-PDFs (unterschiedlicher
+  SHA-256) mit derselben Rechnungsnummer würden dasselbe `run-NNN` beanspruchen, da Run-Nummern
+  je Quelldokument zählen. In diesem Fall verwendet das Archiv `run-NNN_<sha256-prefix>` und
+  protokolliert eine Warnung; der tatsächliche Pfad steht im Ledger (`artifact.path`). Fachlich
+  ist das ein Hinweis auf eine doppelt vergebene Rechnungsnummer; die Verarbeitung scheitert
+  in `output/` an der Dateinamenskollision (FAILED), das Archiv bleibt aber vollständig.
+- **Fehlerpfade sind best effort getrennt:** Archivierung, Ledger-Eintrag und Ablage in
+  `failed/`/`manual-review/`/`rejected/` werden unabhängig voneinander versucht, damit ein
+  Fehler in einem Schritt nie dazu führt, dass das Original in `processing/` verbleibt.
+- **Bei REVIEW/FAILED/REJECTED** wird das Original in das Archiv kopiert und nach
+  `manual-review/<sha8>_<name>/`, `failed/<sha8>_<name>/` bzw. `rejected/` verschoben; dort
+  liegen zusätzlich `pruefung.txt` bzw. `fehler.txt` mit Korrelations-ID und Begründung.
+
 ## Alternativen
 
 - **Archiv als ZIP je Run:** kompakter, aber Einzelzugriff und Schreibschutz schwieriger;
