@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Export-Einstellungen')}"></head>
+<body>
+<header th:replace="~{layout :: topbar('rechnungen')}"></header>
+<main>
+    <p><a th:href="@{/rechnungen/export(tenant=${tenantId})}">‹ Zurück zum Export</a></p>
+    <h1>Export-Einstellungen (DATEV-Buchungsstapel)</h1>
+    <p class="subtitle">Alle Werte stammen vom Steuerberater bzw. aus dem DATEV-Mandat. Jede Speicherung erzeugt einen neuen Datensatz mit Benutzer und Zeitpunkt; die Historie bleibt erhalten. Feldregeln: <code>docs/datev-format-referenz.md</code>.</p>
+    <div th:replace="~{layout :: flash}"></div>
+    <div class="notice error" th:if="${error}" th:text="${error}"></div>
+
+    <section class="card">
+        <form class="filters" method="get" th:action="@{/rechnungen/export/einstellungen}">
+            <label class="field">Mandant
+                <select name="tenant" onchange="this.form.submit()"><option th:each="t : ${tenants}" th:value="${t.id}" th:text="${t.name}" th:selected="${t.id == tenantId}"></option></select>
+            </label>
+            <span class="small muted">Aktuell wirksam: <span th:text="${source.name() == 'DATABASE'} ? 'in der Oberfläche gespeicherte Einstellungen' : (${source.name() == 'YAML'} ? 'config/tenant.yaml (noch nie in der Oberfläche gespeichert)' : 'keine DATEV-Konfiguration')"></span></span>
+        </form>
+    </section>
+
+    <form method="post" th:action="@{/rechnungen/export/einstellungen}">
+        <input type="hidden" name="tenant" th:value="${tenantId}">
+        <div class="grid grid-3">
+            <section class="card">
+                <h2>Mandat</h2>
+                <label style="display:block;margin-bottom:.6rem"><input type="checkbox" name="enabled" th:checked="${form.enabled}"> DATEV-Buchungsstapel anbieten</label>
+                <label class="field">Beraternummer (Kopfzeile #11, 4–7 Ziffern)<input type="text" name="consultantNumber" th:value="${form.consultantNumber}" inputmode="numeric"></label>
+                <label class="field">Mandantennummer (Kopfzeile #12, 1–5 Ziffern)<input type="text" name="clientNumber" th:value="${form.clientNumber}" inputmode="numeric"></label>
+                <label class="field">Wirtschaftsjahresbeginn (MM-TT)<input type="text" name="fiscalYearStart" th:value="${form.fiscalYearStart}" placeholder="01-01"></label>
+                <label class="field">Sachkontenrahmen
+                    <select name="chartOfAccounts">
+                        <option value="03" th:selected="${form.chartOfAccounts == '03'}">SKR03</option>
+                        <option value="04" th:selected="${form.chartOfAccounts == '04'}">SKR04</option>
+                        <option th:if="${form.chartOfAccounts != '03' and form.chartOfAccounts != '04'}" th:value="${form.chartOfAccounts}" th:text="${form.chartOfAccounts}" selected></option>
+                    </select>
+                </label>
+                <label class="field">Sachkontenlänge (4–8)<input type="number" name="accountLength" min="4" max="8" th:value="${form.accountLength}"></label>
+            </section>
+            <section class="card">
+                <h2>Konten</h2>
+                <label class="field">Debitorenstrategie
+                    <select name="debtorStrategy">
+                        <option value="COLLECTIVE" th:selected="${form.debtorStrategy == 'COLLECTIVE'}">Sammeldebitor</option>
+                        <option value="PER_CUSTOMER" th:selected="${form.debtorStrategy == 'PER_CUSTOMER'}">Konto je Kunde</option>
+                    </select>
+                </label>
+                <label class="field">Sammel-Debitorenkonto (bei Sammeldebitor)<input type="text" name="collectiveDebtorAccount" th:value="${form.collectiveDebtorAccount}" inputmode="numeric"></label>
+                <label class="field">Debitorenkonto je Kunde (eine Zeile je Kunde: <code>Kundenname = Konto</code>, Kundenname exakt wie auf der Rechnung)
+                    <textarea name="customerAccounts" rows="5" th:text="${form.customerAccounts}"></textarea></label>
+                <label class="field">Erlöskonto je Steuerfall (eine Zeile: <code>GESCHÄFTSFALL:Steuersatz = Konto</code> oder <code>GESCHÄFTSFALL = Konto ; BU-Schlüssel</code>)
+                    <textarea name="revenueAccounts" rows="7" th:text="${form.revenueAccounts}"></textarea></label>
+                <p class="small muted">Beispiele: <code>DOMESTIC_STANDARD:19 = 8400</code>, <code>DOMESTIC_STANDARD:7 = 8300</code>, <code>EU_REVERSE_CHARGE = 8336 ; 0094</code>. Ohne Steuersatz gilt die Zeile für alle Sätze des Geschäftsfalls.</p>
+            </section>
+            <section class="card">
+                <h2>Kopfzeile und Buchungstext</h2>
+                <label class="field">Herkunft (Kopfzeile #8, max. 2 Zeichen)<input type="text" name="origin" th:value="${form.origin}" maxlength="2"></label>
+                <label class="field">Exportiert von (Kopfzeile #9, max. 25 Wortzeichen)<input type="text" name="exportedBy" th:value="${form.exportedBy}" maxlength="25"></label>
+                <label class="field">Diktatkürzel (Kopfzeile #18, 2 oder 4 Großbuchstaben, optional)<input type="text" name="dictationShortcut" th:value="${form.dictationShortcut}" maxlength="4"></label>
+                <label style="display:block;margin:.6rem 0"><input type="checkbox" name="lockRecords" th:checked="${form.lockRecords}"> Festschreibung (Kopfzeile #21, Feld #114)</label>
+                <label class="field">Buchungstext (Feld #14, max. 60 Zeichen; Platzhalter {invoiceNumber}, {customerName}, {invoiceDate})<input type="text" name="bookingTextTemplate" th:value="${form.bookingTextTemplate}"></label>
+                <hr style="margin:1rem 0;border:0;border-top:1px solid #e3e8ef">
+                <label class="field">Benutzer<input type="text" name="user" th:value="${user}" required></label>
+                <label class="field">Notiz (z. B. „Konten laut Steuerberater vom …")<input type="text" name="note" th:value="${note}"></label>
+                <button class="btn" type="submit" style="margin-top:.6rem">Einstellungen speichern</button>
+            </section>
+        </div>
+    </form>
+
+    <section class="card">
+        <h2>Historie</h2>
+        <table class="data compact" th:if="${!#lists.isEmpty(history)}">
+            <thead><tr><th>Zeitpunkt</th><th>Benutzer</th><th>Notiz</th><th>Aktiv</th><th>Berater/Mandant</th><th>SKR</th><th>Debitor</th><th>Erlöskonten</th></tr></thead>
+            <tbody>
+            <tr th:each="h : ${history}">
+                <td class="nowrap" th:text="${@fmt.dateTime(h.createdAt)}"></td>
+                <td th:text="${h.createdBy}"></td>
+                <td th:text="${h.note}"></td>
+                <td th:text="${h.datevEnabled} ? 'ja' : 'nein'"></td>
+                <td th:text="${h.consultantNumber} + ' / ' + ${h.clientNumber}"></td>
+                <td th:text="${h.chartOfAccounts} + ' (' + ${h.accountLength} + ')'"></td>
+                <td th:text="${h.debtorStrategy == 'COLLECTIVE'} ? ${h.collectiveDebtorAccount} : 'je Kunde'"></td>
+                <td class="small mono" th:text="${h.revenueAccountsJson}"></td>
+            </tr>
+            </tbody>
+        </table>
+        <p class="muted" th:if="${#lists.isEmpty(history)}">Noch keine Einstellungen in der Oberfläche gespeichert; es gilt config/tenant.yaml.</p>
+    </section>
+</main>
+<footer th:replace="~{layout :: footer}"></footer>
+</body>
+</html>

@@ -61,12 +61,15 @@ Das ist ein eigener, noch nicht freigegebener Schritt.
 - Flyway-Stand ist 2; `ApplicationContextAndSchemaTest` prüft Tabellen, Spalten und Trigger.
 - `LedgerEntryRow` hat vier zusätzliche Felder; alle Aufrufer wurden angepasst.
 - Oberfläche: Export-Download verlangt `user`; Exportseite zeigt Herkunft der Einstellungen
-  (Datenbank / YAML) und das Exportprotokoll. Die Pflegeseiten (Einstellungen bearbeiten,
-  Rechnungsfelder ergänzen) sind der nächste Schritt; die Services dafür sind vorhanden und getestet.
+  (Datenbank / YAML) und das Exportprotokoll.
+- **Pflegeseiten (Schritt 3, 2026-09-24):** „Export-Einstellungen" unter
+  `/rechnungen/export/einstellungen` (Formular je Mandant, Kontenzuordnungen als Zeilen
+  `Schlüssel = Konto [; BU]`, Fehler kommen mit den Eingaben ins Formular zurück, Historie
+  darunter) und Karte „DATEV-Zusatzfelder" auf der Rechnungsdetailseite (extrahierte Werte,
+  jüngste Angabe, Formular, Historie). Beide verlangen einen Benutzernamen.
 
 ## Offene Punkte
 
-- **Pflegeseiten** für `export_settings` und `invoice_export_field` (Schritt 3).
 - **Belegtransfer-Verzeichnis** als Postprozess (Schritt 4); benötigt vermutlich ein neues
   Event in `processing_event` und damit V3.
 - **Zugriffsschutz** bleibt wie in ADR 0008 offen; Kontenänderungen sind ohne Anmeldung möglich,

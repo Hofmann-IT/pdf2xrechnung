@@ -151,6 +151,40 @@
                 <button class="btn secondary" type="submit" style="margin-top:.5rem">Reprocess starten</button>
             </form>
         </section>
+        <section class="card">
+            <h2>DATEV-Zusatzfelder</h2>
+            <p class="small muted">Für den DATEV-Buchungsstapel. Angaben gelten je Quelldokument, haben Vorrang vor extrahierten Werten und werden nie überschrieben (Historie unten). Leistungsdatum nur nach Absprache mit dem Steuerberater und nur zusammen mit dem Datum der Steuerperiode.</p>
+            <dl class="kv">
+                <dt>Fälligkeit (extrahiert, BT-9)</dt><dd th:text="${row.entry != null and row.entry.dueDate != null} ? ${@fmt.date(row.entry.dueDate)} : '–'"></dd>
+                <dt>Lieferdatum (extrahiert, BT-72)</dt><dd th:text="${row.entry != null and row.entry.deliveryDate != null} ? ${@fmt.date(row.entry.deliveryDate)} : '–'"></dd>
+                <dt>USt-IdNr. Kunde (extrahiert, BT-48)</dt><dd th:text="${row.entry != null and row.entry.buyerVatId != null} ? ${row.entry.buyerVatId} : '–'"></dd>
+                <th:block th:if="${exportFields != null}">
+                    <dt>Leistungsdatum (#115)</dt><dd th:text="${exportFields.serviceDate != null} ? ${@fmt.date(exportFields.serviceDate)} : '–'"></dd>
+                    <dt>Steuerperiode (#116)</dt><dd th:text="${exportFields.taxPeriodDate != null} ? ${@fmt.date(exportFields.taxPeriodDate)} : '–'"></dd>
+                    <dt>Fälligkeit (#117, Angabe)</dt><dd th:text="${exportFields.dueDate != null} ? ${@fmt.date(exportFields.dueDate)} : '–'"></dd>
+                    <dt>USt-IdNr. (#40, Angabe)</dt><dd th:text="${exportFields.buyerVatId != null} ? ${exportFields.buyerVatId} : '–'"></dd>
+                    <dt>Erfasst</dt><dd><span th:text="${@fmt.dateTime(exportFields.createdAt)}"></span> von <span th:text="${exportFields.createdBy}"></span></dd>
+                </th:block>
+            </dl>
+            <form th:action="@{/rechnungen/{id}/export-felder(id=${row.run.id})}" method="post" style="margin-top:.8rem">
+                <label class="field">Leistungsdatum (#115)<input type="date" name="serviceDate" th:value="${exportFields != null} ? ${exportFields.serviceDate} : ''"></label>
+                <label class="field">Datum Zuordnung Steuerperiode (#116)<input type="date" name="taxPeriodDate" th:value="${exportFields != null} ? ${exportFields.taxPeriodDate} : ''"></label>
+                <label class="field">Fälligkeit (#117)<input type="date" name="dueDate" th:value="${exportFields != null} ? ${exportFields.dueDate} : ''"></label>
+                <label class="field">USt-IdNr. Kunde (#40, z. B. DE133546770)<input type="text" name="buyerVatId" th:value="${exportFields != null} ? ${exportFields.buyerVatId} : ''"></label>
+                <label class="field">Notiz<input type="text" name="note"></label>
+                <label class="field">Benutzer<input type="text" name="user" required></label>
+                <button class="btn secondary" type="submit" style="margin-top:.5rem">Zusatzfelder speichern</button>
+            </form>
+            <details th:if="${!#lists.isEmpty(exportFieldHistory)}" style="margin-top:.6rem">
+                <summary class="small" th:text="'Historie (' + ${#lists.size(exportFieldHistory)} + ')'"></summary>
+                <ul class="small">
+                    <li th:each="h : ${exportFieldHistory}"><span th:text="${@fmt.dateTime(h.createdAt)}"></span> · <span th:text="${h.createdBy}"></span>:
+                        #115 <span th:text="${h.serviceDate} ?: '–'"></span>, #116 <span th:text="${h.taxPeriodDate} ?: '–'"></span>,
+                        #117 <span th:text="${h.dueDate} ?: '–'"></span>, #40 <span th:text="${h.buyerVatId} ?: '–'"></span>
+                        <span th:if="${h.note != null}" th:text="' (' + ${h.note} + ')'"></span></li>
+                </ul>
+            </details>
+        </section>
         <section class="card" th:if="${canDispatch}">
             <h2>Versand</h2>
             <p class="small muted">Erneuter Versand per SMTP an die im Profil hinterlegten Empfänger. Jeder Versuch wird protokolliert.</p>

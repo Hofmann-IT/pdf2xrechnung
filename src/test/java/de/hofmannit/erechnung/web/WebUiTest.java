@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -25,6 +26,7 @@ import de.hofmannit.erechnung.ledger.EventType;
 import de.hofmannit.erechnung.ledger.ExportRepository;
 import de.hofmannit.erechnung.ledger.LedgerRepository;
 import de.hofmannit.erechnung.ledger.Rows.LedgerEntryRow;
+import de.hofmannit.erechnung.ledger.Rows.LedgerTaxLineRow;
 import de.hofmannit.erechnung.ledger.Rows.ProcessingRunRow;
 import de.hofmannit.erechnung.ledger.Rows.SourceDocumentRow;
 import de.hofmannit.erechnung.ledger.RunResult;
@@ -39,7 +41,10 @@ import de.hofmannit.erechnung.security.Sha256;
 import de.hofmannit.erechnung.testsupport.TestInvoicePdf;
 
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -54,6 +59,7 @@ import org.springframework.test.web.servlet.MvcResult;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class WebUiTest {
 
     static final Path ROOT = createRoot();
@@ -130,7 +136,7 @@ class WebUiTest {
         ledger.createArtifact(run.id(), ArtifactType.XRECHNUNG_CII, "2026/09/RE-2026-4711/run-001/invoice-cii.xml", Sha256.ofBytes(ciiBytes), ciiBytes.length, Instant.now());
         ledger.createLedgerEntry(new LedgerEntryRow(0, run.id(), "hofmann-it", "INVOICE", "RE-2026-4711", "2026-09-24", "Beispiel GmbH", "EUR",
                 "1560.00", "296.40", "1856.40", "1856.40", "[\"XRECHNUNG_CII\"]", sha, "standard", profile.sha256(), "test", "DOMESTIC_STANDARD",
-                "2026-10-08", null, null, null, Instant.now()), List.of());
+                "2026-10-08", null, null, null, Instant.now()), List.of(new LedgerTaxLineRow(0, 0, "S", "19.00", "1560.00", "296.40")));
         ledger.finishRun(run.id(), Instant.now(), RunResult.SUCCESS);
         // Vorgang in manual-review/
         Path review = Files.createDirectories(ROOT.resolve("manual-review").resolve("abcdef12_Rechnung RE-2026-4712"));
@@ -169,7 +175,9 @@ class WebUiTest {
         assertThat(fragment).contains("RE-2026-4711").doesNotContain("<html");
     }
 
+    /** Läuft vor dem Einstellungstest, weil dieser Einstellungen dauerhaft (append-only) speichert. */
     @Test
+    @Order(1)
     void exportPagePreviewAndCsvDownload() throws Exception {
         prepare();
         String page = body(mvc.perform(get("/rechnungen/export")).andExpect(status().isOk()).andReturn());
@@ -206,6 +214,82 @@ class WebUiTest {
         assertThat(log.get(0).variant()).isEqualTo("CSV");
         String pageAfter = body(mvc.perform(get("/rechnungen/export")).andExpect(status().isOk()).andReturn());
         assertThat(pageAfter).contains("Exportprotokoll").contains("rechnungsausgangsbuch_hofmann-it_anfang_ende.csv").contains("aus config/tenant.yaml");
+    }
+
+    @Test
+    @Order(2)
+    void exportSettingsPageSavesValidatedHistory() throws Exception {
+        prepare();
+        String page = body(mvc.perform(get("/rechnungen/export/einstellungen").param("tenant", "hofmann-it")).andExpect(status().isOk()).andReturn());
+        assertThat(page).contains("Export-Einstellungen").contains("noch nie in der Oberfläche gespeichert")
+                .contains("DOMESTIC_STANDARD:19 = 8400").contains("name=\"consultantNumber\"");
+
+        // Ungültig (Beraternummer zu kurz): Formular kommt mit Meldung und Eingaben zurück, nichts gespeichert
+        String invalid = body(mvc.perform(post("/rechnungen/export/einstellungen").param("tenant", "hofmann-it").param("user", "uwe")
+                .param("enabled", "on").param("consultantNumber", "12").param("clientNumber", "7").param("fiscalYearStart", "01-01")
+                .param("accountLength", "4").param("chartOfAccounts", "04").param("debtorStrategy", "COLLECTIVE")
+                .param("collectiveDebtorAccount", "10000").param("revenueAccounts", "DOMESTIC_STANDARD:19 = 4400")
+                .param("lockRecords", "on").param("bookingTextTemplate", "Rechnung {invoiceNumber}")).andExpect(status().isOk()).andReturn());
+        assertThat(invalid).contains("Beraternummer").contains("value=\"12\"").contains("DOMESTIC_STANDARD:19 = 4400");
+        assertThat(exportRepository.settingsHistory("hofmann-it")).isEmpty();
+
+        // Zuordnungszeile ohne '=' wird gemeldet
+        String badLine = body(mvc.perform(post("/rechnungen/export/einstellungen").param("tenant", "hofmann-it").param("user", "uwe")
+                .param("enabled", "on").param("consultantNumber", "29098").param("clientNumber", "7").param("accountLength", "4")
+                .param("chartOfAccounts", "04").param("collectiveDebtorAccount", "10000").param("revenueAccounts", "DOMESTIC_STANDARD:19 4400")
+                .param("bookingTextTemplate", "x")).andExpect(status().isOk()).andReturn());
+        assertThat(badLine).contains("Schlüssel = Konto");
+
+        // Gültig: SKR04 mit Konto je Kunde und BU-Schlüssel → Redirect, Historie, Export nutzt die neuen Werte
+        mvc.perform(post("/rechnungen/export/einstellungen").param("tenant", "hofmann-it").param("user", "uwe").param("note", "laut StB")
+                .param("enabled", "on").param("consultantNumber", "29098").param("clientNumber", "55003").param("fiscalYearStart", "01-01")
+                .param("accountLength", "4").param("chartOfAccounts", "04").param("debtorStrategy", "PER_CUSTOMER")
+                .param("customerAccounts", "Beispiel GmbH = 10001\n# Kommentar\n")
+                .param("revenueAccounts", "DOMESTIC_STANDARD:19 = 4400\nEU_REVERSE_CHARGE = 4336 ; 0094\n")
+                .param("origin", "RE").param("exportedBy", "Test").param("lockRecords", "on").param("bookingTextTemplate", "Rechnung {invoiceNumber}"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", "/rechnungen/export/einstellungen?tenant=hofmann-it"));
+        var history = exportRepository.settingsHistory("hofmann-it");
+        assertThat(history).hasSize(1);
+        assertThat(history.get(0).createdBy()).isEqualTo("uwe");
+        assertThat(history.get(0).chartOfAccounts()).isEqualTo("04");
+        assertThat(history.get(0).customerAccountsJson()).contains("\"Beispiel GmbH\":\"10001\"");
+        assertThat(history.get(0).revenueAccountsJson()).contains("\"buKey\":\"0094\"");
+
+        String after = body(mvc.perform(get("/rechnungen/export/einstellungen").param("tenant", "hofmann-it")).andExpect(status().isOk()).andReturn());
+        assertThat(after).contains("in der Oberfläche gespeicherte Einstellungen").contains("EU_REVERSE_CHARGE = 4336 ; 0094").contains("laut StB");
+
+        String exportPage = body(mvc.perform(get("/rechnungen/export").param("tenant", "hofmann-it")).andExpect(status().isOk()).andReturn());
+        assertThat(exportPage).contains("DATEV-Format Buchungsstapel (EXTF)").contains("aus der Datenbank");
+        MvcResult datev = mvc.perform(get("/rechnungen/export/download").param("tenant", "hofmann-it").param("variant", "DATEV_BUCHUNGSSTAPEL")
+                .param("von", "2026-09-01").param("bis", "2026-09-30").param("user", "uwe")).andExpect(status().isOk()).andReturn();
+        String extf = new String(datev.getResponse().getContentAsByteArray(), java.nio.charset.Charset.forName("windows-1252"));
+        assertThat(extf).startsWith("\"EXTF\";700;21;\"Buchungsstapel\";13;").contains(";29098;55003;").contains(";10001;4400;");
+    }
+
+    @Test
+    void invoiceExportFieldsAreSavedPerSourceDocument() throws Exception {
+        prepare();
+        String before = body(mvc.perform(get("/rechnungen/" + runId)).andExpect(status().isOk()).andReturn());
+        assertThat(before).contains("DATEV-Zusatzfelder").contains("08.10.2026");
+
+        // #115 ohne #116 wird abgelehnt
+        mvc.perform(post("/rechnungen/" + runId + "/export-felder").param("user", "uwe").param("serviceDate", "2026-09-15"))
+                .andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("error"));
+        assertThat(exportRepository.invoiceFieldHistory(sourceId())).isEmpty();
+
+        mvc.perform(post("/rechnungen/" + runId + "/export-felder").param("user", "uwe").param("serviceDate", "2026-09-15")
+                .param("taxPeriodDate", "2026-09-15").param("buyerVatId", "de 133546770").param("note", "StB"))
+                .andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("notice"));
+        var fields = exportRepository.latestInvoiceFields(sourceId()).orElseThrow();
+        assertThat(fields.serviceDate()).isEqualTo("2026-09-15");
+        assertThat(fields.buyerVatId()).isEqualTo("DE133546770");
+        String after = body(mvc.perform(get("/rechnungen/" + runId)).andExpect(status().isOk()).andReturn());
+        assertThat(after).contains("15.09.2026").contains("DE133546770").contains("Historie (1)");
+    }
+
+    private long sourceId() {
+        return ledger.findInvoice(runId).orElseThrow().source().id();
     }
 
     @Test
@@ -298,6 +382,7 @@ class WebUiTest {
         snapshot(out, "rechnungen.html", body(mvc.perform(get("/rechnungen")).andReturn()));
         snapshot(out, "rechnung-detail.html", body(mvc.perform(get("/rechnungen/" + runId)).andReturn()));
         snapshot(out, "export.html", body(mvc.perform(get("/rechnungen/export/vorschau").param("tenant", "hofmann-it").param("variant", "CSV").param("user", "uwe")).andReturn()));
+        snapshot(out, "export-einstellungen.html", body(mvc.perform(get("/rechnungen/export/einstellungen").param("tenant", "hofmann-it")).andReturn()));
         snapshot(out, "pruefen.html", body(mvc.perform(get("/pruefen")).andReturn()));
         MockMultipartFile file = new MockMultipartFile("file", "eingang.xml", "application/xml", ciiBytes);
         snapshot(out, "pruefen-ergebnis.html", body(mvc.perform(multipart("/pruefen").file(file)).andReturn()));

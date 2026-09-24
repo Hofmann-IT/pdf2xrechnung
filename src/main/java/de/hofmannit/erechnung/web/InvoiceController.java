@@ -13,7 +13,10 @@ import de.hofmannit.erechnung.configuration.DirectoryLayout;
 import de.hofmannit.erechnung.configuration.profile.ProfileRegistry;
 import de.hofmannit.erechnung.dispatch.DispatchException;
 import de.hofmannit.erechnung.dispatch.PostProcessService;
+import de.hofmannit.erechnung.export.ExportException;
+import de.hofmannit.erechnung.export.ExportSettingsService;
 import de.hofmannit.erechnung.ledger.EventType;
+import de.hofmannit.erechnung.ledger.ExportRepository;
 import de.hofmannit.erechnung.ledger.InvoiceStatus;
 import de.hofmannit.erechnung.ledger.LedgerRepository;
 import de.hofmannit.erechnung.ledger.Rows.ArtifactRow;
@@ -51,16 +54,21 @@ public class InvoiceController {
     private final ReprocessService reprocess;
     private final TenantExecutors executors;
     private final PostProcessService postProcess;
+    private final ExportSettingsService exportSettings;
+    private final ExportRepository exportRepository;
     private final ObjectMapper json;
 
     public InvoiceController(LedgerRepository ledger, DirectoryLayout layout, ProfileRegistry registry, ReprocessService reprocess,
-                             TenantExecutors executors, PostProcessService postProcess, ObjectMapper json) {
+                             TenantExecutors executors, PostProcessService postProcess, ExportSettingsService exportSettings,
+                             ExportRepository exportRepository, ObjectMapper json) {
         this.ledger = ledger;
         this.layout = layout;
         this.registry = registry;
         this.reprocess = reprocess;
         this.executors = executors;
         this.postProcess = postProcess;
+        this.exportSettings = exportSettings;
+        this.exportRepository = exportRepository;
         this.json = json;
     }
 
@@ -101,8 +109,26 @@ public class InvoiceController {
         model.addAttribute("canDispatch", row.run().result() == de.hofmannit.erechnung.ledger.RunResult.SUCCESS
                 && registry.profile(row.run().profileName()).map(p -> p.definition().postProcess() != null
                         && p.definition().postProcess().email() != null && p.definition().postProcess().email().enabled()).orElse(false));
+        model.addAttribute("exportFields", exportRepository.latestInvoiceFields(row.source().id()).orElse(null));
+        model.addAttribute("exportFieldHistory", exportRepository.invoiceFieldHistory(row.source().id()));
         model.addAttribute("active", "rechnungen");
         return "invoice-detail";
+    }
+
+    /** Ergänzt DATEV-Felder (#115/#116, #117, #40) je Quelldokument; append-only, gilt für alle Runs des Dokuments (ADR 0010). */
+    @PostMapping("/rechnungen/{runId}/export-felder")
+    public String exportFields(@PathVariable long runId, @RequestParam String user, @RequestParam(required = false) String serviceDate,
+                               @RequestParam(required = false) String taxPeriodDate, @RequestParam(required = false) String dueDate,
+                               @RequestParam(required = false) String buyerVatId, @RequestParam(required = false) String note,
+                               RedirectAttributes redirect) {
+        InvoiceListRow row = ledger.findInvoice(runId).orElseThrow(() -> new NotFoundException("Run " + runId + " existiert nicht"));
+        try {
+            exportSettings.saveInvoiceFields(row.source().id(), serviceDate, taxPeriodDate, dueDate, buyerVatId, user, note);
+            redirect.addFlashAttribute("notice", "DATEV-Zusatzfelder gespeichert. Sie gelten für alle Runs dieses Dokuments und werden beim nächsten Export verwendet.");
+        } catch (ExportException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/rechnungen/" + runId;
     }
 
     @GetMapping("/rechnungen/{runId}/artefakt/{artifactId}")

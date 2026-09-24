@@ -23,7 +23,8 @@
             <span id="busy" class="htmx-indicator">Erzeuge Vorschau …</span>
         </form>
         <p class="small muted" th:unless="${datevConfigured}">Für diesen Mandanten ist kein DATEV-Buchungsstapel konfiguriert (Export-Einstellungen bzw. export.datev.enabled: false).</p>
-        <p class="small muted" th:if="${settingsSource != null}">DATEV-Einstellungen: <span th:text="${settingsSource.name() == 'DATABASE'} ? 'aus der Datenbank (in der Oberfläche gespeichert)' : (${settingsSource.name() == 'YAML'} ? 'aus config/tenant.yaml' : 'nicht konfiguriert')"></span></p>
+        <p class="small muted" th:if="${settingsSource != null}">DATEV-Einstellungen: <span th:text="${settingsSource.name() == 'DATABASE'} ? 'aus der Datenbank (in der Oberfläche gespeichert)' : (${settingsSource.name() == 'YAML'} ? 'aus config/tenant.yaml' : 'nicht konfiguriert')"></span>
+            · <a th:href="@{/rechnungen/export/einstellungen(tenant=${tenantId})}">Einstellungen bearbeiten</a></p>
     </section>
 
     <div id="preview" th:fragment="preview">
