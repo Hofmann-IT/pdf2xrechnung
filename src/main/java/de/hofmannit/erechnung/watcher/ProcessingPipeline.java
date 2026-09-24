@@ -405,7 +405,7 @@ public class ProcessingPipeline {
         }
 
         private static String reportBaseName(ValidationReport r) {
-            return "validation-" + r.validator().name().toLowerCase(Locale.ROOT) + "-" + r.target().name().toLowerCase(Locale.ROOT);
+            return "validation-" + r.validator().name().toLowerCase(Locale.ROOT) + "-" + r.target().toLowerCase(Locale.ROOT);
         }
 
         private void recordValidation(Path runDir, List<ValidationReport> reports, Map<ValidationReport, GeneratedArtifact> reportArtifact) throws IOException {
@@ -421,7 +421,7 @@ public class ProcessingPipeline {
                 if (Files.exists(html)) {
                     htmlId = registerArtifact(ArtifactType.VALIDATION_HTML, archive.archiveCopy(runDir, name + ".html", html));
                 }
-                ledger.createValidationResult(new ValidationResultRow(0, run.id(), null, r.validator().name(), r.target().name(),
+                ledger.createValidationResult(new ValidationResultRow(0, run.id(), null, r.validator().name(), r.target(),
                         r.outcome().name(), r.ruleset(), (int) r.errorCount(), (int) r.warningCount(), xmlId, htmlId, r.validatedAt()));
             }
         }

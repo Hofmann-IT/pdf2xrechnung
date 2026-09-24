@@ -44,20 +44,21 @@ public class ValidationService {
      */
     public List<ValidationReport> validate(OutputFormat format, Path artifact, Path workDir) {
         List<ValidationReport> reports = new ArrayList<>();
+        String target = format.name();
         switch (format) {
             case XRECHNUNG_CII, XRECHNUNG_UBL -> {
-                reports.add(kosit.validate(format, true, artifact));
-                reports.add(mustang.validate(format, false, artifact));
+                reports.add(kosit.validate(target, true, artifact));
+                reports.add(mustang.validate(target, false, artifact));
             }
             case ZUGFERD_EN16931, ZUGFERD_XRECHNUNG -> {
-                reports.add(mustang.validate(format, true, artifact));
+                reports.add(mustang.validate(target, true, artifact));
                 boolean kositMandatory = format == OutputFormat.ZUGFERD_XRECHNUNG;
                 try {
                     Path embedded = extractEmbeddedXml(artifact, workDir);
-                    reports.add(kosit.validate(format, kositMandatory, embedded));
+                    reports.add(kosit.validate(target, kositMandatory, embedded));
                 } catch (Exception e) {
                     log.warn("Eingebettete XML konnte nicht extrahiert werden: {}", e.toString());
-                    reports.add(new ValidationReport(ValidatorKind.KOSIT, format, kositMandatory, ValidationOutcome.ERROR, null,
+                    reports.add(new ValidationReport(ValidatorKind.KOSIT, target, kositMandatory, ValidationOutcome.ERROR, null,
                             List.of(), null, null, Instant.now(), "Eingebettete XML nicht extrahierbar: " + e.getMessage()));
                 }
             }

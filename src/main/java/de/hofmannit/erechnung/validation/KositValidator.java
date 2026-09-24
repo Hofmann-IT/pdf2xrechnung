@@ -13,7 +13,6 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 import de.hofmannit.erechnung.configuration.AppProperties;
-import de.hofmannit.erechnung.model.OutputFormat;
 import de.hofmannit.erechnung.security.SecureXml;
 import de.hofmannit.erechnung.validation.ValidationFinding.Severity;
 
@@ -95,7 +94,7 @@ public class KositValidator {
         }
     }
 
-    public ValidationReport validate(OutputFormat target, boolean mandatory, Path xmlFile) {
+    public ValidationReport validate(String target, boolean mandatory, Path xmlFile) {
         Instant now = Instant.now();
         Check c;
         try {

@@ -3,13 +3,12 @@ package de.hofmannit.erechnung.validation;
 import java.time.Instant;
 import java.util.List;
 
-import de.hofmannit.erechnung.model.OutputFormat;
-
 /**
  * Ergebnis eines Validators für ein Dokument (Vorgabe Abschnitte 11–13).
  *
  * @param validator   KoSIT oder Mustang
- * @param target      geprüftes Format
+ * @param target      geprüftes Format (Name eines {@code OutputFormat} bei Ausgangsrechnungen,
+ *                    bei empfangenen Dokumenten z. B. {@code CII}, {@code UBL}, {@code ZUGFERD_PDF})
  * @param mandatory   ob der Validator für dieses Format verpflichtend ist
  * @param outcome     Gesamtergebnis
  * @param ruleset     verwendetes Regelwerk (z. B. KoSIT-Szenarioname)
@@ -21,7 +20,7 @@ import de.hofmannit.erechnung.model.OutputFormat;
  */
 public record ValidationReport(
         ValidatorKind validator,
-        OutputFormat target,
+        String target,
         boolean mandatory,
         ValidationOutcome outcome,
         String ruleset,

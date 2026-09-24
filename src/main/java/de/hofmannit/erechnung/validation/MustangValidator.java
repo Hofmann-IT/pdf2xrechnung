@@ -7,7 +7,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-import de.hofmannit.erechnung.model.OutputFormat;
 import de.hofmannit.erechnung.security.SecureXml;
 import de.hofmannit.erechnung.validation.ValidationFinding.Severity;
 
@@ -35,7 +34,7 @@ public class MustangValidator {
 
     private static final Logger log = LoggerFactory.getLogger(MustangValidator.class);
 
-    public ValidationReport validate(OutputFormat target, boolean mandatory, Path file) {
+    public ValidationReport validate(String target, boolean mandatory, Path file) {
         Instant now = Instant.now();
         try {
             ZUGFeRDValidator validator = new ZUGFeRDValidator();
