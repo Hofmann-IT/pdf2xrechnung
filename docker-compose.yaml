@@ -1,0 +1,56 @@
+# =====================================================================================
+# PDF-zu-E-Rechnung – docker compose (Phase 6)
+#
+#   docker compose up -d --build
+#
+# Volumes laut Vorgabe: inbox, processing, output, archive, config, profiles, data.
+# Zusätzlich failed, manual-review, rejected, inbound-validation und logs, damit auch diese
+# Ablagen den Container überleben. Alle Pfade sind Bind-Mounts relativ zu dieser Datei;
+# für den Betrieb absolute Pfade auf dem Host eintragen (siehe README, Abschnitt Docker).
+#
+# SMTP-Zugangsdaten NIEMALS hier eintragen: .env-Datei neben dieser Datei mit
+#   SMTP_USERNAME=...
+#   SMTP_PASSWORD=...
+# (Dateirechte 600; .env ist in .gitignore).
+# =====================================================================================
+services:
+  erechnung:
+    build:
+      context: .
+      args:
+        SKIP_TESTS: "false"
+    image: pdf-zu-erechnung:latest
+    container_name: pdf-zu-erechnung
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"      # UI nur lokal; für das Firmennetz Reverse Proxy mit Anmeldung vorschalten
+    environment:
+      TZ: Europe/Berlin
+      JAVA_OPTS: "-Xmx1g -XX:+UseSerialGC -Dfile.encoding=UTF-8"
+      SMTP_USERNAME: "${SMTP_USERNAME:-}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
+    volumes:
+      - ./inbox:/app/inbox
+      - ./processing:/app/processing
+      - ./output:/app/output
+      - ./archive:/app/archive
+      - ./config:/app/config:ro
+      - ./profiles:/app/profiles:ro
+      - ./data:/app/data
+      # ergänzende Ablagen
+      - ./failed:/app/failed
+      - ./manual-review:/app/manual-review
+      - ./rejected:/app/rejected
+      - ./inbound-validation:/app/inbound-validation
+      - ./logs:/app/logs
+    # Der Container braucht kein ausgehendes Netz außer SMTP. Wer das erzwingen will, hängt den
+    # Dienst in ein internes Netz und erlaubt nur den SMTP-Host (Firewall/Proxy auf dem Host).
+    stop_grace_period: 60s
+    healthcheck:
+      # Ohne zusätzliche Werkzeuge im Image (bash mit /dev/tcp ist im Temurin-Image enthalten):
+      # prüft, ob die Oberfläche auf /status mit HTTP 200 antwortet.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /status HTTP/1.0\\r\\n\\r\\n' >&3 && head -c 12 <&3 | grep -q 'HTTP/1.1 200'"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

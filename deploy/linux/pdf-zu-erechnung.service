@@ -1,0 +1,54 @@
+# systemd-Unit für PDF-zu-E-Rechnung (Phase 6)
+#
+# Installation (siehe README, Abschnitt "Linux Installation"):
+#   sudo useradd --system --home-dir /opt/pdf-zu-erechnung --shell /usr/sbin/nologin erechnung
+#   sudo mkdir -p /opt/pdf-zu-erechnung /var/lib/pdf-zu-erechnung /var/log/pdf-zu-erechnung /etc/pdf-zu-erechnung
+#   Jar, config/, profiles/, validator/ nach /opt/pdf-zu-erechnung; Datenverzeichnisse nach /var/lib/...
+#   sudo cp deploy/linux/pdf-zu-erechnung.service /etc/systemd/system/
+#   sudo cp deploy/linux/pdf-zu-erechnung.env.example /etc/pdf-zu-erechnung/env && sudo chmod 600 /etc/pdf-zu-erechnung/env
+#   sudo systemctl daemon-reload && sudo systemctl enable --now pdf-zu-erechnung
+#
+# In /opt/pdf-zu-erechnung/config/application.yaml die Verzeichnisse absolut auf
+# /var/lib/pdf-zu-erechnung/... und app.logging.directory auf /var/log/pdf-zu-erechnung setzen.
+
+[Unit]
+Description=PDF-zu-E-Rechnung (On-Premises Converter und Validator)
+Documentation=file:///opt/pdf-zu-erechnung/README.md
+After=network.target
+
+[Service]
+Type=simple
+User=erechnung
+Group=erechnung
+WorkingDirectory=/opt/pdf-zu-erechnung
+# SMTP_USERNAME / SMTP_PASSWORD / JAVA_OPTS ausschließlich aus dieser Datei (Rechte 600, root:root)
+EnvironmentFile=-/etc/pdf-zu-erechnung/env
+Environment=JAVA_OPTS=-Xmx1g -XX:+UseSerialGC -Dfile.encoding=UTF-8
+Environment=TZ=Europe/Berlin
+ExecStart=/usr/bin/java $JAVA_OPTS -jar /opt/pdf-zu-erechnung/pdf-zu-erechnung.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=10
+# Spring Boot "graceful shutdown": laufende Verarbeitung darf bis 60 s abschließen
+TimeoutStopSec=70
+KillSignal=SIGTERM
+
+# Härtung: nur Daten- und Logverzeichnisse beschreibbar, kein Zugriff auf Home-Verzeichnisse
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pdf-zu-erechnung /var/log/pdf-zu-erechnung
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0027
+# Optionaler Netzwerk-Lock auf Betriebssystemebene (Vorgabe: nur SMTP). Beispiel:
+# IPAddressDeny=any
+# IPAddressAllow=localhost
+# IPAddressAllow=192.0.2.25          # Adresse des SMTP-Servers
+
+[Install]
+WantedBy=multi-user.target

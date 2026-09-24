@@ -227,6 +227,8 @@
     </dependencies>
 
     <build>
+        <!-- Stabiler Artefaktname für Dienst-/Container-Konfigurationen (WinSW, systemd, Dockerfile). -->
+        <finalName>pdf-zu-erechnung</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

@@ -28,3 +28,7 @@ logs/
 
 # Lokale Werkzeugkonfiguration (maschinenspezifische Pfade)
 .claude/
+
+# WinSW-Binärdatei wird vom Betreiber separat bezogen (MIT), nicht versioniert
+deploy/windows/*.exe
+deploy/windows/*.exe.config

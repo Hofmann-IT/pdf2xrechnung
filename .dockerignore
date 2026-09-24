@@ -1,0 +1,17 @@
+target/
+.git/
+.claude/
+.idea/
+*.iml
+logs/
+inbox/
+processing/
+output/
+failed/
+manual-review/
+rejected/
+archive/
+data/
+inbound-validation/
+.env
+*.env

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WinSW-Dienstkonfiguration für PDF-zu-E-Rechnung (Phase 6).
+
+  Installation (siehe README, Abschnitt "Windows Installation"):
+    1. WinSW (https://github.com/winsw/winsw, MIT-Lizenz) als pdf-zu-erechnung.exe neben diese
+       Datei in das Installationsverzeichnis legen, z. B. C:\pdf-zu-erechnung\
+    2. pdf-zu-erechnung.jar, config\, profiles\ und validator\ ebenfalls dorthin
+    3. Als Administrator:  pdf-zu-erechnung.exe install   und   pdf-zu-erechnung.exe start
+
+  %BASE% ist das Verzeichnis dieser Datei. SMTP-Zugangsdaten gehören NICHT in diese Datei:
+  SMTP_USERNAME und SMTP_PASSWORD als Systemumgebungsvariablen für das Dienstkonto setzen
+  (Systemsteuerung > System > Erweiterte Systemeinstellungen > Umgebungsvariablen, "Systemvariablen").
+-->
+<service>
+  <id>pdf-zu-erechnung</id>
+  <name>PDF-zu-E-Rechnung</name>
+  <description>On-Premises PDF-zu-E-Rechnung Converter und E-Rechnungs-Validator (Hofmann IT)</description>
+
+  <!-- JDK/JRE 21 (z. B. Eclipse Temurin). JAVA_HOME muss als Systemvariable gesetzt sein,
+       alternativ hier den vollständigen Pfad zu java.exe eintragen. -->
+  <executable>%JAVA_HOME%\bin\java.exe</executable>
+  <arguments>-Xmx1g -Dfile.encoding=UTF-8 -Duser.timezone=Europe/Berlin -jar "%BASE%\pdf-zu-erechnung.jar"</arguments>
+  <workingdirectory>%BASE%</workingdirectory>
+
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+
+  <!-- Prozessausgabe des Dienstes (die Anwendung schreibt ihre eigenen Logs nach logs\). -->
+  <logpath>%BASE%\logs\service</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+  </log>
+
+  <!-- Bei Absturz neu starten; nach Neustart prüft die Anwendung processing\ selbst (Wiederanlauf). -->
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="60 sec"/>
+  <resetfailure>1 hour</resetfailure>
+
+  <!-- Spring Boot "graceful shutdown": laufende Verarbeitung darf bis 60 s abschließen. -->
+  <stoptimeout>60 sec</stoptimeout>
+
+  <!-- Optional: dediziertes Dienstkonto mit Schreibrecht auf %BASE% und dem Belegtransfer-Verzeichnis.
+  <serviceaccount>
+    <username>.\erechnung</username>
+    <password>NIEMALS-HIER-EINTRAGEN</password>
+    <allowservicelogon>true</allowservicelogon>
+  </serviceaccount>
+  -->
+</service>
