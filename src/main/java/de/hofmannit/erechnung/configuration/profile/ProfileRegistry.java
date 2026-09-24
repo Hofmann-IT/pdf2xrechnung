@@ -86,6 +86,31 @@ public class ProfileRegistry {
     /** Prüft die DATEV-Konfiguration gegen die Feldregeln der Kopfzeile (docs/datev-format-referenz.md). */
     public static void validateDatev(Tenant t, List<String> errors) {
         validateDatev(t.id(), t.datev(), errors);
+        validateBelegtransfer(t.id(), t.belegtransfer(), errors);
+    }
+
+    /** Belegtransfer-Verzeichnis: absolut, lokal (kein UNC-/Netzwerkpfad), Pflicht bei aktivierter Übergabe (ADR 0011). */
+    public static void validateBelegtransfer(String tenantId, TenantProperties.Belegtransfer b, List<String> errors) {
+        if (b == null || !b.enabled()) {
+            return;
+        }
+        String p = "Mandant " + tenantId + ": export.belegtransfer.";
+        String dir = b.directory() == null ? "" : b.directory().trim();
+        if (dir.isEmpty()) {
+            errors.add(p + "directory ist bei enabled: true erforderlich");
+            return;
+        }
+        if (dir.startsWith("\\\\") || dir.startsWith("//")) {
+            errors.add(p + "directory darf kein Netzwerkpfad (UNC) sein; der DATEV-Client hält die Verbindung, nicht diese Anwendung");
+            return;
+        }
+        try {
+            if (!java.nio.file.Path.of(dir).isAbsolute()) {
+                errors.add(p + "directory muss ein absoluter lokaler Pfad sein");
+            }
+        } catch (RuntimeException e) {
+            errors.add(p + "directory ist kein gültiger Pfad: " + dir);
+        }
     }
 
     /** Wie {@link #validateDatev(Tenant, List)}, für Einstellungen aus der Datenbank (ADR 0010). */

@@ -47,10 +47,26 @@ public record TenantProperties(List<Tenant> tenants) {
         public Datev datev() {
             return export == null ? null : export.datev();
         }
+
+        /** Belegtransfer-Konfiguration oder {@code null}, wenn nicht konfiguriert. */
+        public Belegtransfer belegtransfer() {
+            return export == null ? null : export.belegtransfer();
+        }
     }
 
     /** Exporteinstellungen je Mandant. */
-    public record Export(Datev datev) {
+    public record Export(Datev datev, Belegtransfer belegtransfer) {
+    }
+
+    /**
+     * Übergabe der ZUGFeRD-PDF an den lokalen DATEV-Belegtransfer-Client (ADR 0011).
+     *
+     * @param enabled   nach jeder erfolgreichen Erstverarbeitung kopieren
+     * @param directory absolutes lokales Verzeichnis, das der Belegtransfer-Client überwacht
+     *                  (in DATEV Belegtransfer für das Unternehmen und den Belegtyp angelegt);
+     *                  keine UNC-/Netzwerkpfade
+     */
+    public record Belegtransfer(@DefaultValue("false") boolean enabled, String directory) {
     }
 
     /** Strategie für das Debitorenkonto (#7 Konto) im Buchungsstapel. */

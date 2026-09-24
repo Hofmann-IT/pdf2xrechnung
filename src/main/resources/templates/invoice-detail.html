@@ -185,6 +185,27 @@
                 </ul>
             </details>
         </section>
+        <section class="card">
+            <h2>DATEV Belegtransfer</h2>
+            <p class="small muted">Kopie der ZUGFeRD-PDF in das Verzeichnis des lokalen DATEV-Belegtransfer-Clients. Automatisch nur bei Erstverarbeitung; hier manuell wiederholbar. Nie überschreiben, jede Übergabe wird protokolliert.</p>
+            <table class="data compact" th:if="${!#lists.isEmpty(transfers)}">
+                <thead><tr><th>Zeitpunkt</th><th>Ergebnis</th><th>Meldung</th><th>Akteur</th></tr></thead>
+                <tbody>
+                <tr th:each="t : ${transfers}">
+                    <td class="nowrap" th:text="${@fmt.dateTime(t.createdAt)}"></td>
+                    <td><span th:class="${t.outcome == 'COPIED'} ? 'badge badge-ok' : (${t.outcome == 'FAILED'} ? 'badge badge-error' : 'badge badge-muted')" th:text="${t.outcome}"></span></td>
+                    <td class="small" th:text="${t.message}"></td>
+                    <td th:text="${t.actor}"></td>
+                </tr>
+                </tbody>
+            </table>
+            <p class="muted small" th:if="${#lists.isEmpty(transfers)}">Noch keine Übergabe.</p>
+            <p class="muted small" th:unless="${belegtransferEnabled}">Belegtransfer ist für diesen Mandanten nicht aktiviert (Export-Einstellungen).</p>
+            <form th:if="${belegtransferEnabled}" th:action="@{/rechnungen/{id}/belegtransfer(id=${row.run.id})}" method="post" style="margin-top:.6rem">
+                <label class="field">Benutzer<input type="text" name="user" required></label>
+                <button class="btn secondary" type="submit" style="margin-top:.5rem">An Belegtransfer übergeben</button>
+            </form>
+        </section>
         <section class="card" th:if="${canDispatch}">
             <h2>Versand</h2>
             <p class="small muted">Erneuter Versand per SMTP an die im Profil hinterlegten Empfänger. Jeder Versuch wird protokolliert.</p>

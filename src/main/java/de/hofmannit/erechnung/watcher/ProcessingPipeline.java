@@ -25,6 +25,7 @@ import de.hofmannit.erechnung.configuration.TenantProperties.Tenant;
 import de.hofmannit.erechnung.configuration.profile.LoadedProfile;
 import de.hofmannit.erechnung.configuration.profile.ProfileRegistry;
 import de.hofmannit.erechnung.dispatch.PostProcessService;
+import de.hofmannit.erechnung.export.BelegtransferService;
 import de.hofmannit.erechnung.extraction.ExtractedDocument;
 import de.hofmannit.erechnung.extraction.ExtractionException;
 import de.hofmannit.erechnung.extraction.PdfTextExtractor;
@@ -87,12 +88,15 @@ public class ProcessingPipeline {
     private final Clock clock;
     private final ObjectMapper json;
     private final PostProcessService postProcess;
+    private final BelegtransferService belegtransfer;
 
     public ProcessingPipeline(LedgerRepository ledger, ProfileRegistry profiles, DirectoryLayout layout, PdfTextExtractor extractor,
                               Classifier classifier, MappingEngine mappingEngine, PlausibilityChecker plausibilityChecker,
                               EInvoiceGenerator generator, ValidationService validationService, ArchiveService archive,
-                              ApplicationVersion version, Clock clock, ObjectMapper json, PostProcessService postProcess) {
+                              ApplicationVersion version, Clock clock, ObjectMapper json, PostProcessService postProcess,
+                              BelegtransferService belegtransfer) {
         this.postProcess = postProcess;
+        this.belegtransfer = belegtransfer;
         this.ledger = ledger;
         this.profiles = profiles;
         this.layout = layout;
@@ -266,6 +270,7 @@ public class ProcessingPipeline {
                 // 9. Postprozess (Versand/Kommando) nur automatisch bei Erstverarbeitung; nie bei Reprocess.
                 if (automaticPostProcessAllowed()) {
                     postProcess.afterSuccessfulRun(run.id());
+                    belegtransfer.afterSuccessfulRun(run.id());
                 } else {
                     log.info("Run {}: kein automatischer Postprozess (Trigger {})", runNumber, job.trigger());
                 }

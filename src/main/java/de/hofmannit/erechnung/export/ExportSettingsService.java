@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import de.hofmannit.erechnung.configuration.TenantProperties.Belegtransfer;
 import de.hofmannit.erechnung.configuration.TenantProperties.Datev;
 import de.hofmannit.erechnung.configuration.TenantProperties.DebtorStrategy;
 import de.hofmannit.erechnung.configuration.TenantProperties.RevenueAccount;
@@ -33,9 +34,13 @@ public class ExportSettingsService {
     /** Herkunft der wirksamen Einstellungen. */
     public enum Source { DATABASE, YAML, NONE }
 
-    public record Effective(Datev datev, Source source, ExportSettingsRow row) {
+    public record Effective(Datev datev, Belegtransfer belegtransfer, Source source, ExportSettingsRow row) {
         public boolean datevEnabled() {
             return datev != null && datev.enabled();
+        }
+
+        public boolean belegtransferEnabled() {
+            return belegtransfer != null && belegtransfer.enabled() && belegtransfer.directory() != null && !belegtransfer.directory().isBlank();
         }
     }
 
@@ -57,14 +62,22 @@ public class ExportSettingsService {
     public Effective effective(String tenantId) {
         Optional<ExportSettingsRow> row = repository.latestSettings(tenantId);
         if (row.isPresent()) {
-            return new Effective(toDatev(row.get()), Source.DATABASE, row.get());
+            ExportSettingsRow r = row.get();
+            return new Effective(toDatev(r), new Belegtransfer(r.belegtransferEnabled(), r.belegtransferDirectory()), Source.DATABASE, r);
         }
-        Datev yaml = registry.tenant(tenantId).map(Tenant::datev).orElse(null);
-        return new Effective(yaml, yaml == null ? Source.NONE : Source.YAML, null);
+        Optional<Tenant> tenant = registry.tenant(tenantId);
+        Datev yaml = tenant.map(Tenant::datev).orElse(null);
+        Belegtransfer belegtransfer = tenant.map(Tenant::belegtransfer).orElse(null);
+        return new Effective(yaml, belegtransfer, yaml == null && belegtransfer == null ? Source.NONE : Source.YAML, null);
+    }
+
+    /** Wie {@link #save(String, Datev, Belegtransfer, String, String)}; Belegtransfer-Einstellungen bleiben wie bisher wirksam. */
+    public ExportSettingsRow save(String tenantId, Datev datev, String user, String note) throws ExportException {
+        return save(tenantId, datev, effective(tenantId).belegtransfer(), user, note);
     }
 
     /** Prüft und speichert neue Einstellungen als weiteren Datensatz (nichts wird überschrieben). */
-    public ExportSettingsRow save(String tenantId, Datev datev, String user, String note) throws ExportException {
+    public ExportSettingsRow save(String tenantId, Datev datev, Belegtransfer belegtransfer, String user, String note) throws ExportException {
         if (registry.tenant(tenantId).isEmpty()) {
             throw new ExportException("Unbekannter Mandant: " + tenantId);
         }
@@ -73,10 +86,11 @@ public class ExportSettingsService {
         }
         List<String> errors = new ArrayList<>();
         ProfileRegistry.validateDatev(tenantId, datev, errors);
+        ProfileRegistry.validateBelegtransfer(tenantId, belegtransfer, errors);
         if (!errors.isEmpty()) {
             throw new ExportException("Einstellungen ungültig:\n - " + String.join("\n - ", errors));
         }
-        return repository.saveSettings(toRow(tenantId, datev, user.trim(), note));
+        return repository.saveSettings(toRow(tenantId, datev, belegtransfer, user.trim(), note));
     }
 
     /** Prüft und speichert je Rechnung ergänzte DATEV-Felder (Formate laut docs/datev-format-referenz.md). */
@@ -122,7 +136,10 @@ public class ExportSettingsService {
         }
     }
 
-    ExportSettingsRow toRow(String tenantId, Datev d, String user, String note) {
+    ExportSettingsRow toRow(String tenantId, Datev d, Belegtransfer b, String user, String note) {
+        if (d == null) {
+            d = new Datev(false, null, null, "01-01", 4, "03", DebtorStrategy.COLLECTIVE, null, Map.of(), Map.of(), "RE", "", "", true, null);
+        }
         try {
             return new ExportSettingsRow(0, tenantId, clock.instant(), user, note, d.enabled(), d.consultantNumber(), d.clientNumber(),
                     d.fiscalYearStart(), d.accountLength(), d.chartOfAccounts(), d.debtorStrategy().name(), d.collectiveDebtorAccount(),
@@ -130,7 +147,8 @@ public class ExportSettingsService {
                     json.writeValueAsString(new LinkedHashMap<>(d.revenueAccounts())),
                     d.origin() == null ? "RE" : d.origin(), d.exportedBy() == null ? "" : d.exportedBy(),
                     d.dictationShortcut() == null ? "" : d.dictationShortcut(), d.lockRecords(),
-                    d.bookingTextTemplate() == null ? "Rechnung {invoiceNumber} {customerName}" : d.bookingTextTemplate());
+                    d.bookingTextTemplate() == null ? "Rechnung {invoiceNumber} {customerName}" : d.bookingTextTemplate(),
+                    b != null && b.enabled(), b == null || b.directory() == null || b.directory().isBlank() ? null : b.directory().trim());
         } catch (JsonProcessingException e) {
             throw new IllegalStateException(e);
         }

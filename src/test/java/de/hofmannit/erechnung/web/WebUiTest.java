@@ -18,12 +18,14 @@ import java.util.List;
 
 import de.hofmannit.erechnung.configuration.profile.LoadedProfile;
 import de.hofmannit.erechnung.configuration.profile.ProfileRegistry;
+import de.hofmannit.erechnung.export.BelegtransferService;
 import de.hofmannit.erechnung.extraction.ExtractedDocument;
 import de.hofmannit.erechnung.extraction.PdfTextExtractor;
 import de.hofmannit.erechnung.generation.EInvoiceGenerator;
 import de.hofmannit.erechnung.generation.GeneratedArtifact;
 import de.hofmannit.erechnung.ledger.EventType;
 import de.hofmannit.erechnung.ledger.ExportRepository;
+import de.hofmannit.erechnung.ledger.InvoiceStatus;
 import de.hofmannit.erechnung.ledger.LedgerRepository;
 import de.hofmannit.erechnung.ledger.Rows.LedgerEntryRow;
 import de.hofmannit.erechnung.ledger.Rows.LedgerTaxLineRow;
@@ -86,6 +88,7 @@ class WebUiTest {
     @Autowired MockMvc mvc;
     @Autowired LedgerRepository ledger;
     @Autowired ExportRepository exportRepository;
+    @Autowired BelegtransferService belegtransfer;
     @Autowired PdfTextExtractor extractor;
     @Autowired Classifier classifier;
     @Autowired MappingEngine mappingEngine;
@@ -94,6 +97,7 @@ class WebUiTest {
 
     static byte[] pdfBytes;
     static byte[] ciiBytes;
+    static byte[] zugferdBytes;
     static long runId;
     static boolean prepared;
 
@@ -118,6 +122,9 @@ class WebUiTest {
             if (a.format() == OutputFormat.XRECHNUNG_CII) {
                 ciiBytes = Files.readAllBytes(a.path());
             }
+            if (a.format() == OutputFormat.ZUGFERD_EN16931 || a.format() == OutputFormat.ZUGFERD_XRECHNUNG) {
+                zugferdBytes = Files.readAllBytes(a.path());
+            }
         }
         // Verarbeiteter Run mit Ledger, Events und Artefakt im Archiv (ohne Watcher)
         String sha = Sha256.ofBytes(pdfBytes);
@@ -134,6 +141,8 @@ class WebUiTest {
         Files.write(archiveDir.resolve("invoice-cii.xml"), ciiBytes);
         ledger.createArtifact(run.id(), ArtifactType.SOURCE_PDF, "2026/09/RE-2026-4711/run-001/original.pdf", sha, pdfBytes.length, Instant.now());
         ledger.createArtifact(run.id(), ArtifactType.XRECHNUNG_CII, "2026/09/RE-2026-4711/run-001/invoice-cii.xml", Sha256.ofBytes(ciiBytes), ciiBytes.length, Instant.now());
+        Files.write(archiveDir.resolve("RE-2026-4711_zugferd.pdf"), zugferdBytes);
+        ledger.createArtifact(run.id(), ArtifactType.ZUGFERD_PDF, "2026/09/RE-2026-4711/run-001/RE-2026-4711_zugferd.pdf", Sha256.ofBytes(zugferdBytes), zugferdBytes.length, Instant.now());
         ledger.createLedgerEntry(new LedgerEntryRow(0, run.id(), "hofmann-it", "INVOICE", "RE-2026-4711", "2026-09-24", "Beispiel GmbH", "EUR",
                 "1560.00", "296.40", "1856.40", "1856.40", "[\"XRECHNUNG_CII\"]", sha, "standard", profile.sha256(), "test", "DOMESTIC_STANDARD",
                 "2026-10-08", null, null, null, Instant.now()), List.of(new LedgerTaxLineRow(0, 0, "S", "19.00", "1560.00", "296.40")));
@@ -265,6 +274,71 @@ class WebUiTest {
                 .param("von", "2026-09-01").param("bis", "2026-09-30").param("user", "uwe")).andExpect(status().isOk()).andReturn();
         String extf = new String(datev.getResponse().getContentAsByteArray(), java.nio.charset.Charset.forName("windows-1252"));
         assertThat(extf).startsWith("\"EXTF\";700;21;\"Buchungsstapel\";13;").contains(";29098;55003;").contains(";10001;4400;");
+    }
+
+    @Test
+    @Order(3)
+    void belegtransferCopiesZugferdWithoutOverwriting() throws Exception {
+        prepare();
+        // Nicht aktiviert (Einstellungen aus Order(2) ohne Belegtransfer): manuelle Übergabe wird abgelehnt
+        mvc.perform(post("/rechnungen/" + runId + "/belegtransfer").param("user", "uwe"))
+                .andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("error"));
+        assertThat(belegtransfer.afterSuccessfulRun(runId)).isEmpty();
+        assertThat(exportRepository.transfers(runId)).isEmpty();
+
+        // UNC-Pfad wird abgewiesen
+        String unc = body(mvc.perform(post("/rechnungen/export/einstellungen").param("tenant", "hofmann-it").param("user", "uwe")
+                .param("consultantNumber", "29098").param("clientNumber", "55003").param("accountLength", "4").param("chartOfAccounts", "04")
+                .param("collectiveDebtorAccount", "10000").param("revenueAccounts", "DOMESTIC_STANDARD:19 = 4400").param("bookingTextTemplate", "x")
+                .param("belegtransferEnabled", "on").param("belegtransferDirectory", "\\\\server\\datev\\belege")).andExpect(status().isOk()).andReturn());
+        assertThat(unc).contains("Netzwerkpfad");
+
+        Path dir = Files.createDirectories(ROOT.resolve("belegtransfer"));
+        mvc.perform(post("/rechnungen/export/einstellungen").param("tenant", "hofmann-it").param("user", "uwe").param("note", "Belegtransfer an")
+                .param("enabled", "on").param("consultantNumber", "29098").param("clientNumber", "55003").param("accountLength", "4")
+                .param("chartOfAccounts", "04").param("debtorStrategy", "COLLECTIVE").param("collectiveDebtorAccount", "10000")
+                .param("revenueAccounts", "DOMESTIC_STANDARD:19 = 4400").param("lockRecords", "on").param("bookingTextTemplate", "Rechnung {invoiceNumber}")
+                .param("belegtransferEnabled", "on").param("belegtransferDirectory", dir.toString()))
+                .andExpect(status().is3xxRedirection());
+        String settingsPage = body(mvc.perform(get("/rechnungen/export/einstellungen").param("tenant", "hofmann-it")).andReturn());
+        assertThat(settingsPage).contains("name=\"belegtransferEnabled\" checked").contains(dir.toString().replace("\\", "\\"));
+
+        // Erste Übergabe kopiert, zweite erkennt die identische Datei
+        mvc.perform(post("/rechnungen/" + runId + "/belegtransfer").param("user", "uwe"))
+                .andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("notice"));
+        Path copied = dir.resolve("RE-2026-4711_zugferd.pdf");
+        assertThat(copied).exists();
+        assertThat(Sha256.ofFile(copied)).isEqualTo(Sha256.ofBytes(zugferdBytes));
+        assertThat(Files.list(dir).filter(p -> p.getFileName().toString().endsWith(".part")).count()).isZero();
+        assertThat(belegtransfer.afterSuccessfulRun(runId)).hasValueSatisfying(t -> assertThat(t.outcome()).isEqualTo("SKIPPED"));
+        var transfers = exportRepository.transfers(runId);
+        assertThat(transfers).hasSize(2);
+        assertThat(transfers.get(0).outcome()).isEqualTo("COPIED");
+        assertThat(transfers.get(0).actor()).isEqualTo("uwe");
+        assertThat(transfers.get(1).actor()).isEqualTo("system");
+
+        // Zieldatei mit anderem Inhalt: nie überschreiben, eindeutiger Name mit Hash-Präfix
+        Files.write(copied, "fremder Inhalt".getBytes(StandardCharsets.UTF_8));
+        var third = belegtransfer.transferManually(runId, "uwe");
+        assertThat(third.outcome()).isEqualTo("COPIED");
+        assertThat(third.targetPath()).endsWith("_" + Sha256.ofBytes(zugferdBytes).substring(0, 8) + ".pdf");
+        assertThat(Path.of(third.targetPath())).exists();
+        assertThat(Files.readString(copied, StandardCharsets.UTF_8)).isEqualTo("fremder Inhalt");
+
+        // Verzeichnis nicht vorhanden: FAILED, nichts geworfen, Run und Status unverändert
+        mvc.perform(post("/rechnungen/export/einstellungen").param("tenant", "hofmann-it").param("user", "uwe")
+                .param("enabled", "on").param("consultantNumber", "29098").param("clientNumber", "55003").param("accountLength", "4")
+                .param("chartOfAccounts", "04").param("collectiveDebtorAccount", "10000").param("revenueAccounts", "DOMESTIC_STANDARD:19 = 4400")
+                .param("bookingTextTemplate", "x").param("belegtransferEnabled", "on").param("belegtransferDirectory", ROOT.resolve("gibt-es-nicht").toString()))
+                .andExpect(status().is3xxRedirection());
+        mvc.perform(post("/rechnungen/" + runId + "/belegtransfer").param("user", "uwe"))
+                .andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("error"));
+        assertThat(exportRepository.transfers(runId)).hasSize(4);
+        assertThat(exportRepository.transfers(runId).get(3).outcome()).isEqualTo("FAILED");
+        assertThat(ledger.findInvoice(runId).orElseThrow().status()).isEqualTo(InvoiceStatus.ARCHIVED);
+
+        String detail = body(mvc.perform(get("/rechnungen/" + runId)).andExpect(status().isOk()).andReturn());
+        assertThat(detail).contains("DATEV Belegtransfer").contains("COPIED").contains("FAILED").contains("An Belegtransfer übergeben");
     }
 
     @Test

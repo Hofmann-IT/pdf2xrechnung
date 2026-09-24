@@ -60,6 +60,11 @@
                 <label style="display:block;margin:.6rem 0"><input type="checkbox" name="lockRecords" th:checked="${form.lockRecords}"> Festschreibung (Kopfzeile #21, Feld #114)</label>
                 <label class="field">Buchungstext (Feld #14, max. 60 Zeichen; Platzhalter {invoiceNumber}, {customerName}, {invoiceDate})<input type="text" name="bookingTextTemplate" th:value="${form.bookingTextTemplate}"></label>
                 <hr style="margin:1rem 0;border:0;border-top:1px solid #e3e8ef">
+                <h2>DATEV Belegtransfer</h2>
+                <p class="small muted">Kopiert die ZUGFeRD-PDF nach jeder erfolgreichen Erstverarbeitung in das Verzeichnis, das der lokal installierte DATEV-Belegtransfer-Client überwacht. Der Upload erfolgt allein durch den DATEV-Client. Nur absolute lokale Pfade.</p>
+                <label style="display:block;margin:.6rem 0"><input type="checkbox" name="belegtransferEnabled" th:checked="${form.belegtransferEnabled}"> Übergabe aktivieren</label>
+                <label class="field">Belegtransfer-Verzeichnis (z. B. C:\DATEV\Belegtransfer\Firma\Rechnungsausgang)<input type="text" name="belegtransferDirectory" th:value="${form.belegtransferDirectory}"></label>
+                <hr style="margin:1rem 0;border:0;border-top:1px solid #e3e8ef">
                 <label class="field">Benutzer<input type="text" name="user" th:value="${user}" required></label>
                 <label class="field">Notiz (z. B. „Konten laut Steuerberater vom …")<input type="text" name="note" th:value="${note}"></label>
                 <button class="btn" type="submit" style="margin-top:.6rem">Einstellungen speichern</button>
@@ -70,7 +75,7 @@
     <section class="card">
         <h2>Historie</h2>
         <table class="data compact" th:if="${!#lists.isEmpty(history)}">
-            <thead><tr><th>Zeitpunkt</th><th>Benutzer</th><th>Notiz</th><th>Aktiv</th><th>Berater/Mandant</th><th>SKR</th><th>Debitor</th><th>Erlöskonten</th></tr></thead>
+            <thead><tr><th>Zeitpunkt</th><th>Benutzer</th><th>Notiz</th><th>Aktiv</th><th>Berater/Mandant</th><th>SKR</th><th>Debitor</th><th>Erlöskonten</th><th>Belegtransfer</th></tr></thead>
             <tbody>
             <tr th:each="h : ${history}">
                 <td class="nowrap" th:text="${@fmt.dateTime(h.createdAt)}"></td>
@@ -81,6 +86,7 @@
                 <td th:text="${h.chartOfAccounts} + ' (' + ${h.accountLength} + ')'"></td>
                 <td th:text="${h.debtorStrategy == 'COLLECTIVE'} ? ${h.collectiveDebtorAccount} : 'je Kunde'"></td>
                 <td class="small mono" th:text="${h.revenueAccountsJson}"></td>
+                <td class="small" th:text="${h.belegtransferEnabled} ? ${h.belegtransferDirectory} : 'aus'"></td>
             </tr>
             </tbody>
         </table>

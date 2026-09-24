@@ -74,3 +74,13 @@ tenants:
         dictation-shortcut: ""         # Diktatkürzel, 2 oder 4 Großbuchstaben, optional
         lock-records: true             # Festschreibung (Kopfzeile #21, Feld #114)
         booking-text-template: "Rechnung {invoiceNumber} {customerName}"   # Feld #14, max. 60 Zeichen
+
+      # Übergabe der ZUGFeRD-PDF an DATEV Belegtransfer (ADR 0011): Nach jeder erfolgreichen
+      # Erstverarbeitung wird die ZUGFeRD-PDF in das Verzeichnis kopiert, das der lokal installierte
+      # DATEV-Belegtransfer-Client für dieses Unternehmen und den Belegtyp (z. B. Rechnungsausgang)
+      # angelegt hat und überwacht. Der Upload nach DATEV Unternehmen online erfolgt allein durch
+      # den DATEV-Client; diese Anwendung baut keine Netzwerkverbindung auf. Nur absolute lokale
+      # Pfade, keine UNC-/Netzwerkpfade. Nie überschreiben; jede Übergabe wird protokolliert.
+      belegtransfer:
+        enabled: false
+        directory: "C:/DATEV/Belegtransfer/Hofmann-IT/Rechnungsausgang"   # PLATZHALTER

@@ -49,7 +49,13 @@ public final class Rows {
                                     boolean datevEnabled, String consultantNumber, String clientNumber, String fiscalYearStart,
                                     int accountLength, String chartOfAccounts, String debtorStrategy, String collectiveDebtorAccount,
                                     String customerAccountsJson, String revenueAccountsJson, String origin, String exportedBy,
-                                    String dictationShortcut, boolean lockRecords, String bookingTextTemplate) {
+                                    String dictationShortcut, boolean lockRecords, String bookingTextTemplate,
+                                    boolean belegtransferEnabled, String belegtransferDirectory) {
+    }
+
+    /** Übergabe einer ZUGFeRD-PDF an das DATEV-Belegtransfer-Verzeichnis (V3, append-only). */
+    public record BelegtransferRow(long id, long processingRunId, Long artifactId, String targetPath, String sha256, String outcome,
+                                   String message, String actor, Instant createdAt) {
     }
 
     /** Vom Benutzer je Rechnung (Quelldokument) ergänzte DATEV-Felder (V2, append-only). Daten als ISO-Datum. */

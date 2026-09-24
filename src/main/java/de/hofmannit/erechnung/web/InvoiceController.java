@@ -13,6 +13,7 @@ import de.hofmannit.erechnung.configuration.DirectoryLayout;
 import de.hofmannit.erechnung.configuration.profile.ProfileRegistry;
 import de.hofmannit.erechnung.dispatch.DispatchException;
 import de.hofmannit.erechnung.dispatch.PostProcessService;
+import de.hofmannit.erechnung.export.BelegtransferService;
 import de.hofmannit.erechnung.export.ExportException;
 import de.hofmannit.erechnung.export.ExportSettingsService;
 import de.hofmannit.erechnung.ledger.EventType;
@@ -56,11 +57,13 @@ public class InvoiceController {
     private final PostProcessService postProcess;
     private final ExportSettingsService exportSettings;
     private final ExportRepository exportRepository;
+    private final BelegtransferService belegtransferService;
     private final ObjectMapper json;
 
     public InvoiceController(LedgerRepository ledger, DirectoryLayout layout, ProfileRegistry registry, ReprocessService reprocess,
                              TenantExecutors executors, PostProcessService postProcess, ExportSettingsService exportSettings,
-                             ExportRepository exportRepository, ObjectMapper json) {
+                             ExportRepository exportRepository, BelegtransferService belegtransferService, ObjectMapper json) {
+        this.belegtransferService = belegtransferService;
         this.ledger = ledger;
         this.layout = layout;
         this.registry = registry;
@@ -111,8 +114,26 @@ public class InvoiceController {
                         && p.definition().postProcess().email() != null && p.definition().postProcess().email().enabled()).orElse(false));
         model.addAttribute("exportFields", exportRepository.latestInvoiceFields(row.source().id()).orElse(null));
         model.addAttribute("exportFieldHistory", exportRepository.invoiceFieldHistory(row.source().id()));
+        model.addAttribute("transfers", exportRepository.transfers(runId));
+        model.addAttribute("belegtransferEnabled", exportSettings.effective(row.source().tenantId()).belegtransferEnabled());
         model.addAttribute("active", "rechnungen");
         return "invoice-detail";
+    }
+
+    /** Manuelle (erneute) Übergabe der ZUGFeRD-PDF an das DATEV-Belegtransfer-Verzeichnis (ADR 0011). */
+    @PostMapping("/rechnungen/{runId}/belegtransfer")
+    public String belegtransfer(@PathVariable long runId, @RequestParam String user, RedirectAttributes redirect) {
+        try {
+            var t = belegtransferService.transferManually(runId, user);
+            if ("FAILED".equals(t.outcome())) {
+                redirect.addFlashAttribute("error", "Belegtransfer fehlgeschlagen: " + t.message());
+            } else {
+                redirect.addFlashAttribute("notice", "Belegtransfer: " + t.message());
+            }
+        } catch (ExportException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/rechnungen/" + runId;
     }
 
     /** Ergänzt DATEV-Felder (#115/#116, #117, #40) je Quelldokument; append-only, gilt für alle Runs des Dokuments (ADR 0010). */

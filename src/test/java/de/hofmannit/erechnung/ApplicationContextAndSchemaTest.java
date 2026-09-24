@@ -89,13 +89,15 @@ class ApplicationContextAndSchemaTest {
     void flywayAppliedBaseSchema() {
         Integer version = jdbc.queryForObject(
                 "SELECT MAX(version) FROM flyway_schema_history WHERE success = 1", Integer.class);
-        assertThat(version).isEqualTo(2);
+        assertThat(version).isEqualTo(3);
 
         List<String> tables = jdbc.queryForList(
                 "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name", String.class);
         assertThat(tables).contains("source_document", "processing_run", "ledger_entry", "ledger_tax_line",
                 "processing_event", "artifact", "validation_result", "inbound_validation",
-                "export_settings", "invoice_export_field", "export_log");
+                "export_settings", "invoice_export_field", "export_log", "belegtransfer_transfer");
+        List<String> settingsColumns = jdbc.query("PRAGMA table_info(export_settings)", (rs, i) -> rs.getString("name"));
+        assertThat(settingsColumns).contains("belegtransfer_enabled", "belegtransfer_directory");
         List<String> ledgerColumns = jdbc.query("PRAGMA table_info(ledger_entry)", (rs, i) -> rs.getString("name"));
         assertThat(ledgerColumns).contains("due_date", "delivery_date", "buyer_vat_id", "buyer_id");
 
@@ -201,6 +203,19 @@ class ApplicationContextAndSchemaTest {
                 INSERT INTO export_log (tenant_id, variant, file_name, sha256, size_bytes, record_count, invoice_count, skipped_count,
                   created_at, created_by) VALUES (?,?,?,?,?,?,?,?,?,?)""",
                 "t1", "UNBEKANNT", "x.csv", "a".repeat(64), 10, 1, 1, 0, "2026-09-24T10:00:00Z", "uwe"))
+                .isInstanceOf(DataAccessException.class);
+
+        // V3: Belegtransfer-Protokoll append-only, Ergebnis nur aus der festen Liste
+        long runId = insertRun(sourceId, 1);
+        jdbc.update("INSERT INTO belegtransfer_transfer (processing_run_id, outcome, message, actor, created_at) VALUES (?,?,?,?,?)",
+                runId, "COPIED", "Kopiert", "system", "2026-09-24T10:00:00Z");
+        long transferId = jdbc.queryForObject("SELECT MAX(id) FROM belegtransfer_transfer", Long.class);
+        assertThatThrownBy(() -> jdbc.update("UPDATE belegtransfer_transfer SET outcome = 'FAILED' WHERE id = ?", transferId))
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("append-only");
+        assertThatThrownBy(() -> jdbc.update("DELETE FROM belegtransfer_transfer WHERE id = ?", transferId))
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("append-only");
+        assertThatThrownBy(() -> jdbc.update("INSERT INTO belegtransfer_transfer (processing_run_id, outcome, message, actor, created_at) VALUES (?,?,?,?,?)",
+                runId, "DONE", "x", "system", "2026-09-24T10:00:00Z"))
                 .isInstanceOf(DataAccessException.class);
     }
 

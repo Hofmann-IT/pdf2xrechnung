@@ -4,6 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import de.hofmannit.erechnung.configuration.TenantProperties.Belegtransfer;
 import de.hofmannit.erechnung.configuration.TenantProperties.Datev;
 import de.hofmannit.erechnung.configuration.TenantProperties.DebtorStrategy;
 import de.hofmannit.erechnung.configuration.TenantProperties.RevenueAccount;
@@ -42,12 +43,14 @@ public class ExportSettingsController {
     public record Form(boolean enabled, String consultantNumber, String clientNumber, String fiscalYearStart, String accountLength,
                        String chartOfAccounts, String debtorStrategy, String collectiveDebtorAccount, String customerAccounts,
                        String revenueAccounts, String origin, String exportedBy, String dictationShortcut, boolean lockRecords,
-                       String bookingTextTemplate) {
+                       String bookingTextTemplate, boolean belegtransferEnabled, String belegtransferDirectory) {
 
-        static Form of(Datev d) {
+        static Form of(Datev d, Belegtransfer b) {
+            boolean btEnabled = b != null && b.enabled();
+            String btDir = b == null ? "" : nz(b.directory());
             if (d == null) {
                 return new Form(false, "", "", "01-01", "4", "03", "COLLECTIVE", "", "", "", "RE", "", "", true,
-                        "Rechnung {invoiceNumber} {customerName}");
+                        "Rechnung {invoiceNumber} {customerName}", btEnabled, btDir);
             }
             StringBuilder customers = new StringBuilder();
             d.customerAccounts().forEach((k, v) -> customers.append(k).append(" = ").append(v).append('\n'));
@@ -57,7 +60,11 @@ public class ExportSettingsController {
             return new Form(d.enabled(), nz(d.consultantNumber()), nz(d.clientNumber()), nz(d.fiscalYearStart()),
                     String.valueOf(d.accountLength()), nz(d.chartOfAccounts()), d.debtorStrategy() == null ? "COLLECTIVE" : d.debtorStrategy().name(),
                     nz(d.collectiveDebtorAccount()), customers.toString(), revenues.toString(), nz(d.origin()), nz(d.exportedBy()),
-                    nz(d.dictationShortcut()), d.lockRecords(), nz(d.bookingTextTemplate()));
+                    nz(d.dictationShortcut()), d.lockRecords(), nz(d.bookingTextTemplate()), btEnabled, btDir);
+        }
+
+        Belegtransfer toBelegtransfer() {
+            return new Belegtransfer(belegtransferEnabled, belegtransferDirectory == null ? null : belegtransferDirectory.trim());
         }
 
         /** Wandelt die Formularwerte in die Konfiguration; Zahlen- und Zuordnungsfehler werden als Meldung gemeldet. */
@@ -113,7 +120,7 @@ public class ExportSettingsController {
         String tenantId = tenant == null || tenant.isBlank() ? registry.tenants().get(0).id() : tenant;
         registry.tenant(tenantId).orElseThrow(() -> new NotFoundException("Mandant " + tenantId + " existiert nicht"));
         Effective eff = settings.effective(tenantId);
-        fill(model, tenantId, Form.of(eff.datev()), eff);
+        fill(model, tenantId, Form.of(eff.datev(), eff.belegtransfer()), eff);
         return "export-settings";
     }
 
@@ -127,13 +134,14 @@ public class ExportSettingsController {
                        @RequestParam(defaultValue = "RE") String origin, @RequestParam(defaultValue = "") String exportedBy,
                        @RequestParam(defaultValue = "") String dictationShortcut, @RequestParam(required = false) String lockRecords,
                        @RequestParam(defaultValue = "") String bookingTextTemplate,
+                       @RequestParam(required = false) String belegtransferEnabled, @RequestParam(defaultValue = "") String belegtransferDirectory,
                        Model model, RedirectAttributes redirect) {
         registry.tenant(tenant).orElseThrow(() -> new NotFoundException("Mandant " + tenant + " existiert nicht"));
         Form form = new Form(checked(enabled), consultantNumber, clientNumber, fiscalYearStart, accountLength, chartOfAccounts, debtorStrategy,
                 collectiveDebtorAccount, customerAccounts, revenueAccounts, origin, exportedBy, dictationShortcut, checked(lockRecords),
-                bookingTextTemplate);
+                bookingTextTemplate, checked(belegtransferEnabled), belegtransferDirectory);
         try {
-            settings.save(tenant, form.toDatev(), user, note);
+            settings.save(tenant, form.toDatev(), form.toBelegtransfer(), user, note);
             redirect.addFlashAttribute("notice", "Export-Einstellungen für " + tenant + " gespeichert (neuer Datensatz, Historie bleibt erhalten).");
             return "redirect:/rechnungen/export/einstellungen?tenant=" + tenant;
         } catch (ExportException e) {

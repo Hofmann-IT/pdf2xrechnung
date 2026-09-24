@@ -379,12 +379,12 @@ class DatevBuchungsstapelExporterTest {
     @Test
     void invalidDatevConfigurationIsRejectedAtStartup() {
         Datev bad = new Datev(true, "12", "abc", "13-01", 3, "3", DebtorStrategy.COLLECTIVE, null, Map.of(), Map.of(), "RECH", "", "uh", true, null);
-        Tenant t = new Tenant("t", "T", true, "", List.of("standard"), Map.of(), new TenantProperties.Export(bad));
+        Tenant t = new Tenant("t", "T", true, "", List.of("standard"), Map.of(), new TenantProperties.Export(bad, new TenantProperties.Belegtransfer(true, "relativ/pfad")));
         List<String> errors = new ArrayList<>();
         ProfileRegistry.validateDatev(t, errors);
         assertThat(errors).hasSizeGreaterThanOrEqualTo(8);
         assertThat(String.join("\n", errors)).contains("Beraternummer").contains("Mandantennummer").contains("fiscalYearStart")
                 .contains("Sachkontenlänge").contains("Sachkontenrahmen").contains("collectiveDebtorAccount").contains("revenueAccounts")
-                .contains("Herkunft").contains("Diktatkürzel");
+                .contains("Herkunft").contains("Diktatkürzel").contains("belegtransfer.directory muss ein absoluter");
     }
 }

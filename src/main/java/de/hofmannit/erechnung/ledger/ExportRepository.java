@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+import de.hofmannit.erechnung.ledger.Rows.BelegtransferRow;
 import de.hofmannit.erechnung.ledger.Rows.ExportLogRow;
 import de.hofmannit.erechnung.ledger.Rows.ExportSettingsRow;
 import de.hofmannit.erechnung.ledger.Rows.InvoiceExportFieldRow;
@@ -40,8 +41,8 @@ public class ExportRepository {
                     INSERT INTO export_settings (tenant_id, created_at, created_by, note, datev_enabled, consultant_number, client_number,
                       fiscal_year_start, account_length, chart_of_accounts, debtor_strategy, collective_debtor_account,
                       customer_accounts_json, revenue_accounts_json, origin, exported_by, dictation_shortcut, lock_records,
-                      booking_text_template)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", Statement.RETURN_GENERATED_KEYS);
+                      booking_text_template, belegtransfer_enabled, belegtransfer_directory)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", Statement.RETURN_GENERATED_KEYS);
             ps.setString(1, s.tenantId());
             ps.setString(2, s.createdAt().toString());
             ps.setString(3, s.createdBy());
@@ -61,12 +62,48 @@ public class ExportRepository {
             ps.setString(17, s.dictationShortcut());
             ps.setInt(18, s.lockRecords() ? 1 : 0);
             ps.setString(19, s.bookingTextTemplate());
+            ps.setInt(20, s.belegtransferEnabled() ? 1 : 0);
+            ps.setString(21, s.belegtransferDirectory());
             return ps;
         });
         return new ExportSettingsRow(id, s.tenantId(), s.createdAt(), s.createdBy(), s.note(), s.datevEnabled(), s.consultantNumber(),
                 s.clientNumber(), s.fiscalYearStart(), s.accountLength(), s.chartOfAccounts(), s.debtorStrategy(),
                 s.collectiveDebtorAccount(), s.customerAccountsJson(), s.revenueAccountsJson(), s.origin(), s.exportedBy(),
-                s.dictationShortcut(), s.lockRecords(), s.bookingTextTemplate());
+                s.dictationShortcut(), s.lockRecords(), s.bookingTextTemplate(), s.belegtransferEnabled(), s.belegtransferDirectory());
+    }
+
+    // ------------------------------------------------------------------ belegtransfer_transfer
+
+    public BelegtransferRow saveTransfer(BelegtransferRow t) {
+        long id = insert(con -> {
+            PreparedStatement ps = con.prepareStatement("""
+                    INSERT INTO belegtransfer_transfer (processing_run_id, artifact_id, target_path, sha256, outcome, message, actor, created_at)
+                    VALUES (?,?,?,?,?,?,?,?)""", Statement.RETURN_GENERATED_KEYS);
+            ps.setLong(1, t.processingRunId());
+            if (t.artifactId() == null) {
+                ps.setNull(2, java.sql.Types.INTEGER);
+            } else {
+                ps.setLong(2, t.artifactId());
+            }
+            ps.setString(3, t.targetPath());
+            ps.setString(4, t.sha256());
+            ps.setString(5, t.outcome());
+            ps.setString(6, t.message());
+            ps.setString(7, t.actor());
+            ps.setString(8, t.createdAt().toString());
+            return ps;
+        });
+        return new BelegtransferRow(id, t.processingRunId(), t.artifactId(), t.targetPath(), t.sha256(), t.outcome(), t.message(), t.actor(), t.createdAt());
+    }
+
+    public List<BelegtransferRow> transfers(long runId) {
+        return jdbc.query("SELECT * FROM belegtransfer_transfer WHERE processing_run_id = ? ORDER BY id", TRANSFER, runId);
+    }
+
+    public int countTransfersSince(Instant since, String outcome) {
+        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM belegtransfer_transfer WHERE created_at >= ? AND outcome = ?", Integer.class,
+                since.toString(), outcome);
+        return n == null ? 0 : n;
     }
 
     /** Jüngste Einstellungen des Mandanten oder leer, wenn nie in der Oberfläche gespeichert. */
@@ -164,7 +201,17 @@ public class ExportRepository {
             rs.getString("fiscal_year_start"), rs.getInt("account_length"), rs.getString("chart_of_accounts"),
             rs.getString("debtor_strategy"), rs.getString("collective_debtor_account"), rs.getString("customer_accounts_json"),
             rs.getString("revenue_accounts_json"), rs.getString("origin"), rs.getString("exported_by"), rs.getString("dictation_shortcut"),
-            rs.getInt("lock_records") == 1, rs.getString("booking_text_template"));
+            rs.getInt("lock_records") == 1, rs.getString("booking_text_template"),
+            rs.getInt("belegtransfer_enabled") == 1, rs.getString("belegtransfer_directory"));
+
+    private static final RowMapper<BelegtransferRow> TRANSFER = (rs, i) -> new BelegtransferRow(
+            rs.getLong("id"), rs.getLong("processing_run_id"), nullableLong(rs, "artifact_id"), rs.getString("target_path"),
+            rs.getString("sha256"), rs.getString("outcome"), rs.getString("message"), rs.getString("actor"), instant(rs, "created_at"));
+
+    private static Long nullableLong(ResultSet rs, String column) throws SQLException {
+        long v = rs.getLong(column);
+        return rs.wasNull() ? null : v;
+    }
 
     private static final RowMapper<InvoiceExportFieldRow> FIELD = (rs, i) -> new InvoiceExportFieldRow(
             rs.getLong("id"), rs.getLong("source_document_id"), instant(rs, "created_at"), rs.getString("created_by"),
