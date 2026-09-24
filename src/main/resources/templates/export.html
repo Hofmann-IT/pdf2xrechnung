@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Export Rechnungsausgangsbuch')}"></head>
+<body>
+<header th:replace="~{layout :: topbar('rechnungen')}"></header>
+<main>
+    <p><a th:href="@{/rechnungen}">‹ Zurück zu den Ausgangsrechnungen</a></p>
+    <h1>Export Rechnungsausgangsbuch</h1>
+    <p class="subtitle">Exportiert je Quelldokument den jüngsten erfolgreichen Run. Der DATEV-Buchungsstapel ist nur verfügbar, wenn er in <code>config/tenant.yaml</code> für den Mandanten konfiguriert ist.</p>
+
+    <section class="card">
+        <form class="filters" th:action="@{/rechnungen/export/vorschau}" method="get" hx-get="/rechnungen/export/vorschau" hx-target="#preview" hx-indicator="#busy">
+            <label class="field">Mandant
+                <select name="tenant"><option th:each="t : ${tenants}" th:value="${t.id}" th:text="${t.name}" th:selected="${t.id == tenantId}"></option></select>
+            </label>
+            <label class="field">Variante
+                <select name="variant"><option th:each="v : ${variants}" th:value="${v}" th:text="${v.label()}"></option></select>
+            </label>
+            <label class="field">Rechnungsdatum von<input type="date" name="von" th:value="${von}"></label>
+            <label class="field">Rechnungsdatum bis<input type="date" name="bis" th:value="${bis}"></label>
+            <label class="field">Benutzer<input type="text" name="user" th:value="${user}" required></label>
+            <button class="btn" type="submit">Vorschau</button>
+            <span id="busy" class="htmx-indicator">Erzeuge Vorschau …</span>
+        </form>
+        <p class="small muted" th:unless="${datevConfigured}">Für diesen Mandanten ist kein DATEV-Buchungsstapel konfiguriert (Export-Einstellungen bzw. export.datev.enabled: false).</p>
+        <p class="small muted" th:if="${settingsSource != null}">DATEV-Einstellungen: <span th:text="${settingsSource.name() == 'DATABASE'} ? 'aus der Datenbank (in der Oberfläche gespeichert)' : (${settingsSource.name() == 'YAML'} ? 'aus config/tenant.yaml' : 'nicht konfiguriert')"></span></p>
+    </section>
+
+    <div id="preview" th:fragment="preview">
+        <div class="notice error" th:if="${error}" th:text="${error}"></div>
+        <th:block th:if="${preview != null}">
+            <section class="card">
+                <h2 th:text="${previewVariant.label()}"></h2>
+                <dl class="kv">
+                    <dt>Datei</dt><dd th:text="${preview.fileName}"></dd>
+                    <dt>Rechnungen</dt><dd th:text="${preview.invoices}"></dd>
+                    <dt>Datensätze</dt><dd th:text="${preview.records}"></dd>
+                    <dt>Größe</dt><dd th:text="${@fmt.bytes(preview.content.length)}"></dd>
+                    <dt>SHA-256</dt><dd class="mono" th:text="${preview.sha256}"></dd>
+                </dl>
+                <div class="actions" style="margin-top:.8rem">
+                    <a class="btn accent" th:href="@{/rechnungen/export/download(tenant=${tenantId}, variant=${previewVariant}, von=${von}, bis=${bis}, user=${user})}">Herunterladen</a>
+                    <span class="small muted">Der Download wird mit Benutzer, Zeitraum und SHA-256 protokolliert.</span>
+                </div>
+            </section>
+            <section class="card" th:if="${!#lists.isEmpty(preview.warnings)}">
+                <h2 th:text="'Hinweise (' + ${#lists.size(preview.warnings)} + ')'"></h2>
+                <ul><li th:each="w : ${preview.warnings}" th:text="${w}"></li></ul>
+            </section>
+            <details class="card" th:if="${!#lists.isEmpty(preview.skipped)}">
+                <summary th:text="'Übersprungene Vorgänge (' + ${#lists.size(preview.skipped)} + ')'"></summary>
+                <ul><li th:each="s : ${preview.skipped}" th:text="${s}"></li></ul>
+            </details>
+        </th:block>
+    </div>
+
+    <section class="card" th:if="${exportLog != null}">
+        <h2>Exportprotokoll</h2>
+        <table class="data" th:if="${!#lists.isEmpty(exportLog)}">
+            <thead><tr><th>Zeitpunkt</th><th>Variante</th><th>Zeitraum</th><th>Datei</th><th class="num">Rechnungen</th><th class="num">Datensätze</th><th>Benutzer</th><th>SHA-256</th></tr></thead>
+            <tbody>
+            <tr th:each="l : ${exportLog}">
+                <td th:text="${@fmt.dateTime(l.createdAt)}"></td>
+                <td th:text="${l.variant}"></td>
+                <td th:text="(${l.dateFrom} ?: 'Anfang') + ' – ' + (${l.dateTo} ?: 'Ende')"></td>
+                <td th:text="${l.fileName}"></td>
+                <td class="num" th:text="${l.invoiceCount}"></td>
+                <td class="num" th:text="${l.recordCount}"></td>
+                <td th:text="${l.createdBy}"></td>
+                <td class="mono small" th:text="${#strings.substring(l.sha256, 0, 16)} + '…'"></td>
+            </tr>
+            </tbody>
+        </table>
+        <p class="muted" th:if="${#lists.isEmpty(exportLog)}">Noch kein Export heruntergeladen.</p>
+    </section>
+</main>
+<footer th:replace="~{layout :: footer}"></footer>
+</body>
+</html>

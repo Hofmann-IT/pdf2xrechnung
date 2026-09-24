@@ -89,12 +89,15 @@ class ApplicationContextAndSchemaTest {
     void flywayAppliedBaseSchema() {
         Integer version = jdbc.queryForObject(
                 "SELECT MAX(version) FROM flyway_schema_history WHERE success = 1", Integer.class);
-        assertThat(version).isEqualTo(1);
+        assertThat(version).isEqualTo(2);
 
         List<String> tables = jdbc.queryForList(
                 "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name", String.class);
         assertThat(tables).contains("source_document", "processing_run", "ledger_entry", "ledger_tax_line",
-                "processing_event", "artifact", "validation_result", "inbound_validation");
+                "processing_event", "artifact", "validation_result", "inbound_validation",
+                "export_settings", "invoice_export_field", "export_log");
+        List<String> ledgerColumns = jdbc.query("PRAGMA table_info(ledger_entry)", (rs, i) -> rs.getString("name"));
+        assertThat(ledgerColumns).contains("due_date", "delivery_date", "buyer_vat_id", "buyer_id");
 
         Integer foreignKeys = jdbc.queryForObject("PRAGMA foreign_keys", Integer.class);
         assertThat(foreignKeys).as("PRAGMA foreign_keys").isEqualTo(1);
@@ -148,6 +151,56 @@ class ApplicationContextAndSchemaTest {
                 .isInstanceOf(DataAccessException.class).hasMessageContaining("append-only");
 
         assertThatThrownBy(() -> jdbc.update("DELETE FROM source_document WHERE id = ?", sourceId))
+                .isInstanceOf(DataAccessException.class);
+    }
+
+    @Test
+    void v2ExportTablesAreAppendOnly() {
+        long sourceId = insertSource("f".repeat(64));
+        jdbc.update("""
+                INSERT INTO export_settings (tenant_id, created_at, created_by, datev_enabled, consultant_number, client_number,
+                  fiscal_year_start, account_length, chart_of_accounts, debtor_strategy, collective_debtor_account,
+                  customer_accounts_json, revenue_accounts_json, origin, exported_by, dictation_shortcut, lock_records, booking_text_template)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                "t1", "2026-09-24T10:00:00Z", "uwe", 1, "1001", "1", "01-01", 4, "03", "COLLECTIVE", "10000", "{}", "{}", "RE", "", "", 1, "Rechnung {invoiceNumber}");
+        long settingsId = jdbc.queryForObject("SELECT MAX(id) FROM export_settings", Long.class);
+        assertThatThrownBy(() -> jdbc.update("UPDATE export_settings SET client_number = '2' WHERE id = ?", settingsId))
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("append-only");
+        assertThatThrownBy(() -> jdbc.update("DELETE FROM export_settings WHERE id = ?", settingsId))
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("append-only");
+        // Sachkontenlänge außerhalb 4–8 wird von der Datenbank abgewiesen
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO export_settings (tenant_id, created_at, created_by, datev_enabled, fiscal_year_start, account_length,
+                  chart_of_accounts, debtor_strategy, customer_accounts_json, revenue_accounts_json, origin, exported_by,
+                  dictation_shortcut, lock_records, booking_text_template)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                "t1", "2026-09-24T10:00:00Z", "uwe", 1, "01-01", 9, "03", "COLLECTIVE", "{}", "{}", "RE", "", "", 1, "x"))
+                .isInstanceOf(DataAccessException.class);
+
+        // Leistungsdatum (#115) nur zusammen mit #116
+        assertThatThrownBy(() -> jdbc.update(
+                "INSERT INTO invoice_export_field (source_document_id, created_at, created_by, service_date) VALUES (?,?,?,?)",
+                sourceId, "2026-09-24T10:00:00Z", "uwe", "2026-09-01"))
+                .isInstanceOf(DataAccessException.class);
+        jdbc.update("INSERT INTO invoice_export_field (source_document_id, created_at, created_by, service_date, tax_period_date) VALUES (?,?,?,?,?)",
+                sourceId, "2026-09-24T10:00:00Z", "uwe", "2026-09-01", "2026-09-01");
+        long fieldId = jdbc.queryForObject("SELECT MAX(id) FROM invoice_export_field", Long.class);
+        assertThatThrownBy(() -> jdbc.update("UPDATE invoice_export_field SET due_date = '2026-10-01' WHERE id = ?", fieldId))
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("append-only");
+        assertThatThrownBy(() -> jdbc.update("DELETE FROM invoice_export_field WHERE id = ?", fieldId))
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("append-only");
+
+        jdbc.update("""
+                INSERT INTO export_log (tenant_id, variant, date_from, date_to, file_name, sha256, size_bytes, record_count, invoice_count,
+                  skipped_count, created_at, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                "t1", "CSV", null, null, "x.csv", "a".repeat(64), 10, 1, 1, 0, "2026-09-24T10:00:00Z", "uwe");
+        long logId = jdbc.queryForObject("SELECT MAX(id) FROM export_log", Long.class);
+        assertThatThrownBy(() -> jdbc.update("DELETE FROM export_log WHERE id = ?", logId))
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("append-only");
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO export_log (tenant_id, variant, file_name, sha256, size_bytes, record_count, invoice_count, skipped_count,
+                  created_at, created_by) VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                "t1", "UNBEKANNT", "x.csv", "a".repeat(64), 10, 1, 1, 0, "2026-09-24T10:00:00Z", "uwe"))
                 .isInstanceOf(DataAccessException.class);
     }
 

@@ -187,8 +187,8 @@ public class LedgerRepository {
             PreparedStatement ps = con.prepareStatement("""
                     INSERT INTO ledger_entry (processing_run_id, tenant_id, document_type, invoice_number, invoice_date, customer_name,
                       currency, net_total, tax_total, gross_total, payable_amount, generated_formats, source_sha256, profile_name,
-                      profile_hash, application_version, business_case, recorded_at)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", Statement.RETURN_GENERATED_KEYS);
+                      profile_hash, application_version, business_case, due_date, delivery_date, buyer_vat_id, buyer_id, recorded_at)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", Statement.RETURN_GENERATED_KEYS);
             ps.setLong(1, e.processingRunId());
             ps.setString(2, e.tenantId());
             ps.setString(3, e.documentType());
@@ -206,7 +206,11 @@ public class LedgerRepository {
             ps.setString(15, e.profileHash());
             ps.setString(16, e.applicationVersion());
             ps.setString(17, e.businessCase());
-            ps.setString(18, e.recordedAt().toString());
+            ps.setString(18, e.dueDate());
+            ps.setString(19, e.deliveryDate());
+            ps.setString(20, e.buyerVatId());
+            ps.setString(21, e.buyerId());
+            ps.setString(22, e.recordedAt().toString());
             return ps;
         });
         for (LedgerTaxLineRow t : taxLines) {
@@ -264,7 +268,8 @@ public class LedgerRepository {
                        s.id AS s_id, s.tenant_id AS s_tenant, s.sha256 AS s_sha, s.original_filename, s.size_bytes, s.first_seen_at,
                        e.id AS e_id, e.tenant_id AS e_tenant, e.document_type, e.invoice_number, e.invoice_date, e.customer_name, e.currency,
                        e.net_total, e.tax_total, e.gross_total, e.payable_amount, e.generated_formats, e.source_sha256, e.profile_name AS e_profile,
-                       e.profile_hash AS e_profile_hash, e.application_version AS e_app, e.business_case, e.recorded_at
+                       e.profile_hash AS e_profile_hash, e.application_version AS e_app, e.business_case,
+                       e.due_date, e.delivery_date, e.buyer_vat_id, e.buyer_id, e.recorded_at
                 FROM processing_run r
                 JOIN source_document s ON s.id = r.source_document_id
                 LEFT JOIN ledger_entry e ON e.processing_run_id = r.id
@@ -319,7 +324,8 @@ public class LedgerRepository {
                        s.id AS s_id, s.tenant_id AS s_tenant, s.sha256 AS s_sha, s.original_filename, s.size_bytes, s.first_seen_at,
                        e.id AS e_id, e.tenant_id AS e_tenant, e.document_type, e.invoice_number, e.invoice_date, e.customer_name, e.currency,
                        e.net_total, e.tax_total, e.gross_total, e.payable_amount, e.generated_formats, e.source_sha256, e.profile_name AS e_profile,
-                       e.profile_hash AS e_profile_hash, e.application_version AS e_app, e.business_case, e.recorded_at
+                       e.profile_hash AS e_profile_hash, e.application_version AS e_app, e.business_case,
+                       e.due_date, e.delivery_date, e.buyer_vat_id, e.buyer_id, e.recorded_at
                 FROM processing_run r
                 JOIN source_document s ON s.id = r.source_document_id
                 LEFT JOIN ledger_entry e ON e.processing_run_id = r.id
@@ -367,7 +373,8 @@ public class LedgerRepository {
                     rs.getString("invoice_number"), rs.getString("invoice_date"), rs.getString("customer_name"), rs.getString("currency"),
                     rs.getString("net_total"), rs.getString("tax_total"), rs.getString("gross_total"), rs.getString("payable_amount"),
                     rs.getString("generated_formats"), rs.getString("source_sha256"), rs.getString("e_profile"), rs.getString("e_profile_hash"),
-                    rs.getString("e_app"), rs.getString("business_case"), instant(rs, "recorded_at"));
+                    rs.getString("e_app"), rs.getString("business_case"), rs.getString("due_date"), rs.getString("delivery_date"),
+                    rs.getString("buyer_vat_id"), rs.getString("buyer_id"), instant(rs, "recorded_at"));
         }
         return new Rows.InvoiceListRow(run, source, entry, InvoiceStatus.PROCESSING);
     };
@@ -426,7 +433,8 @@ public class LedgerRepository {
             rs.getString("invoice_number"), rs.getString("invoice_date"), rs.getString("customer_name"), rs.getString("currency"),
             rs.getString("net_total"), rs.getString("tax_total"), rs.getString("gross_total"), rs.getString("payable_amount"),
             rs.getString("generated_formats"), rs.getString("source_sha256"), rs.getString("profile_name"), rs.getString("profile_hash"),
-            rs.getString("application_version"), rs.getString("business_case"), instant(rs, "recorded_at"));
+            rs.getString("application_version"), rs.getString("business_case"), rs.getString("due_date"), rs.getString("delivery_date"),
+            rs.getString("buyer_vat_id"), rs.getString("buyer_id"), instant(rs, "recorded_at"));
 
     private static final RowMapper<LedgerTaxLineRow> TAX = (rs, i) -> new LedgerTaxLineRow(
             rs.getLong("id"), rs.getLong("ledger_entry_id"), rs.getString("vat_category_code"), rs.getString("vat_rate"),

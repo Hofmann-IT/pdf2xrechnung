@@ -22,6 +22,7 @@ import de.hofmannit.erechnung.extraction.PdfTextExtractor;
 import de.hofmannit.erechnung.generation.EInvoiceGenerator;
 import de.hofmannit.erechnung.generation.GeneratedArtifact;
 import de.hofmannit.erechnung.ledger.EventType;
+import de.hofmannit.erechnung.ledger.ExportRepository;
 import de.hofmannit.erechnung.ledger.LedgerRepository;
 import de.hofmannit.erechnung.ledger.Rows.LedgerEntryRow;
 import de.hofmannit.erechnung.ledger.Rows.ProcessingRunRow;
@@ -78,6 +79,7 @@ class WebUiTest {
 
     @Autowired MockMvc mvc;
     @Autowired LedgerRepository ledger;
+    @Autowired ExportRepository exportRepository;
     @Autowired PdfTextExtractor extractor;
     @Autowired Classifier classifier;
     @Autowired MappingEngine mappingEngine;
@@ -127,7 +129,8 @@ class WebUiTest {
         ledger.createArtifact(run.id(), ArtifactType.SOURCE_PDF, "2026/09/RE-2026-4711/run-001/original.pdf", sha, pdfBytes.length, Instant.now());
         ledger.createArtifact(run.id(), ArtifactType.XRECHNUNG_CII, "2026/09/RE-2026-4711/run-001/invoice-cii.xml", Sha256.ofBytes(ciiBytes), ciiBytes.length, Instant.now());
         ledger.createLedgerEntry(new LedgerEntryRow(0, run.id(), "hofmann-it", "INVOICE", "RE-2026-4711", "2026-09-24", "Beispiel GmbH", "EUR",
-                "1560.00", "296.40", "1856.40", "1856.40", "[\"XRECHNUNG_CII\"]", sha, "standard", profile.sha256(), "test", "DOMESTIC_STANDARD", Instant.now()), List.of());
+                "1560.00", "296.40", "1856.40", "1856.40", "[\"XRECHNUNG_CII\"]", sha, "standard", profile.sha256(), "test", "DOMESTIC_STANDARD",
+                "2026-10-08", null, null, null, Instant.now()), List.of());
         ledger.finishRun(run.id(), Instant.now(), RunResult.SUCCESS);
         // Vorgang in manual-review/
         Path review = Files.createDirectories(ROOT.resolve("manual-review").resolve("abcdef12_Rechnung RE-2026-4712"));
@@ -164,6 +167,45 @@ class WebUiTest {
 
         String fragment = body(mvc.perform(get("/rechnungen").header("HX-Request", "true")).andExpect(status().isOk()).andReturn());
         assertThat(fragment).contains("RE-2026-4711").doesNotContain("<html");
+    }
+
+    @Test
+    void exportPagePreviewAndCsvDownload() throws Exception {
+        prepare();
+        String page = body(mvc.perform(get("/rechnungen/export")).andExpect(status().isOk()).andReturn());
+        assertThat(page).contains("Export Rechnungsausgangsbuch").contains("Rechnungsausgangsbuch (CSV)")
+                .doesNotContain("DATEV-Format Buchungsstapel (EXTF)")   // in config/tenant.yaml deaktiviert
+                .contains("kein DATEV-Buchungsstapel konfiguriert");
+
+        String preview = body(mvc.perform(get("/rechnungen/export/vorschau").param("tenant", "hofmann-it").param("variant", "CSV")
+                .param("user", "uwe").header("HX-Request", "true")).andExpect(status().isOk()).andReturn());
+        assertThat(preview).contains("rechnungsausgangsbuch_hofmann-it_anfang_ende.csv").contains("Herunterladen").contains("user=uwe").doesNotContain("<html");
+        assertThat(exportRepository.exportLog("hofmann-it", 10)).as("Vorschau wird nicht protokolliert").isEmpty();
+
+        String refused = body(mvc.perform(get("/rechnungen/export/vorschau").param("tenant", "hofmann-it").param("variant", "DATEV_BUCHUNGSSTAPEL")
+                .param("von", "2026-09-01").param("bis", "2026-09-30").param("user", "uwe")).andExpect(status().isOk()).andReturn());
+        assertThat(refused).contains("nicht aktiviert");
+
+        // Download ohne Benutzer wird abgewiesen (Parameter fehlt)
+        mvc.perform(get("/rechnungen/export/download").param("tenant", "hofmann-it").param("variant", "CSV")).andExpect(status().is4xxClientError());
+
+        MvcResult download = mvc.perform(get("/rechnungen/export/download").param("tenant", "hofmann-it").param("variant", "CSV").param("user", "uwe"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"rechnungsausgangsbuch_hofmann-it_anfang_ende.csv\""))
+                .andReturn();
+        String csv = new String(download.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
+        assertThat(csv).startsWith("﻿Mandant;Rechnungsnummer").contains("\"RE-2026-4711\"").contains("\"Beispiel GmbH\"").contains("\"1856,40\"")
+                .contains(";Fälligkeit;").contains("\"08.10.2026\"");
+        assertThat(download.getResponse().getHeader("X-Content-SHA256")).isEqualTo(Sha256.ofBytes(download.getResponse().getContentAsByteArray()));
+
+        // Exportprotokoll (V2) und Anzeige auf der Exportseite
+        var log = exportRepository.exportLog("hofmann-it", 10);
+        assertThat(log).hasSize(1);
+        assertThat(log.get(0).createdBy()).isEqualTo("uwe");
+        assertThat(log.get(0).sha256()).isEqualTo(download.getResponse().getHeader("X-Content-SHA256"));
+        assertThat(log.get(0).variant()).isEqualTo("CSV");
+        String pageAfter = body(mvc.perform(get("/rechnungen/export")).andExpect(status().isOk()).andReturn());
+        assertThat(pageAfter).contains("Exportprotokoll").contains("rechnungsausgangsbuch_hofmann-it_anfang_ende.csv").contains("aus config/tenant.yaml");
     }
 
     @Test
@@ -255,6 +297,7 @@ class WebUiTest {
         snapshot(out, "dashboard.html", body(mvc.perform(get("/")).andReturn()));
         snapshot(out, "rechnungen.html", body(mvc.perform(get("/rechnungen")).andReturn()));
         snapshot(out, "rechnung-detail.html", body(mvc.perform(get("/rechnungen/" + runId)).andReturn()));
+        snapshot(out, "export.html", body(mvc.perform(get("/rechnungen/export/vorschau").param("tenant", "hofmann-it").param("variant", "CSV").param("user", "uwe")).andReturn()));
         snapshot(out, "pruefen.html", body(mvc.perform(get("/pruefen")).andReturn()));
         MockMultipartFile file = new MockMultipartFile("file", "eingang.xml", "application/xml", ciiBytes);
         snapshot(out, "pruefen-ergebnis.html", body(mvc.perform(multipart("/pruefen").file(file)).andReturn()));

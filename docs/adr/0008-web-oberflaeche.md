@@ -45,4 +45,4 @@ Die Oberfläche soll wie eine moderne Business-Anwendung wirken, serverseitig ge
   Namen. Empfehlung vor Produktivbetrieb: Betrieb hinter einem Reverse Proxy mit Anmeldung oder
   Ergänzung einer einfachen Authentifizierung nach Freigabe.
 - **Rechnungsausgangsbuch-Export** (CSV, DATEV) fehlt: Die DATEV-Zielvariante ist laut Vorgabe
-  vor Umsetzung abzufragen (Stopp-Bedingung).
+  vor Umsetzung abzufragen (Stopp-Bedingung). → Geklärt und umgesetzt, siehe ADR 0009.

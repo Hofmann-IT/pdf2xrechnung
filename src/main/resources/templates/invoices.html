@@ -34,6 +34,7 @@
         <label class="field">Datum bis<input type="date" name="bis" th:value="${filter.dateTo}"></label>
         <button class="btn" type="submit">Filtern</button>
         <span class="htmx-indicator">Lade …</span>
+        <a class="btn secondary" th:href="@{/rechnungen/export}">Export (CSV / DATEV)</a>
     </form>
 
     <table class="data">

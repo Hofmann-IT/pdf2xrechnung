@@ -20,8 +20,8 @@ class ProfileRegistryTest {
     @Test
     void validTenantConfigurationPasses() {
         TenantProperties props = new TenantProperties(List.of(
-                new Tenant("a", "A", true, "", List.of("standard"), Map.of()),
-                new Tenant("b", "B", true, "b", List.of("standard"), Map.of())));
+                new Tenant("a", "A", true, "", List.of("standard"), Map.of(), null),
+                new Tenant("b", "B", true, "b", List.of("standard"), Map.of(), null)));
         assertThatCode(() -> ProfileRegistry.validateTenants(props, PROFILES)).doesNotThrowAnyException();
     }
 
@@ -35,7 +35,7 @@ class ProfileRegistryTest {
     @Test
     void unknownProfileIsRejected() {
         TenantProperties props = new TenantProperties(List.of(
-                new Tenant("a", "A", true, "", List.of("gibt-es-nicht"), Map.of())));
+                new Tenant("a", "A", true, "", List.of("gibt-es-nicht"), Map.of(), null)));
         assertThatThrownBy(() -> ProfileRegistry.validateTenants(props, PROFILES))
                 .isInstanceOf(ProfileException.class)
                 .hasMessageContaining("gibt-es-nicht");
@@ -44,8 +44,8 @@ class ProfileRegistryTest {
     @Test
     void duplicateIdsAndSharedInboxAreRejected() {
         TenantProperties props = new TenantProperties(List.of(
-                new Tenant("a", "A", true, "", List.of("standard"), Map.of()),
-                new Tenant("a", "A2", true, "", List.of("standard"), Map.of())));
+                new Tenant("a", "A", true, "", List.of("standard"), Map.of(), null),
+                new Tenant("a", "A2", true, "", List.of("standard"), Map.of(), null)));
         assertThatThrownBy(() -> ProfileRegistry.validateTenants(props, PROFILES))
                 .isInstanceOf(ProfileException.class)
                 .hasMessageContaining("doppelt")
@@ -55,7 +55,7 @@ class ProfileRegistryTest {
     @Test
     void inboxSubdirectoryMustBeRelative() {
         TenantProperties props = new TenantProperties(List.of(
-                new Tenant("a", "A", true, "../other", List.of("standard"), Map.of())));
+                new Tenant("a", "A", true, "../other", List.of("standard"), Map.of(), null)));
         assertThatThrownBy(() -> ProfileRegistry.validateTenants(props, PROFILES))
                 .isInstanceOf(ProfileException.class)
                 .hasMessageContaining("relatives Unterverzeichnis");

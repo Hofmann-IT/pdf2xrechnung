@@ -2,12 +2,15 @@ package de.hofmannit.erechnung.web;
 
 import java.nio.file.NoSuchFileException;
 
+import de.hofmannit.erechnung.export.ExportException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
@@ -38,6 +41,24 @@ public class WebExceptionHandler {
     public String tooLarge(MaxUploadSizeExceededException e, Model model) {
         model.addAttribute("title", "Datei zu groß");
         model.addAttribute("message", "Die hochgeladene Datei überschreitet die zulässige Größe.");
+        return "error";
+    }
+
+    /** Fehlender Pflichtparameter (z. B. Benutzername beim Export-Download) ist ein Fehler der Anfrage, kein Serverfehler. */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public String missingParameter(MissingServletRequestParameterException e, Model model) {
+        model.addAttribute("title", "Angabe fehlt");
+        model.addAttribute("message", "Die Angabe '" + e.getParameterName() + "' ist erforderlich.");
+        return "error";
+    }
+
+    /** Fachlich abgelehnter Export (Konfiguration, Zeitraum, Feldregeln): Meldung wird angezeigt. */
+    @ExceptionHandler(ExportException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public String exportRefused(ExportException e, Model model) {
+        model.addAttribute("title", "Export nicht möglich");
+        model.addAttribute("message", e.getMessage());
         return "error";
     }
 

@@ -13,6 +13,8 @@ Ein ADR wird nie umgeschrieben; Änderungen erfolgen durch ein neues ADR, das da
 | 0006 | [Archivierungsmodell](0006-archivierungsmodell.md)       | Akzeptiert  |
 | 0007 | [Postprozess, Reprocess und CLI](0007-postprozess-reprocess-cli.md) | Akzeptiert |
 | 0008 | [Web-Oberfläche](0008-web-oberflaeche.md)                | Akzeptiert  |
+| 0009 | [Export Rechnungsausgangsbuch (CSV, DATEV)](0009-export-rechnungsausgangsbuch.md) | Akzeptiert |
+| 0010 | [V2: Export-Einstellungen, Zusatzfelder, Exportprotokoll](0010-v2-export-einstellungen.md) | Akzeptiert |
 
 ## Modulabhängigkeiten (verbindlich, geprüft durch `ModuleDependencyTest`)
 
@@ -28,6 +30,7 @@ inboundvalidation -> validation, configuration, model, security
 ledger            -> configuration, model, security
 archive           -> ledger, configuration, model, security
 dispatch          -> ledger, configuration, model, security
+export            -> ledger, configuration, model, security
 watcher           -> extraction, mapping, plausibility, generation, validation,
                      ledger, archive, dispatch, configuration, model, security
 web               -> alle außer cli

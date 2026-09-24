@@ -4,7 +4,7 @@ import java.time.Instant;
 
 import de.hofmannit.erechnung.model.ArtifactType;
 
-/** Datensätze der Ledger-Tabellen (unveränderlich, 1:1 zum Schema V1). */
+/** Datensätze der Ledger-Tabellen (unveränderlich, 1:1 zum Schema V1/V2). */
 public final class Rows {
 
     private Rows() {
@@ -32,11 +32,35 @@ public final class Rows {
         }
     }
 
+    /**
+     * Ledger-Eintrag. Die Felder {@code dueDate} (BT-9), {@code deliveryDate} (BT-72),
+     * {@code buyerVatId} (BT-48) und {@code buyerId} (BT-46) kamen mit V2 hinzu und sind nullable.
+     */
     public record LedgerEntryRow(long id, long processingRunId, String tenantId, String documentType, String invoiceNumber,
                                  String invoiceDate, String customerName, String currency, String netTotal, String taxTotal,
                                  String grossTotal, String payableAmount, String generatedFormats, String sourceSha256,
                                  String profileName, String profileHash, String applicationVersion, String businessCase,
+                                 String dueDate, String deliveryDate, String buyerVatId, String buyerId,
                                  Instant recordedAt) {
+    }
+
+    /** Export-Einstellungen je Mandant (V2, append-only; der jüngste Datensatz gilt). Maps als JSON-Text. */
+    public record ExportSettingsRow(long id, String tenantId, Instant createdAt, String createdBy, String note,
+                                    boolean datevEnabled, String consultantNumber, String clientNumber, String fiscalYearStart,
+                                    int accountLength, String chartOfAccounts, String debtorStrategy, String collectiveDebtorAccount,
+                                    String customerAccountsJson, String revenueAccountsJson, String origin, String exportedBy,
+                                    String dictationShortcut, boolean lockRecords, String bookingTextTemplate) {
+    }
+
+    /** Vom Benutzer je Rechnung (Quelldokument) ergänzte DATEV-Felder (V2, append-only). Daten als ISO-Datum. */
+    public record InvoiceExportFieldRow(long id, long sourceDocumentId, Instant createdAt, String createdBy,
+                                        String serviceDate, String taxPeriodDate, String dueDate, String buyerVatId, String note) {
+    }
+
+    /** Protokoll eines heruntergeladenen Exports (V2, append-only). */
+    public record ExportLogRow(long id, String tenantId, String variant, String dateFrom, String dateTo, String fileName,
+                               String sha256, long sizeBytes, int recordCount, int invoiceCount, int skippedCount,
+                               Instant createdAt, String createdBy) {
     }
 
     public record LedgerTaxLineRow(long id, long ledgerEntryId, String vatCategoryCode, String vatRate, String taxableAmount, String taxAmount) {

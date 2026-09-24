@@ -41,3 +41,36 @@ tenants:
       payment-bic: "BYLADEM1001"                      # BT-86
       # --- Sonstiges ---
       invoice-currency: "EUR"                         # BT-5
+
+    # ---------------------------------------------------------------------------------
+    # Export des Rechnungsausgangsbuchs (Oberfläche: Ausgangsrechnungen → Export)
+    #
+    # Die einfache CSV ist immer verfügbar. Der DATEV-Buchungsstapel (DATEV-Format EXTF,
+    # Version 700, Formatversion 13) wird nur angeboten, wenn export.datev.enabled: true.
+    # ALLE Werte darunter kommen vom Steuerberater bzw. aus dem DATEV-Mandat. Die hier
+    # eingetragenen Konten sind PLATZHALTER und müssen vor dem ersten Export ersetzt werden.
+    # Feldregeln: docs/datev-format-referenz.md
+    # ---------------------------------------------------------------------------------
+    export:
+      datev:
+        enabled: false
+        consultant-number: "1001"      # Beraternummer, 4–7 Ziffern (Kopfzeile #11) – PLATZHALTER
+        client-number: "1"             # Mandantennummer, 1–5 Ziffern (Kopfzeile #12) – PLATZHALTER
+        fiscal-year-start: "01-01"     # Wirtschaftsjahresbeginn MM-DD
+        account-length: 4              # Sachkontenlänge (4–8), muss dem DATEV-Mandat entsprechen
+        chart-of-accounts: "03"        # Sachkontenrahmen: "03" = SKR03, "04" = SKR04
+        debtor-strategy: COLLECTIVE    # COLLECTIVE = Sammeldebitor, PER_CUSTOMER = Konto je Kunde
+        collective-debtor-account: "10000"   # Sammel-Debitorenkonto bei COLLECTIVE – PLATZHALTER
+        customer-accounts:             # nur bei PER_CUSTOMER: Kundenname (BT-44, exakt) → Debitorenkonto
+          "Beispiel GmbH": "10001"
+        revenue-accounts:              # Erlöskonto je Geschäftsfall und Steuersatz – PLATZHALTER
+          "DOMESTIC_STANDARD:19": { account: "8400" }   # SKR03-Beispiel: Erlöse 19 % USt (Automatikkonto)
+          "DOMESTIC_STANDARD:7":  { account: "8300" }   # SKR03-Beispiel: Erlöse 7 % USt (Automatikkonto)
+          "NO_VAT":               { account: "8195" }   # SKR03-Beispiel: Erlöse als Kleinunternehmer § 19 UStG
+          "EU_REVERSE_CHARGE":    { account: "8336" }   # SKR03-Beispiel: Leistungen im EU-Ausland (§ 13b), BU-Schlüssel je Steuerberater
+          "THIRD_COUNTRY":        { account: "8120" }   # SKR03-Beispiel: Steuerfreie Ausfuhrlieferungen
+        origin: "RE"                   # Herkunft (Kopfzeile #8)
+        exported-by: "PDF-zu-ERechnung"   # Exportiert von (Kopfzeile #9, max. 25 Wortzeichen)
+        dictation-shortcut: ""         # Diktatkürzel, 2 oder 4 Großbuchstaben, optional
+        lock-records: true             # Festschreibung (Kopfzeile #21, Feld #114)
+        booking-text-template: "Rechnung {invoiceNumber} {customerName}"   # Feld #14, max. 60 Zeichen

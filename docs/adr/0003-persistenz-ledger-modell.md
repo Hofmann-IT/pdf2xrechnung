@@ -47,6 +47,11 @@ kein ORM.
 - Ausgabepfade in `output/` werden im Event `ARCHIVED` (`details_json.output`) festgehalten;
   `artifact.path` enthält ausschließlich Archivpfade relativ zur Archivwurzel.
 
+## Ergänzung vom 2026-09-24 (V2, ADR 0010)
+
+- `ledger_entry` erhält nullable Spalten `due_date`, `delivery_date`, `buyer_vat_id`, `buyer_id`.
+- Neue append-only Tabellen `export_settings`, `invoice_export_field`, `export_log`.
+
 ## Alternativen
 
 - **Statusfeld mit UPDATE:** einfacher abzufragen, widerspricht der Vorgabe. Verworfen.

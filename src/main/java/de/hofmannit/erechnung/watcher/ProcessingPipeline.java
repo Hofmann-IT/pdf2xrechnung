@@ -464,7 +464,9 @@ public class ProcessingPipeline {
                     data.value(BusinessTerm.BT_44).orElse(null), data.value(BusinessTerm.BT_5).orElse(profile.definition().generation().defaultCurrency()),
                     data.value(BusinessTerm.BT_109).orElse(null), data.value(BusinessTerm.BT_110).orElse(null),
                     data.value(BusinessTerm.BT_112).orElse(null), data.value(BusinessTerm.BT_115).orElse(null),
-                    formatsJson, job.sha256(), profile.name(), profile.sha256(), version.value(), data.businessCaseId(), clock.instant());
+                    formatsJson, job.sha256(), profile.name(), profile.sha256(), version.value(), data.businessCaseId(),
+                    data.value(BusinessTerm.BT_9).orElse(null), data.value(BusinessTerm.BT_72).orElse(null),
+                    data.value(BusinessTerm.BT_48).orElse(null), data.value(BusinessTerm.BT_46).orElse(null), clock.instant());
             List<LedgerTaxLineRow> tax = plausibility.taxLines().stream()
                     .map(t -> new LedgerTaxLineRow(0, 0, t.categoryCode() == null ? "S" : t.categoryCode(), t.rate().toPlainString(),
                             t.taxableAmount().toPlainString(), t.taxAmount().toPlainString()))

@@ -75,11 +75,64 @@ public class ProfileRegistry {
             if (t.enabled() && !inboxes.add(sub)) {
                 errors.add("Mandant " + t.id() + ": inboxSubdirectory '" + sub + "' wird bereits von einem anderen aktiven Mandanten verwendet");
             }
+            validateDatev(t, errors);
         }
         if (!errors.isEmpty()) {
             throw new ProfileException("Mandantenkonfiguration ist ungültig:\n - " + String.join("\n - ", errors));
         }
         return tenants;
+    }
+
+    /** Prüft die DATEV-Konfiguration gegen die Feldregeln der Kopfzeile (docs/datev-format-referenz.md). */
+    public static void validateDatev(Tenant t, List<String> errors) {
+        validateDatev(t.id(), t.datev(), errors);
+    }
+
+    /** Wie {@link #validateDatev(Tenant, List)}, für Einstellungen aus der Datenbank (ADR 0010). */
+    public static void validateDatev(String tenantId, TenantProperties.Datev d, List<String> errors) {
+        if (d == null || !d.enabled()) {
+            return;
+        }
+        String p = "Mandant " + tenantId + ": export.datev.";
+        if (d.consultantNumber() == null || !d.consultantNumber().matches("\\d{4,6}|\\d{7}")) {
+            errors.add(p + "consultantNumber (Beraternummer) muss 4–7 Ziffern haben");
+        }
+        if (d.clientNumber() == null || !d.clientNumber().matches("\\d{1,5}")) {
+            errors.add(p + "clientNumber (Mandantennummer) muss 1–5 Ziffern haben");
+        }
+        if (d.fiscalYearStart() == null || !d.fiscalYearStart().matches("(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])")) {
+            errors.add(p + "fiscalYearStart muss MM-DD sein");
+        }
+        if (d.accountLength() < 4 || d.accountLength() > 8) {
+            errors.add(p + "accountLength (Sachkontenlänge) muss 4–8 sein");
+        }
+        if (d.chartOfAccounts() == null || !d.chartOfAccounts().matches("(\\d{2}){0,2}")) {
+            errors.add(p + "chartOfAccounts (Sachkontenrahmen) muss zweistellig sein, z. B. 03 oder 04");
+        }
+        if (d.debtorStrategy() == TenantProperties.DebtorStrategy.COLLECTIVE
+                && (d.collectiveDebtorAccount() == null || !d.collectiveDebtorAccount().matches("(?!0{1,9}$)\\d{1,9}"))) {
+            errors.add(p + "collectiveDebtorAccount ist bei debtorStrategy COLLECTIVE erforderlich (1–9 Ziffern)");
+        }
+        if (d.revenueAccounts().isEmpty()) {
+            errors.add(p + "revenueAccounts darf nicht leer sein");
+        }
+        d.revenueAccounts().forEach((key, ra) -> {
+            if (ra == null || ra.account() == null || !ra.account().matches("(?!0{1,9}$)\\d{1,9}")) {
+                errors.add(p + "revenueAccounts[" + key + "].account muss 1–9 Ziffern haben");
+            }
+            if (ra != null && ra.buKey() != null && !ra.buKey().isBlank() && !ra.buKey().matches("\\d{4}")) {
+                errors.add(p + "revenueAccounts[" + key + "].buKey muss vierstellig sein");
+            }
+        });
+        if (d.origin() == null || !d.origin().matches("\\w{0,2}")) {
+            errors.add(p + "origin (Herkunft) darf höchstens 2 Zeichen haben");
+        }
+        if (d.dictationShortcut() != null && !d.dictationShortcut().matches("([A-Z]{2}){0,2}")) {
+            errors.add(p + "dictationShortcut (Diktatkürzel) muss aus 2 oder 4 Großbuchstaben bestehen");
+        }
+        if (d.exportedBy() != null && !d.exportedBy().matches("\\w{0,25}")) {
+            errors.add(p + "exportedBy darf höchstens 25 Wortzeichen haben");
+        }
     }
 
     public Map<String, LoadedProfile> profiles() {
