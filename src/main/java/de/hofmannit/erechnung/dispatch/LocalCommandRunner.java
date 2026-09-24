@@ -44,7 +44,8 @@ public class LocalCommandRunner {
         if (executable == null || executable.isBlank()) {
             throw new IOException("Kein Executable konfiguriert");
         }
-        String name = Path.of(executable).getFileName().toString().toLowerCase();
+        // Plattformunabhängig: auch unter Linux zählt '\' als Trenner, damit Windows-Pfade zu Shells erkannt werden.
+        String name = executable.substring(Math.max(executable.lastIndexOf('/'), executable.lastIndexOf('\\')) + 1).toLowerCase();
         if (FORBIDDEN_EXECUTABLES.contains(name)) {
             throw new IOException("Shell-Interpreter sind als Executable nicht zulässig: " + executable);
         }

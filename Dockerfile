@@ -35,9 +35,9 @@ ENV TZ=Europe/Berlin \
     LANG=de_DE.UTF-8 \
     JAVA_OPTS="-Xmx1g -XX:+UseSerialGC -Dfile.encoding=UTF-8"
 
-# Unprivilegierter Dienstbenutzer; alle Arbeitsverzeichnisse gehören ihm.
-RUN groupadd --system --gid 1000 erechnung \
- && useradd --system --uid 1000 --gid erechnung --home-dir /app --shell /usr/sbin/nologin erechnung \
+# Unprivilegierter Dienstbenutzer (UID/GID 10001; 1000 ist im Ubuntu-Basisimage bereits vergeben).
+RUN groupadd --system --gid 10001 erechnung \
+ && useradd --system --uid 10001 --gid erechnung --home-dir /app --shell /usr/sbin/nologin erechnung \
  && mkdir -p /app/config /app/profiles /app/validator /app/inbox /app/processing /app/output /app/failed \
              /app/manual-review /app/rejected /app/archive /app/data /app/inbound-validation /app/logs /app/examples \
  && chown -R erechnung:erechnung /app

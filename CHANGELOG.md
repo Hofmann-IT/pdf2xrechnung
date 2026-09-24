@@ -15,6 +15,11 @@ Die Versionsnummer im `pom.xml` bleibt bis zur ersten Freigabe `0.1.0-SNAPSHOT`.
   Kalibrierung, Validierung, Reprocess, Versand, Export/DATEV, Betriebs-Checkliste, Backup,
   Restore, Troubleshooting; `THIRD-PARTY.md` mit den Lizenzen aller Laufzeitabhängigkeiten.
 - Stabiler Artefaktname `target/pdf-zu-erechnung.jar` (`finalName` im POM).
+- Docker-Image und Compose-Betrieb mit Docker Desktop/WSL 2 verifiziert: Dienstbenutzer auf
+  UID/GID 10001 (1000 ist im Ubuntu-Basisimage vergeben).
+- Behoben: Die Sperre für Shell-Interpreter im lokalen Kommando-Postprozess erkannte unter
+  Linux keine Windows-Pfade (`C:\...\cmd.exe`), weil `\` dort kein Pfadtrenner ist; die
+  Prüfung ist jetzt plattformunabhängig.
 
 ### Export und DATEV (Zwischenschritte nach Phase 5, 2026-09-24)
 - Export des Rechnungsausgangsbuchs als CSV und als DATEV-Format „Buchungsstapel" (EXTF 700,

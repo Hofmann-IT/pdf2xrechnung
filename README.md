@@ -192,7 +192,7 @@ docker compose up -d --build
   `profiles/standard.yaml` auf dem Host anlegen (Vorlagen liegen im Repository und im Image
   unter `/app/examples/`). Pfade in `application.yaml` bleiben relativ (`./inbox` usw.), sie
   zeigen im Container auf die Volumes.
-- Der Container läuft als unprivilegierter Benutzer (UID 1000). Die gemounteten Verzeichnisse
+- Der Container läuft als unprivilegierter Benutzer (UID 10001). Die gemounteten Verzeichnisse
   müssen für diese UID beschreibbar sein.
 - SMTP-Zugangsdaten in einer `.env` neben der Compose-Datei (`SMTP_USERNAME`, `SMTP_PASSWORD`,
   Rechte 600). `.env` ist in `.gitignore`.
@@ -200,6 +200,17 @@ docker compose up -d --build
   Proxy mit Anmeldung vorschalten (Abschnitt 13).
 - Der Build führt die Tests aus; `--build-arg SKIP_TESTS=true` nur, wenn `mvn -q verify`
   bereits anderweitig gelaufen ist.
+- CLI-Befehle laufen im selben Image, z. B. Kalibrierung gegen eine PDF im Archiv-Volume
+  (unter Git Bash auf Windows vorher `export MSYS_NO_PATHCONV=1`, sonst werden die
+  Container-Pfade umgeschrieben):
+
+```bash
+docker compose run --rm --no-deps erechnung calibrate --samples /app/archive/2026/09/RE-1/run-001/original.pdf --profile /app/profiles/standard.yaml --tenant hofmann-it
+```
+
+- Geprüft mit Docker Desktop 29.8 / WSL 2 unter Windows 11: Image-Build mit Tests, Start über
+  Compose (Healthcheck „healthy"), Verarbeitung einer PDF/A-Rechnung aus dem Inbox-Volume bis
+  `output/` und `archive/`, Oberfläche, CSV-Export, CLI im Container.
 - DATEV Belegtransfer aus einem Container heraus setzt voraus, dass das Belegtransfer-Verzeichnis
   des Windows-Hosts in den Container gemountet ist; empfohlen ist dafür die Windows-Installation.
 
