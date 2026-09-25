@@ -66,13 +66,31 @@
         </div>
     </form>
 
-    <section class="card">
-        <h2>Weitere Einstellungen</h2>
-        <ul>
-            <li th:each="t : ${tenants}"><a th:href="@{/rechnungen/export/einstellungen(tenant=${t.id})}" th:text="'Export- und DATEV-Einstellungen: ' + ${t.name}"></a></li>
-            <li>Mandanten, Profile und feste Verkäuferangaben: <code>config/tenant.yaml</code>, <code>profiles/*.yaml</code> (Neustart erforderlich)</li>
-        </ul>
-    </section>
+    <div class="grid grid-3">
+        <section class="card">
+            <h2>Verwaltungszugang</h2>
+            <p class="small muted">Benutzer <strong th:text="${adminUsername}"></strong>.
+                <span th:if="${storedPassword}">Passwort ist in der Anwendung vergeben (Hash).</span>
+                <span th:if="${envPassword}">ADMIN_PASSWORD ist zusätzlich gesetzt.</span></p>
+            <form method="post" th:action="@{/verwaltung/passwort}">
+                <label class="field">Benutzername<input type="text" name="adminUser" th:value="${adminUsername}" required></label>
+                <label class="field">Neues Passwort (mindestens 10 Zeichen)<input type="password" name="adminPassword" required></label>
+                <label class="field">Wiederholen<input type="password" name="adminPasswordRepeat" required></label>
+                <label class="field">Geändert von<input type="text" name="user" required></label>
+                <button class="btn secondary" type="submit" style="margin-top:.5rem">Passwort ändern</button>
+            </form>
+        </section>
+        <section class="card">
+            <h2>Mandanten und Profile</h2>
+            <p class="small muted">Datei <span class="mono" th:text="${tenantFile}"></span> und <code>profiles/*.yaml</code>. Nach manuellen Änderungen hier neu laden; ein fehlerhafter Stand wird abgelehnt, der bisherige bleibt wirksam.</p>
+            <ul>
+                <li th:each="t : ${tenants}"><span th:text="${t.name} + ' (' + ${t.id} + ')'"></span> · <a th:href="@{/rechnungen/export/einstellungen(tenant=${t.id})}">Export- und DATEV-Einstellungen</a></li>
+            </ul>
+            <form method="post" th:action="@{/verwaltung/neu-laden}">
+                <button class="btn secondary" type="submit">Mandanten und Profile neu laden</button>
+            </form>
+        </section>
+    </div>
 
     <section class="card">
         <h2>Historie</h2>

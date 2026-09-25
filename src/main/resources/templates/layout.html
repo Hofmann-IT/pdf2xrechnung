@@ -27,7 +27,7 @@
     <div class="notice error" th:if="${error}" th:text="${error}"></div>
 </div>
 <footer th:fragment="footer">
-    PDF-zu-E-Rechnung · On-Premises · Keine Rechnungsdaten verlassen dieses System.
+    PDF-zu-E-Rechnung <span th:text="'Version ' + ${@applicationVersion.value()}"></span> · On-Premises · Keine Rechnungsdaten verlassen dieses System.
 </footer>
 </body>
 </html>

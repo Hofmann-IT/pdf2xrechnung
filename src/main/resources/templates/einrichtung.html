@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Einrichtung')}"></head>
+<body>
+<header th:replace="~{layout :: topbar('verwaltung')}"></header>
+<main>
+    <th:block th:if="${done}">
+        <h1>Einrichtung abgeschlossen</h1>
+        <p class="subtitle">Die Anwendung ist eingerichtet. Änderungen nehmen Sie in der <a th:href="@{/verwaltung}">Verwaltung</a> vor.</p>
+    </th:block>
+    <th:block th:unless="${done}">
+    <h1>Willkommen – Einrichtung von PDF-zu-E-Rechnung</h1>
+    <p class="subtitle">Beim ersten Aufruf werden die notwendigen Angaben erfasst. Alles lässt sich später in der Verwaltung ändern. Die Verkäuferangaben erscheinen in jeder E-Rechnung, deshalb bitte genau wie auf dem Briefpapier eintragen.</p>
+    <div class="notice error" th:if="${errors}">
+        <strong>Bitte korrigieren:</strong>
+        <ul style="margin:.4rem 0 0 1rem"><li th:each="e : ${errors}" th:text="${e}"></li></ul>
+    </div>
+    <div class="notice info" th:unless="${tenantMissing}">Ein Mandant ist bereits vorhanden; es fehlt nur noch das Admin-Passwort.</div>
+
+    <form method="post" th:action="@{/einrichtung}">
+        <div class="grid grid-3">
+            <section class="card">
+                <h2>1. Unternehmen (Mandant)</h2>
+                <label class="field">Firmenname<input type="text" name="name" th:value="${tenant.name}" required th:readonly="${!tenantMissing}"></label>
+                <label class="field">Technische Kennung (leer = aus Firmenname; nur a-z, 0-9, Bindestrich)<input type="text" name="id" th:value="${tenant.id}" pattern="[a-z0-9][a-z0-9-]*" th:readonly="${!tenantMissing}"></label>
+                <label class="field">Verkäufername auf der Rechnung (BT-27, leer = Firmenname)<input type="text" name="sellerName" th:value="${tenant.sellerName}"></label>
+                <label class="field">Straße und Hausnummer (BT-35)<input type="text" name="street" th:value="${tenant.street}" required></label>
+                <label class="field">Postleitzahl (BT-38)<input type="text" name="postCode" th:value="${tenant.postCode}" required></label>
+                <label class="field">Ort (BT-37)<input type="text" name="city" th:value="${tenant.city}" required></label>
+                <label class="field">Land, ISO-Code (BT-40)<input type="text" name="countryCode" th:value="${tenant.countryCode}" maxlength="2" required></label>
+                <label class="field">USt-IdNr. (BT-31)<input type="text" name="vatId" th:value="${tenant.vatId}" placeholder="DE123456789"></label>
+                <label class="field">Steuernummer (BT-32, falls keine USt-IdNr.)<input type="text" name="taxNumber" th:value="${tenant.taxNumber}"></label>
+                <label class="field">E-Mail für Rechnungsfragen (BT-43)<input type="email" name="email" th:value="${tenant.email}" required></label>
+                <label class="field">Ansprechpartner (BT-41)<input type="text" name="contactName" th:value="${tenant.contactName}" required></label>
+                <label class="field">Telefon (BT-42)<input type="text" name="phone" th:value="${tenant.phone}" required></label>
+                <label class="field">IBAN (BT-84)<input type="text" name="iban" th:value="${tenant.iban}" required></label>
+                <label class="field">BIC (BT-86, optional)<input type="text" name="bic" th:value="${tenant.bic}"></label>
+                <label class="field">Kontoinhaber (BT-85, leer = Verkäufername)<input type="text" name="accountName" th:value="${tenant.accountName}"></label>
+                <label class="field">Währung (BT-5)<input type="text" name="currency" th:value="${tenant.currency}" maxlength="3" required></label>
+                <p class="small muted">Wird nach <span class="mono" th:text="${tenantFile}"></span> geschrieben (bestehende Datei wird gesichert).</p>
+            </section>
+            <section class="card">
+                <h2>2. Verzeichnisse und Verarbeitung</h2>
+                <p class="small muted">Vorbelegt aus der Konfiguration; relativ zum Arbeitsverzeichnis oder absolut. Werden angelegt.</p>
+                <label class="field">Inbox (hier werden PDF-Rechnungen abgelegt)<input type="text" name="inbox" th:value="${form.inbox}" required></label>
+                <label class="field">Verarbeitung<input type="text" name="processing" th:value="${form.processing}" required></label>
+                <label class="field">Ausgabe (fertige E-Rechnungen)<input type="text" name="output" th:value="${form.output}" required></label>
+                <label class="field">Fehler<input type="text" name="failed" th:value="${form.failed}" required></label>
+                <label class="field">Manuelle Prüfung<input type="text" name="manualReview" th:value="${form.manualReview}" required></label>
+                <label class="field">Abgewiesen<input type="text" name="rejected" th:value="${form.rejected}" required></label>
+                <label class="field">Archiv (revisionssicher, in die Datensicherung aufnehmen)<input type="text" name="archive" th:value="${form.archive}" required></label>
+                <label class="field">Prüfprotokolle<input type="text" name="inboundValidation" th:value="${form.inboundValidation}" required></label>
+                <label style="display:block;margin:.6rem 0"><input type="checkbox" name="watcherEnabled" th:checked="${form.watcherEnabled}"> Inbox automatisch überwachen</label>
+                <label class="field">Prüfintervall in Sekunden<input type="text" name="pollIntervalSeconds" th:value="${form.pollIntervalSeconds}"></label>
+                <label class="field">Stabile Prüfungen vor Übernahme<input type="number" name="stableChecks" min="1" max="20" th:value="${form.stableChecks}"></label>
+                <label class="field">Mandanten gleichzeitig<input type="number" name="tenantParallelism" min="1" max="32" th:value="${form.tenantParallelism}"></label>
+                <label style="display:block;margin:.6rem 0"><input type="checkbox" name="storeReports" th:checked="${form.storeReports}"> Prüfprotokolle von „E-Rechnung prüfen" dauerhaft ablegen</label>
+            </section>
+            <section class="card">
+                <h2>3. Versand (optional)</h2>
+                <p class="small muted">Kann leer bleiben. Zugangsdaten werden nie hier eingegeben, sondern als SMTP_USERNAME / SMTP_PASSWORD beim Dienst gesetzt.</p>
+                <label style="display:block;margin-bottom:.6rem"><input type="checkbox" name="smtpEnabled" th:checked="${form.smtpEnabled}"> Rechnungen per E-Mail versenden</label>
+                <label class="field">SMTP-Host<input type="text" name="smtpHost" th:value="${form.smtpHost}"></label>
+                <label class="field">Port<input type="number" name="smtpPort" min="1" max="65535" th:value="${form.smtpPort}"></label>
+                <label style="display:block;margin:.4rem 0"><input type="checkbox" name="smtpStarttls" th:checked="${form.smtpStarttls}"> STARTTLS</label>
+                <label style="display:block;margin:.4rem 0"><input type="checkbox" name="smtpSsl" th:checked="${form.smtpSsl}"> SSL/TLS</label>
+                <label style="display:block;margin:.4rem 0"><input type="checkbox" name="smtpAuth" th:checked="${form.smtpAuth}"> Anmeldung am Server</label>
+                <label class="field">Absenderadresse<input type="email" name="smtpFrom" th:value="${form.smtpFrom}"></label>
+                <label class="field">Timeout in Sekunden<input type="number" name="smtpTimeoutSeconds" min="1" max="600" th:value="${form.smtpTimeoutSeconds}"></label>
+
+                <h2 style="margin-top:1rem">4. Verwaltungszugang</h2>
+                <p class="small muted" th:if="${envPassword}">ADMIN_PASSWORD ist gesetzt; ein zusätzliches Passwort ist optional.</p>
+                <label class="field">Benutzername<input type="text" name="adminUser" th:value="${adminUser}" required></label>
+                <label class="field">Passwort (mindestens 10 Zeichen)<input type="password" name="adminPassword" th:required="${passwordMissing}"></label>
+                <label class="field">Passwort wiederholen<input type="password" name="adminPasswordRepeat" th:required="${passwordMissing}"></label>
+                <label class="field">Ihr Name (für das Protokoll)<input type="text" name="actor" th:value="${actor}"></label>
+                <button class="btn accent" type="submit" style="margin-top:.8rem">Einrichtung abschließen</button>
+            </section>
+        </div>
+    </form>
+    <p class="small muted">Version <span th:text="${version}"></span></p>
+    </th:block>
+</main>
+<footer th:replace="~{layout :: footer}"></footer>
+</body>
+</html>

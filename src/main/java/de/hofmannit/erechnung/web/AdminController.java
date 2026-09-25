@@ -1,8 +1,10 @@
 package de.hofmannit.erechnung.web;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 
+import de.hofmannit.erechnung.admin.AdminCredentialService;
 import de.hofmannit.erechnung.admin.AdminSettingsService;
 import de.hofmannit.erechnung.admin.AdminSettingsService.SettingsException;
 import de.hofmannit.erechnung.configuration.AppProperties;
@@ -73,9 +75,11 @@ public class AdminController {
     private final EmailDispatcher email;
     private final InboxWatcher watcher;
     private final ProfileRegistry registry;
+    private final AdminCredentialService credentials;
 
     public AdminController(AdminSettingsService service, AppProperties properties, EmailDispatcher email, InboxWatcher watcher,
-                           ProfileRegistry registry) {
+                           ProfileRegistry registry, AdminCredentialService credentials) {
+        this.credentials = credentials;
         this.service = service;
         this.properties = properties;
         this.email = email;
@@ -119,7 +123,37 @@ public class AdminController {
         }
     }
 
+    /** Admin-Passwort ändern (neuer Datensatz in admin_credential, ADR 0013). */
+    @PostMapping("/verwaltung/passwort")
+    public String changePassword(@RequestParam(defaultValue = "admin") String adminUser, @RequestParam String adminPassword,
+                                 @RequestParam String adminPasswordRepeat, @RequestParam String user, RedirectAttributes redirect) {
+        try {
+            credentials.set(adminUser, adminPassword, adminPasswordRepeat, user);
+            redirect.addFlashAttribute("notice", "Admin-Passwort geändert. Der Browser fragt beim nächsten Aufruf nach den neuen Zugangsdaten.");
+        } catch (SettingsException e) {
+            redirect.addFlashAttribute("error", String.join("; ", e.errors()));
+        }
+        return "redirect:/verwaltung";
+    }
+
+    /** Mandanten und Profile aus den Dateien neu laden, ohne Neustart (ADR 0013). */
+    @PostMapping("/verwaltung/neu-laden")
+    public String reload(RedirectAttributes redirect) {
+        try {
+            registry.reload();
+            redirect.addFlashAttribute("notice", "Mandanten und Profile neu geladen: " + registry.tenants().size() + " Mandant(en), "
+                    + registry.profiles().size() + " Profil(e).");
+        } catch (IOException | RuntimeException e) {
+            redirect.addFlashAttribute("error", "Neu laden abgelehnt, bisheriger Stand bleibt wirksam: " + e.getMessage());
+        }
+        return "redirect:/verwaltung";
+    }
+
     private void fill(Model model, Form form) {
+        model.addAttribute("adminUsername", credentials.username());
+        model.addAttribute("storedPassword", credentials.storedConfigured());
+        model.addAttribute("envPassword", credentials.envConfigured());
+        model.addAttribute("tenantFile", registry.tenantFile().toAbsolutePath().normalize());
         model.addAttribute("form", form);
         model.addAttribute("source", service.source());
         model.addAttribute("history", service.history(20));

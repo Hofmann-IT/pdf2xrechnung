@@ -46,7 +46,7 @@
 
     <groupId>de.hofmannit</groupId>
     <artifactId>pdf-zu-erechnung</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
     <name>PDF-zu-E-Rechnung</name>
     <description>On-Premises PDF-zu-E-Rechnung Converter und E-Rechnungs-Validator (XRechnung, ZUGFeRD/Factur-X)</description>

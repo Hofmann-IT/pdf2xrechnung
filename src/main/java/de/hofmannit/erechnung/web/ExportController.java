@@ -10,6 +10,7 @@ import de.hofmannit.erechnung.export.ExportService;
 import de.hofmannit.erechnung.export.ExportService.Variant;
 import de.hofmannit.erechnung.export.ExportSettingsService;
 import de.hofmannit.erechnung.ledger.ExportRepository;
+import de.hofmannit.erechnung.web.WebExceptionHandler.NotFoundException;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -38,6 +39,9 @@ public class ExportController {
 
     @GetMapping("/rechnungen/export")
     public String page(@RequestParam(required = false) String tenant, Model model) {
+        if (registry.tenants().isEmpty()) {
+            throw new NotFoundException("Kein Mandant konfiguriert; bitte zuerst die Einrichtung abschließen");
+        }
         String tenantId = tenant == null || tenant.isBlank() ? registry.tenants().get(0).id() : tenant;
         model.addAttribute("tenants", registry.tenants());
         model.addAttribute("tenantId", tenantId);

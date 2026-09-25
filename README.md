@@ -108,7 +108,9 @@ Verzeichnisse (relativ zum Arbeitsverzeichnis, alle in `config/application.yaml`
    - `config\`, `profiles\`, `validator\` aus dieser Auslieferung,
    - `deploy\windows\pdf-zu-erechnung.xml`.
 3. `config\application.yaml` und `config\tenant.yaml` anpassen (Abschnitt 6).
-4. Probelauf im Vordergrund (Konsole im Installationsverzeichnis):
+4. Probelauf im Vordergrund (Konsole im Installationsverzeichnis). Beim ersten Aufruf der
+   Oberfläche führt der Einrichtungs-Assistent durch Mandant, Verzeichnisse und Verwaltungszugang
+   (Abschnitt 6); `config\tenant.yaml` muss dafür nicht von Hand angepasst werden:
 
 ```bash
 java -jar pdf-zu-erechnung.jar
@@ -267,9 +269,30 @@ im Log (fail fast).
 | Variable | Zweck |
 |----------|-------|
 | `SMTP_USERNAME`, `SMTP_PASSWORD` | Zugangsdaten für den Versand |
-| `ADMIN_PASSWORD` | Passwort für den Verwaltungsbereich (`/verwaltung`, Export-Einstellungen); Benutzername `admin`. Nicht gesetzt = Bereich gesperrt |
+| `ADMIN_PASSWORD` | Optionaler zusätzlicher Zugang zum Verwaltungsbereich für Betreiber (Benutzername `admin`). Normalerweise wird das Passwort im Einrichtungs-Assistenten vergeben |
 | `JAVA_OPTS` (Docker, systemd) | JVM-Optionen, z. B. `-Xmx1g` |
 | `TZ` | Zeitzone (Zeitstempel im Ledger sind immer UTC) |
+
+### Erster Aufruf: Einrichtungs-Assistent
+
+Solange kein aktiver Mandant oder kein Verwaltungspasswort existiert, leitet die Oberfläche
+jeden Aufruf auf `http://<server>:8080/einrichtung`. Der Assistent erfasst in einem Formular:
+
+1. Unternehmen (Mandant): Firmenname, technische Kennung (Vorschlag aus dem Namen),
+   Verkäuferangaben für die E-Rechnung (Anschrift, Land, USt-IdNr. oder Steuernummer, E-Mail,
+   Ansprechpartner, Telefon), IBAN/BIC/Kontoinhaber, Währung. Geprüft werden unter anderem
+   IBAN-Prüfziffer und die Pflicht USt-IdNr. oder Steuernummer.
+2. Verzeichnisse und Verarbeitung (vorbelegt aus `config/application.yaml`).
+3. Versand per SMTP (optional; Zugangsdaten weiterhin nur über Umgebungsvariablen).
+4. Verwaltungszugang: Benutzername und Passwort (mindestens 10 Zeichen).
+
+Beim Abschluss schreibt der Assistent `config/tenant.yaml` (eine vorhandene Datei wird als
+`tenant.yaml.bak-<Zeitstempel>` gesichert), lädt Mandanten und Profile ohne Neustart, speichert
+die Laufzeiteinstellungen und das Passwort (nur als Hash). Danach ist die Oberfläche frei und
+die Verwaltung mit den vergebenen Zugangsdaten erreichbar. Weitere Mandanten und Profile
+werden in den Dateien gepflegt und in der Verwaltung mit „Mandanten und Profile neu laden"
+übernommen. Solange die Einrichtung läuft, ist der Assistent ohne Anmeldung erreichbar; die
+Erstinstallation sollte deshalb abgeschlossen sein, bevor die Oberfläche im Netz freigegeben wird.
 
 ### Verwaltung in der Oberfläche
 

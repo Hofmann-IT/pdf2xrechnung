@@ -1,9 +1,19 @@
 # Changelog
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach SemVer.
-Die Versionsnummer im `pom.xml` bleibt bis zur ersten Freigabe `0.1.0-SNAPSHOT`.
+Die Versionsnummer steht im `pom.xml` und wird im Seitenfuß, im Systemstatus und je Verarbeitungslauf im Ledger angezeigt.
 
-## [Unreleased]
+## [1.0.0] – 2026-09-25
+
+### Einrichtungs-Assistent (2026-09-25, ADR 0013)
+- V5: Tabelle `admin_credential` (append-only, PBKDF2-SHA256-Hash).
+- Erster Aufruf ohne Mandant oder Passwort leitet auf `/einrichtung`: Unternehmen mit
+  Verkäuferangaben, Verzeichnisse, Watcher, Versand und Verwaltungszugang in einem Formular;
+  schreibt `config/tenant.yaml` (mit Sicherung), lädt Mandanten ohne Neustart neu.
+- Admin-Passwort wird in der Anwendung vergeben und in der Verwaltung geändert;
+  `ADMIN_PASSWORD` bleibt als zusätzlicher Zugang für Betreiber.
+- Verwaltung: „Mandanten und Profile neu laden" für manuelle Dateiänderungen.
+- Start ohne Mandanten ist erlaubt (Einrichtungsmodus); Versionsnummer 1.0.0 im Seitenfuß.
 
 ### Verwaltungsbereich und PDF-Einlesen (2026-09-25, ADR 0012)
 - V4: Tabelle `app_settings` (append-only, JSON-Gesamtstand je Datensatz).

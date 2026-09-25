@@ -117,6 +117,9 @@ public class ExportSettingsController {
 
     @GetMapping("/rechnungen/export/einstellungen")
     public String page(@RequestParam(required = false) String tenant, Model model) {
+        if (registry.tenants().isEmpty()) {
+            throw new NotFoundException("Kein Mandant konfiguriert; bitte zuerst die Einrichtung abschließen");
+        }
         String tenantId = tenant == null || tenant.isBlank() ? registry.tenants().get(0).id() : tenant;
         registry.tenant(tenantId).orElseThrow(() -> new NotFoundException("Mandant " + tenantId + " existiert nicht"));
         Effective eff = settings.effective(tenantId);

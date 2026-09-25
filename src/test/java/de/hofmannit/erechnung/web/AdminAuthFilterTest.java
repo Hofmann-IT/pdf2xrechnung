@@ -5,7 +5,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.util.Optional;
+
+import de.hofmannit.erechnung.admin.AdminCredentialService;
 import de.hofmannit.erechnung.configuration.AppProperties;
+import de.hofmannit.erechnung.ledger.AdminCredentialRepository;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
@@ -15,8 +21,26 @@ import org.springframework.mock.web.MockHttpServletResponse;
 /** Zugriffsschutz des Verwaltungsbereichs ohne Spring-Kontext (ADR 0012). */
 class AdminAuthFilterTest {
 
+    /** Repository ohne Datenbank: kein gespeicherter Datensatz. */
+    static class EmptyRepository extends AdminCredentialRepository {
+        EmptyRepository() {
+            super(null);
+        }
+
+        @Override
+        public Optional<CredentialRow> latest() {
+            return Optional.empty();
+        }
+
+        @Override
+        public void save(Instant createdAt, String createdBy, String username, String passwordHash) {
+            throw new UnsupportedOperationException();
+        }
+    }
+
     private static AdminAuthFilter filter(String password) {
-        return new AdminAuthFilter(new AppProperties(null, null, null, null, null, null, null, new AppProperties.Admin("admin", password)));
+        AppProperties props = new AppProperties(null, null, null, null, null, null, null, new AppProperties.Admin("admin", password), null);
+        return new AdminAuthFilter(new AdminCredentialService(new EmptyRepository(), props, Clock.systemUTC()));
     }
 
     private static String basic(String userAndPassword) {
@@ -41,7 +65,7 @@ class AdminAuthFilterTest {
         MockFilterChain chain = new MockFilterChain();
         filter("").doFilter(req, res, chain);
         assertThat(res.getStatus()).isEqualTo(503);
-        assertThat(res.getContentAsString()).contains("ADMIN_PASSWORD");
+        assertThat(res.getContentAsString()).contains("Einrichtungs-Assistenten");
         assertThat(chain.getRequest()).as("Anfrage darf nicht weitergeleitet werden").isNull();
     }
 

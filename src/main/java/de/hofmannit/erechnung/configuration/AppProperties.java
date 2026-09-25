@@ -22,7 +22,9 @@ public record AppProperties(
         InboundValidation inboundValidation,
         Smtp smtp,
         Logging logging,
-        Admin admin) {
+        Admin admin,
+        /** Mandantendatei; wird beim Start über spring.config.import geladen und vom Assistenten geschrieben (ADR 0013). */
+        @DefaultValue("./config/tenant.yaml") Path tenantFile) {
 
     /**
      * Zugriffsschutz des Verwaltungsbereichs (ADR 0012): HTTP-Basic-Anmeldung nur für

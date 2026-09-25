@@ -1,5 +1,6 @@
 package de.hofmannit.erechnung.configuration.profile;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
@@ -26,10 +27,10 @@ class ProfileRegistryTest {
     }
 
     @Test
-    void atLeastOneTenantRequired() {
-        assertThatThrownBy(() -> ProfileRegistry.validateTenants(new TenantProperties(List.of()), PROFILES))
-                .isInstanceOf(ProfileException.class)
-                .hasMessageContaining("mindestens ein Mandant");
+    void noTenantsMeansSetupModeNotAnError() {
+        // ADR 0013: ohne Mandanten startet die Anwendung im Einrichtungsmodus
+        assertThat(ProfileRegistry.validateTenants(new TenantProperties(List.of()), PROFILES)).isEmpty();
+        assertThat(ProfileRegistry.validateTenants(null, PROFILES)).isEmpty();
     }
 
     @Test
