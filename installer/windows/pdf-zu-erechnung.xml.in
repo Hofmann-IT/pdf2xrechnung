@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WinSW-Dienstkonfiguration für die installierte Anwendung (Vorlage, ADR 0014).
+  Das Setup ersetzt @APPDIR@ (Programmordner) und @DATADIR@ (Datenordner) und legt die Datei
+  als pdf-zu-erechnung.xml neben pdf-zu-erechnung.exe ab.
+
+  Zugangsdaten (SMTP_USERNAME, SMTP_PASSWORD) gehören NICHT hierher; sie werden als
+  Systemumgebungsvariablen gesetzt (Handbuch, Abschnitt Versand). Das Verwaltungspasswort wird
+  im Einrichtungs-Assistenten vergeben.
+-->
+<service>
+  <id>pdf-zu-erechnung</id>
+  <name>PDF-zu-E-Rechnung</name>
+  <description>PDF-zu-E-Rechnung Converter und E-Rechnungs-Validator (Hofmann IT). Oberfläche: http://localhost:8080</description>
+
+  <executable>@APPDIR@\runtime\bin\java.exe</executable>
+  <arguments>-Xmx1g -XX:+UseSerialGC -Dfile.encoding=UTF-8 -Duser.timezone=Europe/Berlin -Djava.awt.headless=true -jar "@APPDIR@\pdf-zu-erechnung.jar" --app.directories.validator-resources="@APPDIR@\validator" --app.validation.kosit-repository="@APPDIR@\validator\xrechnung" --app.validation.kosit-scenarios="@APPDIR@\validator\xrechnung\scenarios.xml"</arguments>
+  <workingdirectory>@DATADIR@</workingdirectory>
+
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+
+  <logpath>@DATADIR@\logs\service</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+  </log>
+
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="60 sec"/>
+  <resetfailure>1 hour</resetfailure>
+  <stoptimeout>60 sec</stoptimeout>
+</service>

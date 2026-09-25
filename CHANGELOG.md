@@ -26,6 +26,15 @@ Die Versionsnummer steht im `pom.xml` und wird im Seitenfuß, im Systemstatus un
 - Schaltfläche **PDF einlesen** auf „Ausgangsrechnungen": Upload in die Inbox des Mandanten,
   Verarbeitung über die unveränderte Pipeline, nie überschreiben.
 
+### Windows-Installationspaket (2026-09-25, ADR 0014)
+- `installer/windows/`: Inno-Setup-Skript, Dienstvorlage und Build-Skript. Das Setup enthält
+  eine per `jlink` erzeugte Java-Laufzeit (mit der Testsuite geprüft), WinSW 2.12.0 (geprüfte
+  Prüfsumme), Validierungsressourcen und Handbuch; richtet den Dienst ein, startet ihn und
+  öffnet den Einrichtungs-Assistenten. Daten unter `C:\ProgramData\PDF-zu-ERechnung`, nie
+  durch Deinstallation gelöscht.
+- `docs/Handbuch.html`: Installations- und Betriebshandbuch für Kunden.
+- CLI `calibrate` meldet ohne konfigurierten Mandanten einen verständlichen Fehler.
+
 ### Phase 6 – Betrieb (2026-09-24)
 - Dockerfile (Multi-Stage, JRE 21, unprivilegierter Benutzer, Validierungsressourcen im Image),
   `docker-compose.yaml` mit den Volumes inbox, processing, output, archive, config, profiles, data

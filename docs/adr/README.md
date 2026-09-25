@@ -18,6 +18,7 @@ Ein ADR wird nie umgeschrieben; Änderungen erfolgen durch ein neues ADR, das da
 | 0011 | [V3: Übergabe an DATEV Belegtransfer](0011-belegtransfer.md)   | Akzeptiert  |
 | 0012 | [V4: Verwaltungsbereich und PDF-Einlesen](0012-verwaltungsbereich.md) | Akzeptiert |
 | 0013 | [V5: Einrichtungs-Assistent, Admin-Passwort, Mandanten neu laden](0013-einrichtungs-assistent.md) | Akzeptiert |
+| 0014 | [Windows-Installationspaket mit eigener Laufzeit](0014-installationspaket-windows.md) | Akzeptiert |
 
 ## Modulabhängigkeiten (verbindlich, geprüft durch `ModuleDependencyTest`)
 

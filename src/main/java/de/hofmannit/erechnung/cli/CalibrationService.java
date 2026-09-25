@@ -58,6 +58,9 @@ public class CalibrationService {
      */
     public String calibrate(Path samples, Path profile, String tenantId) throws IOException {
         LoadedProfile loaded = new ProfileLoader().load(profile);
+        if (tenantId == null && registry.tenants().isEmpty()) {
+            throw new IllegalArgumentException("Kein Mandant konfiguriert; --tenant ist erst nach der Einrichtung verfügbar");
+        }
         Tenant tenant = tenantId == null ? registry.tenants().get(0)
                 : registry.tenant(tenantId).orElseThrow(() -> new IllegalArgumentException("Unbekannter Mandant: " + tenantId));
         List<Path> pdfs = new ArrayList<>();

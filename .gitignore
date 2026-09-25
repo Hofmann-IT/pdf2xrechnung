@@ -32,3 +32,5 @@ logs/
 # WinSW-Binärdatei wird vom Betreiber separat bezogen (MIT), nicht versioniert
 deploy/windows/*.exe
 deploy/windows/*.exe.config
+
+# Installer-Zwischenstände (WinSW-Download, Staging, Setup.exe liegen unter target/)

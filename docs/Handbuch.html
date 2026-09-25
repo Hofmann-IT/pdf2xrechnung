@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDF-zu-E-Rechnung – Installations- und Betriebshandbuch</title>
+<style>
+  :root { --navy-dark:#082B4C; --navy:#0B3A63; --primary:#086FA8; --cyan:#06C7D9; --bg:#F5F9FC; --text:#102A43; --muted:#526A7A; --line:#D9E4EC; --ok:#0B7A4B; --warn:#B45309; }
+  body { font-family: system-ui, "Segoe UI", Arial, sans-serif; color: var(--text); background: var(--bg); margin: 0; line-height: 1.55; }
+  header { background: linear-gradient(120deg, var(--navy-dark), var(--navy) 60%, var(--primary)); color: #fff; padding: 2.2rem 1.5rem; }
+  header h1 { margin: 0 0 .3rem; font-size: 1.9rem; }
+  header p { margin: 0; opacity: .9; }
+  main { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+  nav.toc { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.4rem; margin-bottom: 1.5rem; }
+  nav.toc ol { margin: .4rem 0 0 1.2rem; padding: 0; columns: 2; }
+  h2 { color: var(--navy); border-bottom: 2px solid var(--cyan); padding-bottom: .3rem; margin-top: 2.2rem; }
+  h3 { color: var(--navy); margin-top: 1.4rem; }
+  section.card, .box { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.4rem; margin: 1rem 0; }
+  .tip { border-left: 5px solid var(--cyan); }
+  .warn { border-left: 5px solid var(--warn); }
+  code, kbd { background: #EEF4F8; border-radius: 4px; padding: .05rem .35rem; font-family: Consolas, monospace; font-size: .95em; }
+  pre { background: #0B3A63; color: #E6F4FA; padding: .8rem 1rem; border-radius: 8px; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; margin: .6rem 0; background: #fff; }
+  th, td { border: 1px solid var(--line); padding: .45rem .6rem; text-align: left; vertical-align: top; }
+  th { background: #EEF4F8; }
+  ol li, ul li { margin: .25rem 0; }
+  footer { color: var(--muted); font-size: .9rem; text-align: center; padding: 2rem 1rem; }
+  @media print { header { background: var(--navy); -webkit-print-color-adjust: exact; } nav.toc ol { columns: 1; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>PDF-zu-E-Rechnung</h1>
+  <p>Installations- und Betriebshandbuch · Version 1.0.0 · Hofmann IT</p>
+</header>
+<main>
+
+<nav class="toc">
+  <strong>Inhalt</strong>
+  <ol>
+    <li><a href="#was">Was macht die Anwendung?</a></li>
+    <li><a href="#voraussetzungen">Voraussetzungen</a></li>
+    <li><a href="#installation">Installation in fünf Schritten</a></li>
+    <li><a href="#einrichtung">Ersteinrichtung (Assistent)</a></li>
+    <li><a href="#taeglich">Tägliche Nutzung</a></li>
+    <li><a href="#ergebnisse">Wo liegen die Ergebnisse?</a></li>
+    <li><a href="#pruefen">Empfangene E-Rechnungen prüfen</a></li>
+    <li><a href="#export">Rechnungsausgangsbuch, DATEV und Belegtransfer</a></li>
+    <li><a href="#versand">Versand per E-Mail (optional)</a></li>
+    <li><a href="#verwaltung">Verwaltung und Einstellungen</a></li>
+    <li><a href="#sicherung">Datensicherung und Wiederherstellung</a></li>
+    <li><a href="#update">Update und Deinstallation</a></li>
+    <li><a href="#probleme">Wenn etwas nicht funktioniert</a></li>
+    <li><a href="#technik">Technische Hinweise für Ihre IT</a></li>
+  </ol>
+</nav>
+
+<h2 id="was">1. Was macht die Anwendung?</h2>
+<p>PDF-zu-E-Rechnung wandelt Ihre fertigen PDF-Ausgangsrechnungen automatisch in gesetzeskonforme E-Rechnungen um: <strong>XRechnung</strong> (für Behörden und viele Unternehmen) und <strong>ZUGFeRD</strong> (eine PDF, die die E-Rechnung eingebettet enthält). Jede erzeugte Rechnung wird geprüft, revisionssicher archiviert und in einem Rechnungsausgangsbuch geführt. Außerdem können Sie empfangene E-Rechnungen auf Gültigkeit prüfen und das Rechnungsausgangsbuch für Ihren Steuerberater exportieren (CSV oder DATEV).</p>
+<div class="box tip">Alle Daten bleiben auf Ihrem Computer. Die Anwendung baut keine Verbindung ins Internet auf, außer zum E-Mail-Server, wenn Sie den Versand ausdrücklich einrichten.</div>
+
+<h2 id="voraussetzungen">2. Voraussetzungen</h2>
+<ul>
+  <li>Windows 10 oder Windows 11 (64 Bit) bzw. Windows Server 2016 oder neuer.</li>
+  <li>Administratorrechte für die Installation (einmalig).</li>
+  <li>Etwa 400 MB freier Speicherplatz plus Platz für Ihr Archiv (ca. 1 MB je Rechnung).</li>
+  <li>Ihre Rechnungen als <strong>PDF/A</strong>. Word, Excel und die meisten Programme bieten beim Speichern als PDF die Option „PDF/A" an. Ohne PDF/A entsteht trotzdem eine XRechnung, aber kein ZUGFeRD.</li>
+  <li>Die PDFs müssen Text enthalten (keine eingescannten Bilder).</li>
+</ul>
+<p>Java oder andere Software müssen Sie <strong>nicht</strong> installieren; alles Nötige ist im Installationspaket enthalten.</p>
+
+<h2 id="installation">3. Installation in fünf Schritten</h2>
+<ol>
+  <li>Doppelklick auf <code>PDF-zu-ERechnung-1.0.0-Setup.exe</code>. Bestätigen Sie die Windows-Nachfrage „Möchten Sie zulassen, dass durch diese App Änderungen an Ihrem Gerät vorgenommen werden?" mit <em>Ja</em>.</li>
+  <li>Im Assistenten auf <em>Weiter</em> klicken. Den vorgeschlagenen Installationsordner können Sie übernehmen.</li>
+  <li>Auf <em>Installieren</em> klicken. Die Anwendung wird als Windows-Dienst eingerichtet und startet automatisch, auch nach jedem Neustart des Computers.</li>
+  <li>Am Ende bleibt „Einrichtungs-Assistent im Browser öffnen" angehakt. Klicken Sie auf <em>Fertigstellen</em>. Ihr Browser öffnet die Seite <code>http://localhost:8080</code>.</li>
+  <li>Führen Sie die Ersteinrichtung durch (nächster Abschnitt).</li>
+</ol>
+<div class="box tip">Falls der Browser meldet, die Seite sei nicht erreichbar: eine Minute warten und die Seite neu laden. Der Dienst braucht beim ersten Start etwas Zeit. Sie finden die Oberfläche jederzeit im Startmenü unter <strong>PDF-zu-E-Rechnung → PDF-zu-E-Rechnung öffnen</strong>.</div>
+
+<h2 id="einrichtung">4. Ersteinrichtung (Assistent)</h2>
+<p>Beim ersten Aufruf fragt die Anwendung einmalig alles Nötige ab. Halten Sie Ihr Briefpapier bereit, denn diese Angaben erscheinen in jeder E-Rechnung.</p>
+<table>
+  <tr><th>Abschnitt</th><th>Was Sie eintragen</th></tr>
+  <tr><td>1. Unternehmen</td><td>Firmenname, Anschrift, Land, USt-IdNr. (oder Steuernummer), E-Mail und Telefon für Rückfragen, Ansprechpartner, IBAN und BIC Ihres Geschäftskontos, Währung. Die IBAN wird auf Richtigkeit geprüft.</td></tr>
+  <tr><td>2. Verzeichnisse</td><td>Sind vorbelegt und können so bleiben. Alle Ordner liegen unter <code>C:\ProgramData\PDF-zu-ERechnung</code>.</td></tr>
+  <tr><td>3. Versand</td><td>Nur ausfüllen, wenn Rechnungen automatisch per E-Mail verschickt werden sollen (siehe Abschnitt 9). Kann leer bleiben.</td></tr>
+  <tr><td>4. Verwaltungszugang</td><td>Benutzername und Passwort (mindestens 10 Zeichen) für den Verwaltungsbereich. <strong>Notieren Sie das Passwort sicher.</strong></td></tr>
+</table>
+<p>Mit <em>Einrichtung abschließen</em> ist die Anwendung betriebsbereit. Alle Angaben lassen sich später in der Verwaltung ändern.</p>
+<div class="box warn">Die Ersteinrichtung ist ohne Anmeldung erreichbar. Schließen Sie sie deshalb direkt nach der Installation ab, bevor andere Personen im Netzwerk die Adresse aufrufen können.</div>
+
+<h2 id="taeglich">5. Tägliche Nutzung</h2>
+<h3>Rechnung umwandeln – zwei Wege</h3>
+<ol>
+  <li><strong>Ordner:</strong> Speichern oder kopieren Sie die PDF-Rechnung in den Ordner <code>C:\ProgramData\PDF-zu-ERechnung\inbox</code> (Startmenü: „Rechnungen ablegen (Inbox)"). Nach wenigen Sekunden beginnt die Verarbeitung automatisch. Praktisch: Richten Sie in Ihrem Rechnungsprogramm diesen Ordner als Speicherort für den PDF-Export ein.</li>
+  <li><strong>Oberfläche:</strong> Auf der Seite <em>Ausgangsrechnungen</em> die Schaltfläche <em>PDF einlesen</em> aufklappen, Datei auswählen, Ihren Namen eintragen, <em>Einlesen starten</em>.</li>
+</ol>
+<h3>Was dann passiert</h3>
+<p>Die Anwendung erkennt die Rechnung, liest Rechnungsnummer, Datum, Kunde, Positionen und Summen aus, prüft, ob die Summen aufgehen, erzeugt XRechnung und ZUGFeRD, prüft beide mit den amtlichen Prüfregeln und legt die Ergebnisse ab. In der Oberfläche unter <em>Ausgangsrechnungen</em> sehen Sie jeden Vorgang mit Status:</p>
+<table>
+  <tr><th>Status</th><th>Bedeutung</th><th>Was tun</th></tr>
+  <tr><td>Archiviert / Gültig</td><td>Alles in Ordnung, E-Rechnung liegt im Ausgabeordner.</td><td>Nichts.</td></tr>
+  <tr><td>Manuelle Prüfung</td><td>Summen passen nicht zusammen oder eine Pflichtangabe fehlt.</td><td>Vorgang unter <em>Manuelle Prüfung</em> ansehen; Rechnung im Rechnungsprogramm korrigieren und neu ablegen, oder Hofmann IT bitten, das Layout-Profil anzupassen.</td></tr>
+  <tr><td>Fehlgeschlagen</td><td>Meist: PDF ist kein PDF/A, daher kein gültiges ZUGFeRD.</td><td>PDF als PDF/A exportieren und erneut ablegen.</td></tr>
+  <tr><td>Abgewiesen</td><td>Datei ist keine Rechnung (z. B. Angebot) oder wurde schon verarbeitet (Duplikat).</td><td>Nichts, wenn beabsichtigt.</td></tr>
+</table>
+<div class="box tip">Dieselbe Rechnung wird nie zweimal verarbeitet. Legen Sie eine bereits verarbeitete PDF erneut ab, landet sie als Duplikat in <code>rejected\duplikate</code>.</div>
+
+<h2 id="ergebnisse">6. Wo liegen die Ergebnisse?</h2>
+<p>Alle Ordner liegen unter <code>C:\ProgramData\PDF-zu-ERechnung</code>:</p>
+<table>
+  <tr><th>Ordner</th><th>Inhalt</th></tr>
+  <tr><td><code>inbox</code></td><td>Hier legen Sie PDF-Rechnungen ab.</td></tr>
+  <tr><td><code>output</code></td><td>Fertige E-Rechnungen: XRechnung (XML) und ZUGFeRD (PDF) zum Versenden oder Hochladen.</td></tr>
+  <tr><td><code>archive</code></td><td>Revisionssicheres Archiv je Rechnung: Original, E-Rechnungen, Prüfberichte. <strong>Nie ändern oder löschen.</strong></td></tr>
+  <tr><td><code>manual-review</code>, <code>failed</code>, <code>rejected</code></td><td>Vorgänge, die Ihre Aufmerksamkeit brauchen, jeweils mit einer Textdatei, die den Grund nennt.</td></tr>
+  <tr><td><code>data</code></td><td>Datenbank mit Rechnungsausgangsbuch und Einstellungen.</td></tr>
+  <tr><td><code>config</code>, <code>profiles</code></td><td>Konfiguration und Layout-Profile.</td></tr>
+  <tr><td><code>logs</code></td><td>Protokolle für den Support.</td></tr>
+</table>
+
+<h2 id="pruefen">7. Empfangene E-Rechnungen prüfen</h2>
+<p>Seite <em>E-Rechnung prüfen</em>: Die erhaltene Datei (XML oder ZUGFeRD-PDF) per Drag &amp; Drop ablegen oder auswählen. Sie sehen sofort, ob die Rechnung gültig ist, welchem Standard sie entspricht und welche Fehler die Prüfung meldet. Die Datei wird dabei nicht verändert und standardmäßig nicht gespeichert.</p>
+
+<h2 id="export">8. Rechnungsausgangsbuch, DATEV und Belegtransfer</h2>
+<p>Seite <em>Ausgangsrechnungen → Export</em>:</p>
+<ul>
+  <li><strong>CSV:</strong> alle Rechnungen mit Beträgen und Steuern, zum Öffnen in Excel. Immer verfügbar.</li>
+  <li><strong>DATEV-Buchungsstapel:</strong> Datei für den Import beim Steuerberater. Dafür müssen Sie einmalig die Angaben Ihres Steuerberaters eintragen (Beraternummer, Mandantennummer, Kontenrahmen SKR03/SKR04, Erlös- und Debitorenkonten): <em>Export → Einstellungen bearbeiten</em> (Anmeldung mit dem Verwaltungspasswort). Die vorbelegten Konten sind Platzhalter.</li>
+  <li><strong>DATEV Belegtransfer:</strong> Wenn Sie DATEV Unternehmen online nutzen und der DATEV-Belegtransfer-Client auf diesem Computer installiert ist, kann jede fertige ZUGFeRD-Rechnung automatisch in dessen Ordner „Rechnungsausgang" gelegt werden. Ordner in den Export-Einstellungen eintragen.</li>
+</ul>
+<p>Jeder Export wird mit Datum, Zeitraum und Benutzer protokolliert.</p>
+
+<h2 id="versand">9. Versand per E-Mail (optional)</h2>
+<p>Die Anwendung kann jede fertige Rechnung automatisch an feste Empfänger senden (z. B. an Ihre Buchhaltung oder das Rechnungspostfach eines Kunden). Dazu sind zwei Dinge nötig:</p>
+<ol>
+  <li>Server-Angaben in der <em>Verwaltung</em> (Host, Port, Absenderadresse) oder im Assistenten.</li>
+  <li>Zugangsdaten des Postfachs. Diese werden aus Sicherheitsgründen <strong>nicht</strong> in der Oberfläche eingegeben, sondern einmalig von Ihrer IT als Systemumgebungsvariablen <code>SMTP_USERNAME</code> und <code>SMTP_PASSWORD</code> hinterlegt (Abschnitt 14). Danach den Dienst neu starten.</li>
+</ol>
+<p>Empfänger und Anhänge stehen im Layout-Profil (<code>profiles\standard.yaml</code>, Abschnitt <code>postProcess</code>); Hofmann IT richtet das auf Wunsch ein.</p>
+
+<h2 id="verwaltung">10. Verwaltung und Einstellungen</h2>
+<p>Menüpunkt <em>Verwaltung</em> (Anmeldung mit Benutzername und Passwort aus der Ersteinrichtung). Hier ändern Sie Ordner, die automatische Überwachung, den E-Mail-Server, das Verwaltungspasswort und laden Mandanten und Profile neu, wenn Ihre IT Dateien geändert hat. Änderungen wirken sofort, ohne Neustart. Jede Änderung wird mit Name und Zeitpunkt protokolliert.</p>
+<p><em>Systemstatus</em> zeigt Version, Verzeichnisse und ob alle Prüfkomponenten vorhanden sind.</p>
+
+<h2 id="sicherung">11. Datensicherung und Wiederherstellung</h2>
+<p>Nehmen Sie den Ordner <code>C:\ProgramData\PDF-zu-ERechnung</code> vollständig in Ihre Datensicherung auf. Unverzichtbar sind <code>archive</code>, <code>data</code>, <code>config</code> und <code>profiles</code>.</p>
+<p>Für eine saubere Sicherung den Dienst kurz anhalten: Windows-Taste, „Dienste" eingeben, <em>PDF-zu-E-Rechnung</em> auswählen, <em>Beenden</em>, sichern, <em>Starten</em>. Läuft Ihre Sicherung mit Schattenkopien (VSS), ist das nicht nötig.</p>
+<p><strong>Wiederherstellung:</strong> Anwendung installieren, Dienst beenden, den gesicherten Ordner zurückkopieren, Dienst starten. Archiv und Datenbank gehören immer aus derselben Sicherung zusammen.</p>
+
+<h2 id="update">12. Update und Deinstallation</h2>
+<p><strong>Update:</strong> Neues Setup ausführen. Der Dienst wird angehalten, die Programmdateien werden ersetzt, Ihre Daten und Einstellungen bleiben erhalten, der Dienst startet wieder. Notwendige Anpassungen der Datenbank führt die Anwendung selbst durch. Sichern Sie vor dem Update den Datenordner.</p>
+<p><strong>Deinstallation:</strong> Windows-Einstellungen → Apps → PDF-zu-E-Rechnung → Deinstallieren. Der Datenordner mit Archiv und Rechnungsausgangsbuch wird dabei <strong>nicht</strong> gelöscht; Sie entscheiden selbst, ob und wann.</p>
+
+<h2 id="probleme">13. Wenn etwas nicht funktioniert</h2>
+<table>
+  <tr><th>Beobachtung</th><th>Ursache und Lösung</th></tr>
+  <tr><td>Browser zeigt „Seite nicht erreichbar"</td><td>Dienst läuft nicht. Windows-Taste, „Dienste", <em>PDF-zu-E-Rechnung</em> starten. Startet er nicht, Protokoll unter <code>logs\erechnung.log</code> an den Support senden. Häufig: Port 8080 wird von einem anderen Programm belegt (Abschnitt 14).</td></tr>
+  <tr><td>PDF bleibt in <code>inbox</code> liegen</td><td>Datei wird noch geschrieben oder ist keine PDF. Nach einer Minute prüfen; in der Verwaltung kontrollieren, ob „Inbox-Überwachung" aktiv ist.</td></tr>
+  <tr><td>Status „Fehlgeschlagen" mit Hinweis auf PDF/A oder veraPDF</td><td>Rechnung ist kein PDF/A. Im Rechnungsprogramm beim PDF-Export „PDF/A" wählen, erneut ablegen.</td></tr>
+  <tr><td>Status „Manuelle Prüfung"</td><td>Summen stimmen nicht oder ein Pflichtfeld wurde nicht gefunden. Details auf der Seite <em>Manuelle Prüfung</em>. Bei geändertem Rechnungslayout muss das Profil angepasst werden (Hofmann IT).</td></tr>
+  <tr><td>Verwaltung: Passwort vergessen</td><td>Ihre IT kann ein Notfallpasswort als Systemumgebungsvariable <code>ADMIN_PASSWORD</code> setzen (Dienst neu starten), danach in der Verwaltung ein neues Passwort vergeben und die Variable wieder entfernen.</td></tr>
+  <tr><td>Versand schlägt fehl</td><td>Server-Angaben in der Verwaltung prüfen, Zugangsdaten als Umgebungsvariablen gesetzt? Details stehen beim Vorgang unter „Historie".</td></tr>
+  <tr><td>DATEV-Import lehnt Datei ab</td><td>Hinweise in der Export-Vorschau beachten; Kontenlänge und Kontenrahmen müssen zum DATEV-Mandat passen; nur ein Wirtschaftsjahr je Datei.</td></tr>
+</table>
+<p>Für den Support bitte angeben: Version (Seitenfuß), Beobachtung, Uhrzeit, und die Dateien aus <code>logs</code>.</p>
+
+<h2 id="technik">14. Technische Hinweise für Ihre IT</h2>
+<ul>
+  <li><strong>Komponenten:</strong> Java-Anwendung (Spring Boot) mit eigener, im Paket enthaltener Java-21-Laufzeit; Windows-Dienst über WinSW (MIT-Lizenz); Validierungsressourcen (KoSIT XRechnung 3.0.2, Mustang/veraPDF) lokal. Lizenzen: <code>docs\THIRD-PARTY.md</code>.</li>
+  <li><strong>Pfade:</strong> Programm <code>C:\Program Files\PDF-zu-ERechnung</code> (Jar, <code>runtime\</code>, <code>validator\</code>, Dienstkonfiguration <code>pdf-zu-erechnung.xml</code>), Daten <code>C:\ProgramData\PDF-zu-ERechnung</code> (Arbeitsverzeichnis des Dienstes).</li>
+  <li><strong>Dienst:</strong> Name <code>pdf-zu-erechnung</code>, Konto LocalSystem, Autostart (verzögert), Neustart bei Absturz, 60 s für sauberes Beenden. Befehle als Administrator im Programmordner: <code>pdf-zu-erechnung.exe status|stop|start|restart</code>.</li>
+  <li><strong>Netzwerk:</strong> Oberfläche auf TCP 8080 an allen Adressen. Für Zugriff aus dem Netz Firewall-Regel und idealerweise Reverse Proxy mit Anmeldung; die Anwendung selbst schützt nur den Verwaltungsbereich mit Passwort. Ausgehend nur SMTP, wenn konfiguriert. Port ändern: <code>server.port</code> in <code>config\application.yaml</code>, Dienst neu starten.</li>
+  <li><strong>Umgebungsvariablen</strong> (Systemvariablen, gelten für das Dienstkonto nach Neustart des Dienstes): <code>SMTP_USERNAME</code>, <code>SMTP_PASSWORD</code>, optional <code>ADMIN_PASSWORD</code>. Systemsteuerung → System → Erweiterte Systemeinstellungen → Umgebungsvariablen → Systemvariablen.</li>
+  <li><strong>Antivirus/Backup-Software:</strong> Den Datenordner in Echtzeit-Scans möglichst ausnehmen oder den Java-Prozess freigeben; einzelne Produkte blockieren lokale Netzwerk-Sockets, was den Dienststart mit „Unable to establish loopback connection" verhindert.</li>
+  <li><strong>Mehrere Mandanten, Profile, DATEV-Details:</strong> siehe <code>docs\README.md</code> (Entwickler- und Betreiberdokumentation) und <code>docs\datev-format-referenz.md</code>.</li>
+</ul>
+
+</main>
+<footer>PDF-zu-E-Rechnung 1.0.0 · Hofmann IT · Dieses Handbuch liegt nach der Installation unter Startmenü → PDF-zu-E-Rechnung → Handbuch.</footer>
+</body>
+</html>

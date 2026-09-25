@@ -101,6 +101,26 @@ Verzeichnisse (relativ zum Arbeitsverzeichnis, alle in `config/application.yaml`
 
 ## 3. Windows Installation
 
+### 3a. Installationspaket (empfohlen für Kunden)
+
+`PDF-zu-ERechnung-<Version>-Setup.exe` enthält Anwendung, eigene Java-Laufzeit, Windows-Dienst
+und Handbuch. Der Kunde braucht nichts weiter zu installieren: Setup ausführen, der Dienst wird
+eingerichtet und gestartet, der Browser öffnet den Einrichtungs-Assistenten. Anleitung für
+Kunden: [docs/Handbuch.html](docs/Handbuch.html). Aufbau und Entscheidungen: ADR 0014.
+
+Paket bauen (Entwicklerrechner mit JDK 21, Maven und Inno Setup 6, `winget install JRSoftware.InnoSetup`):
+
+```bash
+powershell -ExecutionPolicy Bypass -File installer\windows\build-installer.ps1
+```
+
+Ergebnis: `target\installer\PDF-zu-ERechnung-<Version>-Setup.exe` plus `.sha256`. Das Skript
+führt `mvn -q verify` aus (überspringbar mit `-SkipBuild`), erzeugt die Laufzeit mit `jlink`,
+lädt WinSW 2.12.0 mit geprüfter Prüfsumme und kompiliert das Setup. Installierte Struktur:
+Programm unter `C:\Program Files\PDF-zu-ERechnung`, Daten unter `C:\ProgramData\PDF-zu-ERechnung`.
+
+### 3b. Manuelle Installation
+
 1. JDK/JRE 21 installieren (z. B. Temurin), Systemvariable `JAVA_HOME` setzen, prüfen mit
    `java -version`.
 2. Verzeichnis anlegen, z. B. `C:\pdf-zu-erechnung\`, und hineinkopieren:
