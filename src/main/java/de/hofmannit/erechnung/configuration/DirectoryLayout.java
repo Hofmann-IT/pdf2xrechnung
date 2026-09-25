@@ -12,48 +12,59 @@ import org.springframework.stereotype.Component;
  * Löst die Arbeitsverzeichnisse je Mandant auf. Jeder Mandant verwendet unterhalb von
  * inbox/, processing/, output/, failed/, manual-review/ und rejected/ dasselbe Unterverzeichnis
  * ({@code inbox-subdirectory}, leer = Wurzel). Archiv und Daten sind mandantenübergreifend.
+ *
+ * <p>Die Wurzeln kommen bei jedem Aufruf aus {@link RuntimeSettings}, damit Änderungen aus der
+ * Verwaltung ohne Neustart wirken (ADR 0012).
  */
 @Component
 public class DirectoryLayout {
 
-    private final AppProperties.Directories dirs;
+    private final RuntimeSettings settings;
     private final ProfileRegistry registry;
 
-    public DirectoryLayout(AppProperties appProperties, ProfileRegistry registry) {
-        this.dirs = appProperties.directories();
+    public DirectoryLayout(RuntimeSettings settings, ProfileRegistry registry) {
+        this.settings = settings;
         this.registry = registry;
     }
 
+    private RuntimeConfig.Directories dirs() {
+        return settings.current().directories();
+    }
+
     public Path inbox(Tenant t) {
-        return sub(dirs.inbox(), t);
+        return sub(Path.of(dirs().inbox()), t);
     }
 
     public Path processing(Tenant t) {
-        return sub(dirs.processing(), t);
+        return sub(Path.of(dirs().processing()), t);
     }
 
     public Path output(Tenant t) {
-        return sub(dirs.output(), t);
+        return sub(Path.of(dirs().output()), t);
     }
 
     public Path failed(Tenant t) {
-        return sub(dirs.failed(), t);
+        return sub(Path.of(dirs().failed()), t);
     }
 
     public Path manualReview(Tenant t) {
-        return sub(dirs.manualReview(), t);
+        return sub(Path.of(dirs().manualReview()), t);
     }
 
     public Path rejected(Tenant t) {
-        return sub(dirs.rejected(), t);
+        return sub(Path.of(dirs().rejected()), t);
     }
 
     public Path archiveRoot() {
-        return dirs.archive().toAbsolutePath().normalize();
+        return Path.of(dirs().archive()).toAbsolutePath().normalize();
     }
 
     public Path processingRoot() {
-        return dirs.processing().toAbsolutePath().normalize();
+        return Path.of(dirs().processing()).toAbsolutePath().normalize();
+    }
+
+    public Path inboundValidationRoot() {
+        return Path.of(dirs().inboundValidation()).toAbsolutePath().normalize();
     }
 
     /** Mandant zu einem Unterverzeichnis (relativ zur jeweiligen Wurzel), {@code ""} = Wurzel. */

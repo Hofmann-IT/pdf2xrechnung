@@ -9,6 +9,8 @@ import java.util.Map;
 
 import de.hofmannit.erechnung.configuration.AppProperties;
 import de.hofmannit.erechnung.configuration.ApplicationVersion;
+import de.hofmannit.erechnung.configuration.RuntimeConfig;
+import de.hofmannit.erechnung.configuration.RuntimeSettings;
 import de.hofmannit.erechnung.configuration.profile.ProfileRegistry;
 import de.hofmannit.erechnung.dispatch.EmailDispatcher;
 import de.hofmannit.erechnung.ledger.LedgerRepository;
@@ -23,15 +25,17 @@ import org.springframework.web.bind.annotation.GetMapping;
 public class StatusController {
 
     private final AppProperties properties;
+    private final RuntimeSettings settings;
     private final ApplicationVersion version;
     private final KositValidator kosit;
     private final EmailDispatcher email;
     private final ProfileRegistry registry;
     private final LedgerRepository ledger;
 
-    public StatusController(AppProperties properties, ApplicationVersion version, KositValidator kosit, EmailDispatcher email,
+    public StatusController(AppProperties properties, RuntimeSettings settings, ApplicationVersion version, KositValidator kosit, EmailDispatcher email,
                             ProfileRegistry registry, LedgerRepository ledger) {
         this.properties = properties;
+        this.settings = settings;
         this.version = version;
         this.kosit = kosit;
         this.email = email;
@@ -44,17 +48,11 @@ public class StatusController {
 
     @GetMapping("/status")
     public String status(Model model) {
+        RuntimeConfig live = settings.current();
         AppProperties.Directories d = properties.directories();
         Map<String, Path> dirs = new LinkedHashMap<>();
-        dirs.put("inbox", d.inbox());
-        dirs.put("processing", d.processing());
-        dirs.put("output", d.output());
-        dirs.put("failed", d.failed());
-        dirs.put("manual-review", d.manualReview());
-        dirs.put("rejected", d.rejected());
-        dirs.put("archive", d.archive());
+        live.directories().asMap().forEach((name, value) -> dirs.put(name, Path.of(value)));
         dirs.put("data", d.data());
-        dirs.put("inbound-validation", d.inboundValidation());
         dirs.put("profiles", d.profiles());
         dirs.put("validator", d.validatorResources());
         List<DirectoryStatus> statuses = new ArrayList<>();
@@ -67,14 +65,15 @@ public class StatusController {
         model.addAttribute("kositAvailable", kosit.isAvailable());
         model.addAttribute("kositConfig", kosit.configurationName());
         model.addAttribute("kositScenarios", properties.validation().kositScenarios().toAbsolutePath().normalize());
-        model.addAttribute("watcher", properties.watcher());
-        model.addAttribute("processing", properties.processing());
+        model.addAttribute("watcher", live.watcher());
+        model.addAttribute("processing", live.processing());
         model.addAttribute("smtpEnabled", email.isEnabled());
-        model.addAttribute("smtp", properties.smtp());
+        model.addAttribute("smtp", live.smtp());
+        model.addAttribute("settingsSource", settings.source());
         model.addAttribute("tenants", registry.tenants());
         model.addAttribute("profiles", registry.profiles().values());
         model.addAttribute("openRuns", ledger.countOpenRuns());
-        model.addAttribute("storeReports", properties.inboundValidation().storeReports());
+        model.addAttribute("storeReports", live.inboundValidation().storeReports());
         model.addAttribute("javaVersion", System.getProperty("java.version"));
         model.addAttribute("active", "status");
         return "status";

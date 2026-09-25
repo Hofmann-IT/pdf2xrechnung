@@ -9,7 +9,7 @@
     3. Als Administrator:  pdf-zu-erechnung.exe install   und   pdf-zu-erechnung.exe start
 
   %BASE% ist das Verzeichnis dieser Datei. SMTP-Zugangsdaten gehören NICHT in diese Datei:
-  SMTP_USERNAME und SMTP_PASSWORD als Systemumgebungsvariablen für das Dienstkonto setzen
+  SMTP_USERNAME, SMTP_PASSWORD und ADMIN_PASSWORD (Verwaltungsbereich) als Systemumgebungsvariablen für das Dienstkonto setzen
   (Systemsteuerung > System > Erweiterte Systemeinstellungen > Umgebungsvariablen, "Systemvariablen").
 -->
 <service>

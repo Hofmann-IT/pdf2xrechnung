@@ -4,10 +4,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
-import de.hofmannit.erechnung.configuration.AppProperties;
+import de.hofmannit.erechnung.configuration.RuntimeSettings;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +16,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Sequentielle Verarbeitung je Mandant (ein Thread je Mandant), konfigurierbare Parallelität
- * zwischen Mandanten über eine Semaphore (Vorgabe Abschnitt 37).
+ * zwischen Mandanten (Vorgabe Abschnitt 37). Die Parallelität folgt Änderungen aus der
+ * Verwaltung ohne Neustart (ADR 0012); laufende Verarbeitungen werden nicht unterbrochen.
  */
 @Component
 public class TenantExecutors {
@@ -23,11 +25,38 @@ public class TenantExecutors {
     private static final Logger log = LoggerFactory.getLogger(TenantExecutors.class);
 
     private final Map<String, ExecutorService> executors = new ConcurrentHashMap<>();
-    private final Semaphore parallelism;
+    private final ReentrantLock lock = new ReentrantLock(true);
+    private final Condition slotFree = lock.newCondition();
+    private int permits;
+    private int active;
 
-    public TenantExecutors(AppProperties properties) {
-        int n = Math.max(1, properties.processing().tenantParallelism());
-        this.parallelism = new Semaphore(n, true);
+    public TenantExecutors(RuntimeSettings settings) {
+        this.permits = Math.max(1, settings.current().processing().tenantParallelism());
+        settings.addListener(c -> setParallelism(c.processing().tenantParallelism()));
+    }
+
+    /** Neue Obergrenze; wirkt für alle Verarbeitungen, die noch auf einen Platz warten. */
+    public void setParallelism(int n) {
+        lock.lock();
+        try {
+            int value = Math.max(1, n);
+            if (value != permits) {
+                log.info("Parallelität zwischen Mandanten: {} → {}", permits, value);
+                permits = value;
+                slotFree.signalAll();
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public int parallelism() {
+        lock.lock();
+        try {
+            return permits;
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void submit(String tenantId, Runnable task) {
@@ -37,7 +66,7 @@ public class TenantExecutors {
             return t;
         })).submit(() -> {
             try {
-                parallelism.acquire();
+                acquire();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return;
@@ -47,9 +76,31 @@ public class TenantExecutors {
             } catch (RuntimeException e) {
                 log.error("Unbehandelter Fehler in der Verarbeitung für Mandant {}", tenantId, e);
             } finally {
-                parallelism.release();
+                release();
             }
         });
+    }
+
+    private void acquire() throws InterruptedException {
+        lock.lockInterruptibly();
+        try {
+            while (active >= permits) {
+                slotFree.await();
+            }
+            active++;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private void release() {
+        lock.lock();
+        try {
+            active--;
+            slotFree.signalAll();
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void shutdown() {

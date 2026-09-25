@@ -33,7 +33,7 @@ class ModuleDependencyTest {
 
     private static final Set<String> MODULES = Set.of(
             "model", "security", "configuration", "extraction", "mapping", "plausibility", "generation",
-            "validation", "inboundvalidation", "ledger", "archive", "dispatch", "export", "watcher", "web", "cli");
+            "validation", "inboundvalidation", "ledger", "archive", "dispatch", "export", "admin", "watcher", "web", "cli");
 
     private static final Map<String, Set<String>> ALLOWED = Map.ofEntries(
             Map.entry("model", Set.of()),
@@ -49,6 +49,7 @@ class ModuleDependencyTest {
             Map.entry("archive", Set.of("ledger", "configuration", "model", "security")),
             Map.entry("dispatch", Set.of("ledger", "configuration", "model", "security")),
             Map.entry("export", Set.of("ledger", "configuration", "model", "security")),
+            Map.entry("admin", Set.of("ledger", "configuration", "model", "security")),
             Map.entry("watcher", Set.of("extraction", "mapping", "plausibility", "generation", "validation",
                     "ledger", "archive", "dispatch", "export", "configuration", "model", "security")),
             // Das Wurzelpaket (Einstiegsklasse) darf den CLI-Einstieg kennen; es ist kein Modul.

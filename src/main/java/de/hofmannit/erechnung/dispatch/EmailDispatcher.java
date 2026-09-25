@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Properties;
 
 import de.hofmannit.erechnung.configuration.AppProperties;
+import de.hofmannit.erechnung.configuration.RuntimeConfig;
+import de.hofmannit.erechnung.configuration.RuntimeSettings;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -23,14 +25,26 @@ import org.springframework.stereotype.Component;
 @Component
 public class EmailDispatcher {
 
-    private final AppProperties.Smtp smtp;
+    private final RuntimeSettings settings;
+    /** Zugangsdaten kommen ausschließlich aus SMTP_USERNAME/SMTP_PASSWORD (YAML-Referenz auf Umgebungsvariablen). */
+    private final AppProperties.Smtp credentials;
 
-    public EmailDispatcher(AppProperties properties) {
-        this.smtp = properties.smtp();
+    public EmailDispatcher(RuntimeSettings settings, AppProperties properties) {
+        this.settings = settings;
+        this.credentials = properties.smtp();
+    }
+
+    /** Wirksame Server-Einstellungen (Verwaltung vor YAML, ADR 0012). */
+    private RuntimeConfig.Smtp smtp() {
+        return settings.current().smtp();
     }
 
     public boolean isEnabled() {
-        return smtp.enabled();
+        return smtp().enabled();
+    }
+
+    public boolean hasCredentials() {
+        return credentials.username() != null && !credentials.username().isBlank();
     }
 
     /** Versendete Nachricht (Message-ID für das Event). */
@@ -38,6 +52,7 @@ public class EmailDispatcher {
     }
 
     public SentMail send(List<String> to, List<String> cc, String subject, String body, List<Path> attachments) throws DispatchException {
+        RuntimeConfig.Smtp smtp = smtp();
         if (!smtp.enabled()) {
             throw new DispatchException("SMTP-Versand ist deaktiviert (app.smtp.enabled=false)");
         }
@@ -50,7 +65,7 @@ public class EmailDispatcher {
         if (smtp.from() == null || smtp.from().isBlank()) {
             throw new DispatchException("Absender ist nicht konfiguriert (app.smtp.from)");
         }
-        JavaMailSenderImpl sender = createSender();
+        JavaMailSenderImpl sender = createSender(smtp);
         try {
             MimeMessage message = sender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -73,12 +88,16 @@ public class EmailDispatcher {
     }
 
     JavaMailSenderImpl createSender() {
+        return createSender(smtp());
+    }
+
+    JavaMailSenderImpl createSender(RuntimeConfig.Smtp smtp) {
         JavaMailSenderImpl sender = new JavaMailSenderImpl();
         sender.setHost(smtp.host());
         sender.setPort(smtp.port());
         if (smtp.auth()) {
-            sender.setUsername(smtp.username());
-            sender.setPassword(smtp.password());
+            sender.setUsername(credentials.username());
+            sender.setPassword(credentials.password());
         }
         Properties props = sender.getJavaMailProperties();
         long timeoutMs = smtp.timeout() == null ? 30000 : smtp.timeout().toMillis();

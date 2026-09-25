@@ -16,6 +16,7 @@ Ein ADR wird nie umgeschrieben; Änderungen erfolgen durch ein neues ADR, das da
 | 0009 | [Export Rechnungsausgangsbuch (CSV, DATEV)](0009-export-rechnungsausgangsbuch.md) | Akzeptiert |
 | 0010 | [V2: Export-Einstellungen, Zusatzfelder, Exportprotokoll](0010-v2-export-einstellungen.md) | Akzeptiert |
 | 0011 | [V3: Übergabe an DATEV Belegtransfer](0011-belegtransfer.md)   | Akzeptiert  |
+| 0012 | [V4: Verwaltungsbereich und PDF-Einlesen](0012-verwaltungsbereich.md) | Akzeptiert |
 
 ## Modulabhängigkeiten (verbindlich, geprüft durch `ModuleDependencyTest`)
 
@@ -32,6 +33,7 @@ ledger            -> configuration, model, security
 archive           -> ledger, configuration, model, security
 dispatch          -> ledger, configuration, model, security
 export            -> ledger, configuration, model, security
+admin             -> ledger, configuration, model, security
 watcher           -> extraction, mapping, plausibility, generation, validation,
                      ledger, archive, dispatch, export, configuration, model, security
 web               -> alle außer cli

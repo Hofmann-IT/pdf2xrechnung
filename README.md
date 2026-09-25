@@ -52,7 +52,9 @@ inbox/  ──►  Erkennen ──► Extrahieren ──► Mapping ──► Pl
 ```
 
 - **Watcher** beobachtet `inbox/` (je Mandant ein Unterverzeichnis oder die Wurzel). Eine
-  Datei gilt als fertig, wenn ihre Größe über mehrere Prüfintervalle stabil ist.
+  Datei gilt als fertig, wenn ihre Größe über mehrere Prüfintervalle stabil ist. Alternativ
+  lädt die Schaltfläche **PDF einlesen** auf „Ausgangsrechnungen" eine Rechnung hoch; sie
+  wird in die Inbox des gewählten Mandanten gelegt und durchläuft dieselbe Verarbeitung.
 - **Idempotenz:** Mandant + SHA-256 der PDF. Dieselbe Datei wird nie zweimal verarbeitet;
   Duplikate landen in `rejected/duplikate/` und werden am ursprünglichen Run protokolliert.
 - **Extraktion** ist positionsbasiert (PDFBox, keine OCR). **Mapping** über Mandantenprofile
@@ -265,8 +267,24 @@ im Log (fail fast).
 | Variable | Zweck |
 |----------|-------|
 | `SMTP_USERNAME`, `SMTP_PASSWORD` | Zugangsdaten für den Versand |
+| `ADMIN_PASSWORD` | Passwort für den Verwaltungsbereich (`/verwaltung`, Export-Einstellungen); Benutzername `admin`. Nicht gesetzt = Bereich gesperrt |
 | `JAVA_OPTS` (Docker, systemd) | JVM-Optionen, z. B. `-Xmx1g` |
 | `TZ` | Zeitzone (Zeitstempel im Ledger sind immer UTC) |
+
+### Verwaltung in der Oberfläche
+
+Unter **Verwaltung** (`/verwaltung`, Anmeldung mit `admin` und `ADMIN_PASSWORD`) lassen sich
+die Laufzeiteinstellungen ohne Neustart ändern: Arbeitsverzeichnisse (außer `data`,
+`profiles`, `validator`), Watcher (aktiv, Intervall, stabile Prüfungen), Parallelität,
+Ablage der Prüfprotokolle und der SMTP-Server (Host, Port, STARTTLS/SSL, Anmeldung,
+Absender, Timeout). Jede Speicherung ist ein neuer Datensatz mit Benutzer, Zeitpunkt und
+Notiz; die Historie steht auf der Seite. In der Verwaltung gespeicherte Werte gehen der YAML
+vor; die Seite und der Systemstatus zeigen, welche Quelle gerade gilt.
+
+Nur mit Neustart über `config/application.yaml`: Port, Datenverzeichnis, Profil- und
+Validator-Verzeichnis, Logverzeichnis, Upload-Grenze. Zugangsdaten (SMTP, Admin) stehen nie
+in der Datenbank oder in Formularen. Von dort führt ein Link zu den Export- und
+DATEV-Einstellungen je Mandant (Abschnitt 12), die dieselbe Anmeldung verlangen.
 
 ## 7. Profil-Einrichtung
 
@@ -403,7 +421,8 @@ Vor Produktivstart:
 - [ ] Testlauf: PDF in `inbox/` → Ergebnis in `output/`, Detailseite zeigt alle Validierungen VALID
 - [ ] Verzeichnisse liegen auf gesichertem Speicher; `archive/` und `data/` in der Datensicherung (Abschnitt 14)
 - [ ] Dienst eingerichtet (WinSW/systemd/Docker), Neustart nach Absturz geprüft
-- [ ] Oberfläche nur im Firmennetz erreichbar; **die Anwendung hat keine Anmeldung**, daher
+- [ ] `ADMIN_PASSWORD` gesetzt (sonst ist die Verwaltung gesperrt), Passwort nur beim Betreiber
+- [ ] Oberfläche nur im Firmennetz erreichbar; **außer der Verwaltung hat die Anwendung keine Anmeldung**, daher
       Reverse Proxy mit Authentifizierung oder Beschränkung auf vertrauenswürdige Adressen
 - [ ] Netzwerk: nur SMTP nach außen erlaubt (Firewall), keine weiteren Verbindungen nötig
 - [ ] SMTP-Zugangsdaten ausschließlich als Umgebungsvariablen, Test-Mail an interne Adresse

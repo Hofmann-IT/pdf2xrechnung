@@ -5,6 +5,17 @@ Die Versionsnummer im `pom.xml` bleibt bis zur ersten Freigabe `0.1.0-SNAPSHOT`.
 
 ## [Unreleased]
 
+### Verwaltungsbereich und PDF-Einlesen (2026-09-25, ADR 0012)
+- V4: Tabelle `app_settings` (append-only, JSON-Gesamtstand je Datensatz).
+- Seite **Verwaltung** (`/verwaltung`): Verzeichnisse, Watcher, Parallelität, Prüfprotokolle
+  und SMTP-Server in der Oberfläche pflegen; Änderungen wirken sofort ohne Neustart,
+  Historie mit Benutzer, Zeitpunkt und Notiz. Nur-Neustart-Einstellungen werden
+  schreibgeschützt angezeigt. Zugangsdaten bleiben ausschließlich in Umgebungsvariablen.
+- Zugriffsschutz per HTTP Basic (`admin` / `ADMIN_PASSWORD`) für Verwaltung und
+  Export-Einstellungen; ohne Passwort gesperrt.
+- Schaltfläche **PDF einlesen** auf „Ausgangsrechnungen": Upload in die Inbox des Mandanten,
+  Verarbeitung über die unveränderte Pipeline, nie überschreiben.
+
 ### Phase 6 – Betrieb (2026-09-24)
 - Dockerfile (Multi-Stage, JRE 21, unprivilegierter Benutzer, Validierungsressourcen im Image),
   `docker-compose.yaml` mit den Volumes inbox, processing, output, archive, config, profiles, data

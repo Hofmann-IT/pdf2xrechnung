@@ -6,6 +6,20 @@
 <main>
     <h1>Ausgangsrechnungen</h1>
     <p class="subtitle">Alle Verarbeitungsläufe mit Status, Formaten und Versand. Der Status wird aus der Ereignishistorie abgeleitet.</p>
+    <div th:replace="~{layout :: flash}"></div>
+
+    <details class="card" id="einlesen">
+        <summary><strong>PDF einlesen</strong> <span class="small muted">– Rechnung hochladen statt in inbox/ zu kopieren; sie läuft durch dieselbe Verarbeitung</span></summary>
+        <form class="filters" th:action="@{/rechnungen/einlesen}" method="post" enctype="multipart/form-data" style="margin-top:.8rem">
+            <label class="field">Mandant
+                <select name="tenant"><option th:each="t : ${tenants}" th:if="${t.enabled}" th:value="${t.id}" th:text="${t.name}"></option></select>
+            </label>
+            <label class="field">PDF-Rechnung<input type="file" name="file" accept="application/pdf,.pdf" required></label>
+            <label class="field">Benutzer<input type="text" name="user" required></label>
+            <button class="btn accent" type="submit">Einlesen starten</button>
+            <span class="small muted">Für ZUGFeRD muss die PDF als PDF/A vorliegen.</span>
+        </form>
+    </details>
 
     <form class="filters" th:action="@{/rechnungen}" method="get" hx-get="/rechnungen" hx-target="#rows" hx-trigger="submit, change from:select, keyup changed delay:400ms from:input[name=q]">
         <label class="field">Suche<input type="search" name="q" th:value="${filter.search}" placeholder="Rechnungsnummer, Kunde, Datei"></label>

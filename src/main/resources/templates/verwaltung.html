@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Verwaltung')}"></head>
+<body>
+<header th:replace="~{layout :: topbar('verwaltung')}"></header>
+<main>
+    <h1>Verwaltung</h1>
+    <p class="subtitle">Laufzeiteinstellungen der Anwendung. Änderungen werden sofort wirksam, jede Speicherung ist ein neuer Datensatz mit Benutzer, Zeitpunkt und Notiz. Zugangsdaten werden hier nie gespeichert.</p>
+    <div th:replace="~{layout :: flash}"></div>
+    <div class="notice error" th:if="${errors}">
+        <strong>Nicht gespeichert:</strong>
+        <ul style="margin:.4rem 0 0 1rem"><li th:each="e : ${errors}" th:text="${e}"></li></ul>
+    </div>
+    <p class="small muted">Aktuell wirksam: <span th:text="${source.name() == 'DATABASE'} ? 'in der Verwaltung gespeicherte Einstellungen' : 'config/application.yaml (noch nie in der Verwaltung gespeichert)'"></span>
+        · Watcher-Intervall aktiv: <span th:text="${watcherIntervalMillis > 0} ? (${watcherIntervalMillis} + ' ms') : 'nicht aktiv'"></span></p>
+
+    <form method="post" th:action="@{/verwaltung}">
+        <div class="grid grid-3">
+            <section class="card">
+                <h2>Verzeichnisse</h2>
+                <p class="small muted">Relativ zum Arbeitsverzeichnis des Dienstes oder absolut. Werden beim Speichern angelegt. Das Verarbeitungsverzeichnis lässt sich nur wechseln, wenn es leer ist.</p>
+                <label class="field">Inbox<input type="text" name="inbox" th:value="${form.inbox}" required></label>
+                <label class="field">Verarbeitung (processing)<input type="text" name="processing" th:value="${form.processing}" required></label>
+                <label class="field">Ausgabe (output)<input type="text" name="output" th:value="${form.output}" required></label>
+                <label class="field">Fehler (failed)<input type="text" name="failed" th:value="${form.failed}" required></label>
+                <label class="field">Manuelle Prüfung (manual-review)<input type="text" name="manualReview" th:value="${form.manualReview}" required></label>
+                <label class="field">Abgewiesen (rejected)<input type="text" name="rejected" th:value="${form.rejected}" required></label>
+                <label class="field">Archiv<input type="text" name="archive" th:value="${form.archive}" required></label>
+                <label class="field">Prüfprotokolle (inbound-validation)<input type="text" name="inboundValidation" th:value="${form.inboundValidation}" required></label>
+            </section>
+            <section class="card">
+                <h2>Watcher und Verarbeitung</h2>
+                <label style="display:block;margin-bottom:.6rem"><input type="checkbox" name="watcherEnabled" th:checked="${form.watcherEnabled}"> Inbox-Überwachung aktiv</label>
+                <label class="field">Prüfintervall in Sekunden (0,25 bis 3600)<input type="text" name="pollIntervalSeconds" th:value="${form.pollIntervalSeconds}" inputmode="decimal"></label>
+                <label class="field">Stabile Prüfungen vor Übernahme (1 bis 20)<input type="number" name="stableChecks" min="1" max="20" th:value="${form.stableChecks}"></label>
+                <label class="field">Mandanten gleichzeitig (1 bis 32; innerhalb eines Mandanten immer sequentiell)<input type="number" name="tenantParallelism" min="1" max="32" th:value="${form.tenantParallelism}"></label>
+                <h2 style="margin-top:1rem">E-Rechnung prüfen</h2>
+                <label style="display:block;margin-bottom:.6rem"><input type="checkbox" name="storeReports" th:checked="${form.storeReports}"> Prüfprotokolle dauerhaft ablegen</label>
+                <h2 style="margin-top:1rem">Nur mit Neustart (config/application.yaml)</h2>
+                <dl class="kv small">
+                    <dt>Port</dt><dd>siehe server.port</dd>
+                    <dt>Datenverzeichnis</dt><dd class="mono" th:text="${fixed.directories.data}"></dd>
+                    <dt>Profile</dt><dd class="mono" th:text="${fixed.directories.profiles}"></dd>
+                    <dt>Validator</dt><dd class="mono" th:text="${fixed.directories.validatorResources}"></dd>
+                    <dt>Logs</dt><dd class="mono" th:text="${fixed.logging.directory}"></dd>
+                    <dt>Upload-Grenze</dt><dd th:text="${fixed.inboundValidation.maxUploadSize}"></dd>
+                </dl>
+            </section>
+            <section class="card">
+                <h2>Versand (SMTP)</h2>
+                <p class="small muted">Einzige erlaubte ausgehende Verbindung. Zugangsdaten nur über SMTP_USERNAME / SMTP_PASSWORD:
+                    <span th:class="${smtpCredentials} ? 'badge badge-ok' : 'badge badge-warn'" th:text="${smtpCredentials} ? 'gesetzt' : 'nicht gesetzt'"></span></p>
+                <label style="display:block;margin-bottom:.6rem"><input type="checkbox" name="smtpEnabled" th:checked="${form.smtpEnabled}"> Versand aktiv</label>
+                <label class="field">SMTP-Host<input type="text" name="smtpHost" th:value="${form.smtpHost}"></label>
+                <label class="field">Port<input type="number" name="smtpPort" min="1" max="65535" th:value="${form.smtpPort}"></label>
+                <label style="display:block;margin:.4rem 0"><input type="checkbox" name="smtpStarttls" th:checked="${form.smtpStarttls}"> STARTTLS</label>
+                <label style="display:block;margin:.4rem 0"><input type="checkbox" name="smtpSsl" th:checked="${form.smtpSsl}"> SSL/TLS (SMTPS)</label>
+                <label style="display:block;margin:.4rem 0"><input type="checkbox" name="smtpAuth" th:checked="${form.smtpAuth}"> Anmeldung am Server</label>
+                <label class="field">Absenderadresse<input type="email" name="smtpFrom" th:value="${form.smtpFrom}"></label>
+                <label class="field">Timeout in Sekunden<input type="number" name="smtpTimeoutSeconds" min="1" max="600" th:value="${form.smtpTimeoutSeconds}"></label>
+                <hr style="margin:1rem 0;border:0;border-top:1px solid #e3e8ef">
+                <label class="field">Benutzer<input type="text" name="user" th:value="${user}" required></label>
+                <label class="field">Notiz<input type="text" name="note" th:value="${note}"></label>
+                <button class="btn" type="submit" style="margin-top:.6rem">Einstellungen speichern</button>
+            </section>
+        </div>
+    </form>
+
+    <section class="card">
+        <h2>Weitere Einstellungen</h2>
+        <ul>
+            <li th:each="t : ${tenants}"><a th:href="@{/rechnungen/export/einstellungen(tenant=${t.id})}" th:text="'Export- und DATEV-Einstellungen: ' + ${t.name}"></a></li>
+            <li>Mandanten, Profile und feste Verkäuferangaben: <code>config/tenant.yaml</code>, <code>profiles/*.yaml</code> (Neustart erforderlich)</li>
+        </ul>
+    </section>
+
+    <section class="card">
+        <h2>Historie</h2>
+        <table class="data compact" th:if="${!#lists.isEmpty(history)}">
+            <thead><tr><th>Zeitpunkt</th><th>Benutzer</th><th>Notiz</th><th>Einstellungen (JSON)</th></tr></thead>
+            <tbody>
+            <tr th:each="h : ${history}">
+                <td class="nowrap" th:text="${@fmt.dateTime(h.createdAt)}"></td>
+                <td th:text="${h.createdBy}"></td>
+                <td th:text="${h.note}"></td>
+                <td><details><summary class="small">anzeigen</summary><code class="small" th:text="${h.settingsJson}"></code></details></td>
+            </tr>
+            </tbody>
+        </table>
+        <p class="muted" th:if="${#lists.isEmpty(history)}">Noch keine Einstellungen in der Verwaltung gespeichert.</p>
+    </section>
+</main>
+<footer th:replace="~{layout :: footer}"></footer>
+</body>
+</html>

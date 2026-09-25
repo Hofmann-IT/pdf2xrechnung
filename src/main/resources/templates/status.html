@@ -15,6 +15,7 @@
                 <dt>Offene Runs</dt><dd th:text="${openRuns}"></dd>
                 <dt>Watcher</dt><dd th:text="${watcher.enabled} ? ('aktiv, Intervall ' + ${watcher.pollInterval} + ', ' + ${watcher.stableChecks} + ' stabile Prüfungen') : 'deaktiviert'"></dd>
                 <dt>Parallelität</dt><dd th:text="${processing.tenantParallelism} + ' Mandant(en) gleichzeitig'"></dd>
+                <dt>Einstellungen</dt><dd><span th:text="${settingsSource.name() == 'DATABASE'} ? 'aus der Verwaltung (Datenbank)' : 'aus config/application.yaml'"></span> · <a th:href="@{/verwaltung}">Verwaltung</a></dd>
             </dl>
         </section>
         <section class="card"><h2>Validierung</h2>

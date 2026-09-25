@@ -58,3 +58,7 @@ app:
 
   logging:
     directory: ./logs
+
+  admin:
+    username: admin                    # Anmeldename für den Verwaltungsbereich (/verwaltung)
+    password: "${ADMIN_PASSWORD:}"     # aus Umgebungsvariable – niemals hier eintragen; leer = Bereich gesperrt

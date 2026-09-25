@@ -89,13 +89,13 @@ class ApplicationContextAndSchemaTest {
     void flywayAppliedBaseSchema() {
         Integer version = jdbc.queryForObject(
                 "SELECT MAX(version) FROM flyway_schema_history WHERE success = 1", Integer.class);
-        assertThat(version).isEqualTo(3);
+        assertThat(version).isEqualTo(4);
 
         List<String> tables = jdbc.queryForList(
                 "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name", String.class);
         assertThat(tables).contains("source_document", "processing_run", "ledger_entry", "ledger_tax_line",
                 "processing_event", "artifact", "validation_result", "inbound_validation",
-                "export_settings", "invoice_export_field", "export_log", "belegtransfer_transfer");
+                "export_settings", "invoice_export_field", "export_log", "belegtransfer_transfer", "app_settings");
         List<String> settingsColumns = jdbc.query("PRAGMA table_info(export_settings)", (rs, i) -> rs.getString("name"));
         assertThat(settingsColumns).contains("belegtransfer_enabled", "belegtransfer_directory");
         List<String> ledgerColumns = jdbc.query("PRAGMA table_info(ledger_entry)", (rs, i) -> rs.getString("name"));

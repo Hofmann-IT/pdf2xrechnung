@@ -12,6 +12,7 @@ import java.util.Locale;
 import java.util.stream.Stream;
 
 import de.hofmannit.erechnung.configuration.AppProperties;
+import de.hofmannit.erechnung.configuration.RuntimeSettings;
 import de.hofmannit.erechnung.inboundvalidation.DocumentInspector.Inspection;
 import de.hofmannit.erechnung.security.Sha256;
 import de.hofmannit.erechnung.validation.KositValidator;
@@ -48,15 +49,17 @@ public class InboundValidationService {
     private final KositValidator kosit;
     private final MustangValidator mustang;
     private final InboundValidationRepository repository;
+    private final RuntimeSettings settings;
     private final AppProperties properties;
     private final Clock clock;
 
     public InboundValidationService(DocumentInspector inspector, KositValidator kosit, MustangValidator mustang,
-                                    InboundValidationRepository repository, AppProperties properties, Clock clock) {
+                                    InboundValidationRepository repository, RuntimeSettings settings, AppProperties properties, Clock clock) {
         this.inspector = inspector;
         this.kosit = kosit;
         this.mustang = mustang;
         this.repository = repository;
+        this.settings = settings;
         this.properties = properties;
         this.clock = clock;
     }
@@ -110,7 +113,7 @@ public class InboundValidationService {
                     inspection.syntax(), inspection.customizationId(), inspection.processId(), profileName, profileKnown, xrVersion,
                     inspection.hasXml(), inspection.embeddedFilename(), inspection.attachmentNames(), overall, reports, now, message, null);
             log.info("E-Rechnung geprüft: {} ({}) → {} [{}]", safeName, inspection.type(), overall, sha.substring(0, 8));
-            if (properties.inboundValidation().storeReports()) {
+            if (settings.current().inboundValidation().storeReports()) {
                 Path dir = store(result, content);
                 result = result.withStoredDirectory(dir);
                 repository.record(result, dir.toString(), requestedBy);
@@ -146,7 +149,7 @@ public class InboundValidationService {
      */
     private Path store(InboundValidationResult r, byte[] content) throws IOException {
         LocalDate date = LocalDate.ofInstant(r.validatedAt(), clock.getZone());
-        Path base = properties.directories().inboundValidation().toAbsolutePath().normalize()
+        Path base = Path.of(settings.current().directories().inboundValidation()).toAbsolutePath().normalize()
                 .resolve(String.format(Locale.ROOT, "%04d", date.getYear()))
                 .resolve(String.format(Locale.ROOT, "%02d", date.getMonthValue()))
                 .resolve(r.sha256().substring(0, 8));

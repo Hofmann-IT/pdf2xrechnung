@@ -80,3 +80,8 @@ app:
     timeout: 30s
   logging:
     directory: ./logs
+  admin:
+    # Verwaltungsbereich (/verwaltung, Export-Einstellungen): HTTP-Basic mit diesem Benutzer und
+    # dem Passwort aus der Umgebungsvariable ADMIN_PASSWORD. Ohne Passwort ist der Bereich gesperrt.
+    username: admin
+    password: "${ADMIN_PASSWORD:}"

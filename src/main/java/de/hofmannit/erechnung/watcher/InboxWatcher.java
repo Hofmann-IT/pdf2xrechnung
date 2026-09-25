@@ -22,8 +22,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import de.hofmannit.erechnung.archive.FileStore;
-import de.hofmannit.erechnung.configuration.AppProperties;
 import de.hofmannit.erechnung.configuration.DirectoryLayout;
+import de.hofmannit.erechnung.configuration.RuntimeConfig;
+import de.hofmannit.erechnung.configuration.RuntimeSettings;
 import de.hofmannit.erechnung.configuration.TenantProperties.Tenant;
 import de.hofmannit.erechnung.configuration.profile.ProfileRegistry;
 import de.hofmannit.erechnung.ledger.EventType;
@@ -58,7 +59,8 @@ public class InboxWatcher implements SmartLifecycle {
 
     private static final Logger log = LoggerFactory.getLogger(InboxWatcher.class);
 
-    private final AppProperties.Watcher config;
+    private final RuntimeSettings settings;
+    private volatile RuntimeConfig.Watcher config;
     private final DirectoryLayout layout;
     private final ProfileRegistry registry;
     private final LedgerRepository ledger;
@@ -71,9 +73,10 @@ public class InboxWatcher implements SmartLifecycle {
     private ScheduledExecutorService scheduler;
     private volatile boolean running;
 
-    public InboxWatcher(AppProperties properties, DirectoryLayout layout, ProfileRegistry registry, LedgerRepository ledger,
+    public InboxWatcher(RuntimeSettings settings, DirectoryLayout layout, ProfileRegistry registry, LedgerRepository ledger,
                         ProcessingPipeline pipeline, TenantExecutors executors, StartupRecovery recovery, Clock clock) {
-        this.config = properties.watcher();
+        this.settings = settings;
+        this.config = settings.current().watcher();
         this.layout = layout;
         this.registry = registry;
         this.ledger = ledger;
@@ -85,11 +88,23 @@ public class InboxWatcher implements SmartLifecycle {
 
     @Override
     public void start() {
+        config = settings.current().watcher();
+        recovery.recover();
+        settings.addListener(this::onSettingsChanged);
+        schedule();
+        running = true;
+    }
+
+    /** Startet die Überwachung mit den aktuellen Einstellungen (neu), sofern aktiviert. */
+    private synchronized void schedule() {
+        if (scheduler != null) {
+            scheduler.shutdownNow();
+            scheduler = null;
+        }
         if (!config.enabled()) {
             log.info("Inbox-Watcher ist deaktiviert (app.watcher.enabled=false)");
             return;
         }
-        recovery.recover();
         long millis = Math.max(250, config.pollInterval().toMillis());
         scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "inbox-watcher");
@@ -97,9 +112,23 @@ public class InboxWatcher implements SmartLifecycle {
             return t;
         });
         scheduler.scheduleWithFixedDelay(this::safePoll, millis, millis, TimeUnit.MILLISECONDS);
-        running = true;
         log.info("Inbox-Watcher gestartet: Intervall {} ms, {} stabile Prüfungen, Mandanten {}", millis, config.stableChecks(),
                 registry.tenants().stream().filter(Tenant::enabled).map(Tenant::id).toList());
+    }
+
+    /** Änderung aus der Verwaltung (ADR 0012): Intervall, Stabilitätsprüfung oder Aktivierung sofort übernehmen. */
+    private void onSettingsChanged(RuntimeConfig changed) {
+        RuntimeConfig.Watcher next = changed.watcher();
+        boolean reschedule = running && (next.enabled() != config.enabled() || !next.pollInterval().equals(config.pollInterval()));
+        config = next;
+        if (reschedule) {
+            schedule();
+        }
+    }
+
+    /** Aktuell wirksames Prüfintervall in Millisekunden, 0 wenn die Überwachung nicht läuft. */
+    public long activeIntervalMillis() {
+        return scheduler == null || !config.enabled() ? 0 : Math.max(250, config.pollInterval().toMillis());
     }
 
     @Override

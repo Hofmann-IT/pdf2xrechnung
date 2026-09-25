@@ -21,7 +21,19 @@ public record AppProperties(
         Validation validation,
         InboundValidation inboundValidation,
         Smtp smtp,
-        Logging logging) {
+        Logging logging,
+        Admin admin) {
+
+    /**
+     * Zugriffsschutz des Verwaltungsbereichs (ADR 0012): HTTP-Basic-Anmeldung nur für
+     * {@code /verwaltung} und die Export-Einstellungen. Das Passwort kommt ausschließlich aus
+     * der Umgebungsvariable ADMIN_PASSWORD; ohne gesetztes Passwort ist der Bereich gesperrt.
+     */
+    public record Admin(@DefaultValue("admin") String username, String password) {
+        public boolean configured() {
+            return password != null && !password.isBlank();
+        }
+    }
 
     /** Logging-Ablage (Rotation siehe {@code logback-spring.xml}). */
     public record Logging(@DefaultValue("./logs") Path directory) {

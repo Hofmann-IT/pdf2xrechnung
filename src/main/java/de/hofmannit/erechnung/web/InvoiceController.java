@@ -4,12 +4,16 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import de.hofmannit.erechnung.configuration.DirectoryLayout;
+import de.hofmannit.erechnung.configuration.TenantProperties.Tenant;
 import de.hofmannit.erechnung.configuration.profile.ProfileRegistry;
 import de.hofmannit.erechnung.dispatch.DispatchException;
 import de.hofmannit.erechnung.dispatch.PostProcessService;
@@ -32,6 +36,8 @@ import de.hofmannit.erechnung.web.WebExceptionHandler.NotFoundException;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -43,11 +49,14 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /** Ausgangsrechnungen: Liste mit Filtern, Detailansicht, Downloads, Reprocess und erneuter Versand (Vorgabe 27, 28). */
 @Controller
 public class InvoiceController {
+
+    private static final Logger log = LoggerFactory.getLogger(InvoiceController.class);
 
     private final LedgerRepository ledger;
     private final DirectoryLayout layout;
@@ -88,6 +97,60 @@ public class InvoiceController {
         model.addAttribute("tenants", registry.tenants());
         model.addAttribute("active", "rechnungen");
         return hx != null ? "invoices :: rows" : "invoices";
+    }
+
+    /**
+     * PDF über die Oberfläche einlesen: Datei wird in die Inbox des Mandanten gelegt und läuft durch
+     * die normale Pipeline (Idempotenz, Ledger, Archiv unverändert). Nie überschreiben.
+     */
+    @PostMapping("/rechnungen/einlesen")
+    public String ingest(@RequestParam("file") MultipartFile file, @RequestParam String tenant, @RequestParam String user,
+                         RedirectAttributes redirect) throws IOException {
+        Tenant t = registry.tenant(tenant).filter(Tenant::enabled).orElse(null);
+        if (t == null) {
+            redirect.addFlashAttribute("error", "Mandant '" + tenant + "' ist unbekannt oder inaktiv.");
+            return "redirect:/rechnungen";
+        }
+        if (user == null || user.isBlank()) {
+            redirect.addFlashAttribute("error", "Benutzername ist erforderlich.");
+            return "redirect:/rechnungen";
+        }
+        if (file == null || file.isEmpty()) {
+            redirect.addFlashAttribute("error", "Bitte eine PDF-Datei auswählen.");
+            return "redirect:/rechnungen";
+        }
+        byte[] head = new byte[5];
+        try (var in = file.getInputStream()) {
+            int n = in.readNBytes(head, 0, 5);
+            if (n < 5 || !new String(head, StandardCharsets.ISO_8859_1).equals("%PDF-")) {
+                redirect.addFlashAttribute("error", "Die Datei ist keine PDF (kein %PDF-Kopf).");
+                return "redirect:/rechnungen";
+            }
+        }
+        String original = file.getOriginalFilename() == null ? "rechnung.pdf" : Path.of(file.getOriginalFilename()).getFileName().toString();
+        String safe = original.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_").trim();
+        if (safe.isEmpty() || safe.startsWith(".")) {
+            safe = "rechnung.pdf";
+        }
+        if (!safe.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+            safe = safe + ".pdf";
+        }
+        Path inbox = Files.createDirectories(layout.inbox(t));
+        Path target = inbox.resolve(safe);
+        if (Files.exists(target)) {
+            String stamp = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss", Locale.ROOT).format(LocalDateTime.now());
+            target = inbox.resolve(safe.substring(0, safe.length() - 4) + "_" + stamp + ".pdf");
+        }
+        // Erst unter temporärem Namen schreiben, dann umbenennen: Der Watcher sieht nur vollständige PDFs.
+        Path temp = inbox.resolve("." + target.getFileName() + ".upload");
+        try (var in = file.getInputStream()) {
+            Files.copy(in, temp);
+        }
+        Files.move(temp, target);
+        log.info("PDF über die Oberfläche eingelesen von {}: {} → {}", user.trim(), original, target);
+        redirect.addFlashAttribute("notice", "Datei " + target.getFileName() + " in die Inbox von " + t.name()
+                + " gelegt. Die Verarbeitung beginnt in wenigen Sekunden; der Vorgang erscheint dann in dieser Liste.");
+        return "redirect:/rechnungen";
     }
 
     /** Zeile der Prozess-Timeline. */
