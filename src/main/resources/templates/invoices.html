@@ -7,6 +7,8 @@
     <h1>Ausgangsrechnungen</h1>
     <p class="subtitle">Alle Verarbeitungsläufe mit Status, Formaten und Versand. Der Status wird aus der Ereignishistorie abgeleitet.</p>
     <div th:replace="~{layout :: flash}"></div>
+    <!-- Nach dem Einlesen: Liste alle 8 s nachladen, bis der Vorgang erscheint (Watcher braucht ca. 10–15 s) -->
+    <div th:if="${notice}" hx-get="/rechnungen" hx-trigger="every 8s" hx-target="#rows" hx-swap="innerHTML" class="small muted">Die Liste wird automatisch aktualisiert …</div>
 
     <details class="card" id="einlesen">
         <summary><strong>PDF einlesen</strong> <span class="small muted">– Rechnung hochladen statt in inbox/ zu kopieren; sie läuft durch dieselbe Verarbeitung</span></summary>

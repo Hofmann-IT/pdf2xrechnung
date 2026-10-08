@@ -5,6 +5,18 @@ Die Versionsnummer steht im `pom.xml` und wird im Seitenfuß, im Systemstatus un
 
 ## [1.0.0] – 2026-09-25
 
+### Kalibrierung und Korrekturen aus dem ersten Praxistest (2026-10-08)
+- Profil `profiles/hofmann-it.yaml` für Ausgangsrechnungen aus DATEV Rechnungsschreibung
+  online (nur XRechnung, da kein PDF/A): Belegnummer, Belegdatum, Leistungsdatum,
+  Kundennummer, Anschrift, Summen, Steuer, Zahlungsziel, Positionstabelle mit Einheiten-Umsetzung
+  (Meter → MTR usw.). Entscheidungen: BT-10 aus Leitweg-ID, Bestellnummer oder Kundennummer;
+  BT-49 wird mit dem Label „E-Mail:" auf die Rechnung gedruckt und ist Pflicht.
+- Behoben: Reprocess einer Rechnung in manueller Prüfung konnte die Prüfablage nicht schreiben,
+  weil der Ordner aus Lauf 1 existierte; ab dem zweiten Lauf tragen Ablagen in
+  `manual-review/`, `failed/` und `rejected/` das Suffix `_run-NNN`.
+- Favicon; fehlende Adressen liefern 404 ohne Fehlerprotokoll; Rechnungsliste aktualisiert sich
+  nach „PDF einlesen" automatisch.
+
 ### Einrichtungs-Assistent (2026-09-25, ADR 0013)
 - V5: Tabelle `admin_credential` (append-only, PBKDF2-SHA256-Hash).
 - Erster Aufruf ohne Mandant oder Passwort leitet auf `/einrichtung`: Unternehmen mit

@@ -1,0 +1,446 @@
+# =====================================================================================
+# Profil "hofmann-it": Ausgangsrechnungen aus DATEV Rechnungsschreibung online (RSO)
+#
+# Kalibriert am 2026-10-08 an der Rechnung 24001 (Beleg vom 22.01.2024, DIN A4, 1 Seite).
+# Layout (PDF-Punkte, Ursprung links oben):
+#   Kopfblock rechts  x≈344: "Belegnummer: 24001", "Kundennummer: 10001", "Belegdatum: TT.MM.JJJJ",
+#                            "Liefer-/Leistungsdatum: TT.MM.JJJJ"
+#   Anschrift links   x≈61:  Zeilen "Firma" (y≈130), Name (140), Straße (150), PLZ Ort (159),
+#                            "DEUTSCHLAND" (169, in der PDF als "DE UTSCHLAND" gesetzt)
+#   Positionstabelle  Kopf "Pos Art.-Nr. Bezeichnung Menge Einheit Preis Betrag EUR" (y≈307),
+#                     Spalten: Pos x59 | Art.-Nr. x71 | Bezeichnung x152 | Menge rechts bis 370 |
+#                     Einheit x383 | Preis rechts bis 477 | Betrag rechts bis 537
+#   Summen            "Summe: <netto>", "19,00% USt. auf EUR <netto>: <steuer>", "Endbetrag: <brutto>"
+#   Zahlungsziel      "Ohne Abzug bis zum TT.MM.JJJJ."
+#
+# HINWEIS PDF/A: DATEV RSO liefert kein PDF/A. Deshalb erzeugt dieses Profil nur XRechnung
+# (CII und UBL); ZUGFeRD würde an der PDF/A-Prüfung scheitern (README Abschnitt 2).
+# =====================================================================================
+
+profile:
+  name: hofmann-it
+  description: "Ausgangsrechnungen Hofmann IT aus DATEV Rechnungsschreibung online (XRechnung CII/UBL)"
+  schemaVersion: 1
+
+classification:
+  invoiceIndicators:
+    - regex: "(?i)^\\s*Rechnung\\s*$"
+      page: 1
+    - regex: "Belegnummer:\\s*\\d+"
+      page: 1
+  creditNoteIndicators:
+    - regex: "(?i)\\bGutschrift\\b"
+      page: 1
+    - regex: "(?i)\\bRechnungskorrektur\\b"
+      page: 1
+  nonInvoiceIndicators:
+    - regex: "(?i)^\\s*Angebot\\s*$"
+      page: 1
+    - regex: "(?i)^\\s*Auftragsbestätigung\\s*$"
+      page: 1
+    - regex: "(?i)^\\s*Lieferschein\\s*$"
+      page: 1
+    - regex: "(?i)\\bMahnung\\b"
+      page: 1
+  businessCases:
+    - id: EU_REVERSE_CHARGE
+      vatCategoryCode: AE
+      exemptionReasonText: "Steuerschuldnerschaft des Leistungsempfängers (Reverse Charge)"
+      indicators:
+        - regex: "(?i)Reverse[- ]?Charge|Steuerschuldnerschaft des Leistungsempf"
+    - id: THIRD_COUNTRY
+      vatCategoryCode: G
+      exemptionReasonText: "Steuerfreie Ausfuhrlieferung"
+      indicators:
+        - regex: "(?i)steuerfreie Ausfuhr|Ausfuhrlieferung"
+    - id: NO_VAT
+      vatCategoryCode: E
+      exemptionReasonText: "Kein Ausweis von Umsatzsteuer gemäß § 19 UStG"
+      defaultBuyerCountryCode: DE
+      indicators:
+        - regex: "(?i)§\\s*19\\s*UStG|Kleinunternehmer"
+    - id: DOMESTIC_STANDARD
+      vatCategoryCode: S
+      defaultCase: true
+      defaultBuyerCountryCode: DE
+      indicators: []
+
+fields:
+  # ---- Belegkopf (rechter Block) ----
+  - businessTerm: BT-1
+    required: true
+    rule:
+      type: regex
+      page: 1
+      pattern: "Belegnummer:\\s*(\\S+)"
+      group: 1
+    transform: [trim]
+
+  - businessTerm: BT-2
+    required: true
+    rule:
+      type: regex
+      page: 1
+      pattern: "Belegdatum:\\s*(\\d{2}\\.\\d{2}\\.\\d{4})"
+      group: 1
+    transform: [trim, "date:dd.MM.yyyy"]
+
+  - businessTerm: BT-72
+    required: false
+    rule:
+      type: regex
+      page: 1
+      pattern: "Liefer-/Leistungsdatum:\\s*(\\d{2}\\.\\d{2}\\.\\d{4})"
+      group: 1
+    transform: [trim, "date:dd.MM.yyyy"]
+
+  - businessTerm: BT-46
+    required: false
+    rule:
+      type: regex
+      page: 1
+      pattern: "Kundennummer:\\s*(\\S+)"
+      group: 1
+    transform: [trim]
+
+  # ---- Käuferreferenz BT-10 (XRechnung-Pflicht BR-DE-15), Entscheidung 2026-10-08 ----
+  # Rangfolge: aufgedruckte Leitweg-ID → Bestellnummer → Kundennummer (bei Firmenkunden übliche
+  # Praxis, wenn keine Referenz vereinbart ist). Ein gefundener Wert wird nicht überschrieben.
+  - businessTerm: BT-10
+    required: false
+    rule:
+      type: regex
+      page: 1
+      pattern: "(?i)Leitweg-?ID:?\\s*([0-9A-Za-z][0-9A-Za-z\\-]{3,45})"
+      group: 1
+    transform: [trim]
+
+  - businessTerm: BT-10
+    required: false
+    rule:
+      type: regex
+      page: 1
+      pattern: "(?i)(?:Bestell|Auftrags)-?(?:Nr\\.?|nummer):\\s*(\\S+)"
+      group: 1
+    transform: [trim]
+
+  - businessTerm: BT-10
+    required: true
+    rule:
+      type: regex
+      page: 1
+      pattern: "Kundennummer:\\s*(\\S+)"
+      group: 1
+    transform: [trim]
+
+  # ---- Elektronische Adresse des Käufers BT-49 (XRechnung-Pflicht PEPPOL-EN16931-R010) ----
+  # Entscheidung 2026-10-08: Die Rechnungs-E-Mail des Kunden wird in DATEV Rechnungsschreibung
+  # online mit dem Label "E-Mail:" auf die Rechnung gedruckt (Belegkopf oder Anschriftenblock).
+  # Das Label ist Pflicht, damit nicht die eigene Adresse aus der Fußzeile gelesen wird.
+  # Fehlt die Angabe, geht die Rechnung in die manuelle Prüfung.
+  - businessTerm: BT-49
+    required: true
+    rule:
+      type: regex
+      page: 1
+      pattern: "(?i)E-?Mail:\\s*([A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,})"
+      group: 1
+    transform: [trim, lower]
+
+  # ---- Zahlungsbedingungen ----
+  - businessTerm: BT-9
+    required: false
+    rule:
+      type: regex
+      pattern: "bis zum\\s*(\\d{2}\\.\\d{2}\\.\\d{4})"
+      group: 1
+    transform: [trim, "date:dd.MM.yyyy"]
+
+  - businessTerm: BT-20
+    required: false
+    rule:
+      type: regex
+      pattern: "(Ohne Abzug bis zum \\d{2}\\.\\d{2}\\.\\d{4}\\.?)"
+      group: 1
+    transform: [trim]
+
+  # ---- Anschrift des Käufers (Regionen je Zeile, Seite 1) ----
+  - businessTerm: BT-44
+    required: true
+    rule:
+      type: region
+      page: 1
+      x: 55
+      y: 134
+      width: 270
+      height: 9
+      regionMode: FIRST_LINE
+    transform: [trim]
+
+  - businessTerm: BT-50
+    required: false
+    rule:
+      type: region
+      page: 1
+      x: 55
+      y: 144
+      width: 270
+      height: 9
+      regionMode: FIRST_LINE
+    transform: [trim]
+
+  - businessTerm: BT-53
+    required: false
+    rule:
+      type: region
+      page: 1
+      x: 55
+      y: 153
+      width: 270
+      height: 9
+      regionMode: FIRST_LINE
+    transform: [trim, "regexReplace:/^(\\d{5})\\s+.*$/$1/"]
+
+  - businessTerm: BT-52
+    required: false
+    rule:
+      type: region
+      page: 1
+      x: 55
+      y: 153
+      width: 270
+      height: 9
+      regionMode: FIRST_LINE
+    transform: [trim, "regexReplace:/^\\d{5}\\s+(.*)$/$1/"]
+
+  # Land: DATEV setzt "DE UTSCHLAND" mit Leerzeichen; es zählt nur der ISO-Code
+  - businessTerm: BT-55
+    required: false
+    rule:
+      type: region
+      page: 1
+      x: 55
+      y: 163
+      width: 270
+      height: 9
+      regionMode: FIRST_LINE
+    transform: [trim, upper, "regexReplace:/^DE\\s*UTSCHLAND$/DE/", "regexReplace:/^(?:AT|Ö)\\s*STERREICH$/AT/"]
+
+  # ---- Summen ----
+  - businessTerm: BT-106
+    required: true
+    rule:
+      type: regex
+      pattern: "Summe:\\s*([\\d.]+,\\d{2})"
+      group: 1
+    transform: ["decimal:de"]
+
+  - businessTerm: BT-109
+    required: true
+    rule:
+      type: regex
+      pattern: "Summe:\\s*([\\d.]+,\\d{2})"
+      group: 1
+    transform: ["decimal:de"]
+
+  - businessTerm: BT-110
+    required: true
+    rule:
+      type: regex
+      pattern: "USt\\.\\s*auf\\s*EUR\\s*[\\d.]+,\\d{2}:\\s*([\\d.]+,\\d{2})"
+      group: 1
+    transform: ["decimal:de"]
+
+  - businessTerm: BT-112
+    required: true
+    rule:
+      type: regex
+      pattern: "Endbetrag:\\s*([\\d.]+,\\d{2})"
+      group: 1
+    transform: ["decimal:de"]
+
+  # Kein separater Zahlbetrag auf der Rechnung: Endbetrag ist der fällige Betrag
+  - businessTerm: BT-115
+    required: true
+    rule:
+      type: regex
+      pattern: "Endbetrag:\\s*([\\d.]+,\\d{2})"
+      group: 1
+    transform: ["decimal:de"]
+
+  # ---- Steueraufschlüsselung (ein Steuersatz je Rechnung bei DATEV RSO) ----
+  - businessTerm: BT-119
+    required: false
+    rule:
+      type: regex
+      pattern: "(\\d{1,2},\\d{2})%\\s*USt\\."
+      group: 1
+    transform: ["percent:de"]
+
+  - businessTerm: BT-116
+    required: false
+    rule:
+      type: regex
+      pattern: "USt\\.\\s*auf\\s*EUR\\s*([\\d.]+,\\d{2}):"
+      group: 1
+    transform: ["decimal:de"]
+
+  - businessTerm: BT-117
+    required: false
+    rule:
+      type: regex
+      pattern: "USt\\.\\s*auf\\s*EUR\\s*[\\d.]+,\\d{2}:\\s*([\\d.]+,\\d{2})"
+      group: 1
+    transform: ["decimal:de"]
+
+  # ---- Verkäuferangaben aus config/tenant.yaml (Briefpapier) ----
+  - businessTerm: BT-27
+    required: true
+    rule: { type: fixed, key: seller-name }
+  - businessTerm: BT-35
+    required: true
+    rule: { type: fixed, key: seller-street }
+  - businessTerm: BT-38
+    required: true
+    rule: { type: fixed, key: seller-post-code }
+  - businessTerm: BT-37
+    required: true
+    rule: { type: fixed, key: seller-city }
+  - businessTerm: BT-40
+    required: true
+    rule: { type: fixed, key: seller-country-code }
+  - businessTerm: BT-31
+    required: true
+    rule: { type: fixed, key: seller-vat-id }
+  - businessTerm: BT-32
+    required: false
+    rule: { type: fixed, key: seller-tax-number }
+  - businessTerm: BT-34
+    required: false
+    rule: { type: fixed, key: seller-email }
+  - businessTerm: BT-41
+    required: false
+    rule: { type: fixed, key: seller-contact-name }
+  - businessTerm: BT-42
+    required: false
+    rule: { type: fixed, key: seller-phone }
+  - businessTerm: BT-43
+    required: false
+    rule: { type: fixed, key: seller-email }
+  - businessTerm: BT-81
+    required: true
+    rule: { type: fixed, key: payment-means-type-code }
+  - businessTerm: BT-84
+    required: true
+    rule: { type: fixed, key: payment-account-iban }
+    transform: [removeWhitespace, upper]
+  - businessTerm: BT-85
+    required: false
+    rule: { type: fixed, key: payment-account-name }
+  - businessTerm: BT-86
+    required: false
+    rule: { type: fixed, key: payment-bic }
+    transform: [removeWhitespace, upper]
+  - businessTerm: BT-5
+    required: true
+    rule: { type: fixed, key: invoice-currency }
+
+# -------------------------------------------------------------------------------------
+# Rechnungspositionen: Tabelle "Pos Art.-Nr. Bezeichnung Menge Einheit Preis Betrag EUR"
+# Folgezeilen der Bezeichnung (z. B. "12E9/125-OS2 G.652") stehen in der Art.-Nr.-/Bezeichnungsspalte.
+# -------------------------------------------------------------------------------------
+lineItems:
+  startAnchor:
+    regex: "^\\s*Pos\\s+Art\\.-Nr\\."
+  endAnchor:
+    regex: "^\\s*Summe:"
+  headerRepeatsOnContinuationPages: true
+  ignoreRows:
+    - regex: "(?i)^\\s*(Übertrag|Zwischensumme|Fortsetzung|Seite\\s+\\d+\\s+von)"
+  rowDetection:
+    keyColumnBusinessTerm: BT-126
+    pattern: "^\\d{1,4}$"
+  multiLineDescription: true
+  columns:
+    - businessTerm: BT-126        # Pos
+      x: 55
+      width: 14
+      align: LEFT
+      required: true
+      transform: [trim]
+    - businessTerm: BT-155        # Art.-Nr. (Artikelkennung des Verkäufers)
+      x: 70
+      width: 78
+      align: LEFT
+      required: false
+      transform: [trim]
+    - businessTerm: BT-153        # Bezeichnung (mehrzeilig)
+      x: 150
+      width: 185
+      align: LEFT
+      required: true
+      transform: [trim]
+    - businessTerm: BT-129        # Menge (rechtsbündig bis x≈370)
+      x: 325
+      width: 48
+      align: RIGHT
+      required: true
+      transform: ["decimal:de"]
+    - businessTerm: BT-130        # Einheit → UN/ECE Rec. 20
+      x: 380
+      width: 48
+      align: LEFT
+      required: false
+      transform: [trim, "regexReplace:/^(?i)Meter$/MTR/", "regexReplace:/^(?i)(Stück|Stck\\.?|Stk\\.?)$/C62/", "regexReplace:/^(?i)(Std\\.?|Stunden?)$/HUR/", "regexReplace:/^(?i)Pausch\\.?(ale)?$/LS/", "regexReplace:/^(?i)Tage?$/DAY/", "regexReplace:/^(?i)km$/KMT/"]
+    - businessTerm: BT-146        # Einzelpreis netto (rechtsbündig bis x≈477)
+      x: 430
+      width: 48
+      align: RIGHT
+      required: true
+      transform: ["decimal:de"]
+    - businessTerm: BT-131        # Positionsnetto (rechtsbündig bis x≈537)
+      x: 490
+      width: 50
+      align: RIGHT
+      required: true
+      transform: ["decimal:de"]
+
+plausibility:
+  tolerance: 0.01
+  checks:
+    - LINE_AMOUNT
+    - LINE_SUM
+    - NET_TOTAL
+    - TAX_BASIS_PER_RATE
+    - TAX_AMOUNT_PER_RATE
+    - TOTAL_TAX
+    - GROSS_TOTAL
+    - PAYABLE_AMOUNT
+
+generation:
+  # Nur XRechnung: DATEV RSO liefert kein PDF/A, ZUGFeRD würde die PDF/A-Prüfung nicht bestehen
+  formats:
+    - XRECHNUNG_CII
+    - XRECHNUNG_UBL
+  filenameTemplate: "{invoiceNumber}_{invoiceDate:yyyyMMdd}_{customerName}"
+  invoiceTypeCodes:
+    invoice: "380"
+    credit-note: "381"
+  defaultCurrency: EUR
+  defaultUnitCode: C62
+
+postProcess:
+  email:
+    enabled: false
+    to: []
+    cc: []
+    subjectTemplate: "Rechnung {invoiceNumber} vom {invoiceDate:dd.MM.yyyy}"
+    bodyTemplate: "Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie die Rechnung {invoiceNumber}.\n\nMit freundlichen Grüßen\nHofmann IT"
+    attachments:
+      - XRECHNUNG_CII
+  command:
+    enabled: false
+    executable: ""
+    arguments: []
+    timeout: 60s
+    workingDirectory: ""

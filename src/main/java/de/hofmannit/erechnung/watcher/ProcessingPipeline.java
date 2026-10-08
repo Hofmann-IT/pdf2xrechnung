@@ -146,7 +146,8 @@ public class ProcessingPipeline {
             this.runNumber = runNumber;
             this.correlation = correlation;
             this.sha8 = job.sha256().substring(0, 8);
-            this.baseName = sha8 + "_" + stripExtension(job.originalFilename());
+            // Ab dem zweiten Run eigener Ordner-/Dateiname, damit Reprocess nie eine frühere Ablage überschreibt
+            this.baseName = sha8 + "_" + stripExtension(job.originalFilename()) + (runNumber > 1 ? String.format(java.util.Locale.ROOT, "_run-%03d", runNumber) : "");
         }
 
         RunOutcome execute() {

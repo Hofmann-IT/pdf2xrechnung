@@ -210,6 +210,13 @@ class DispatchAndReprocessEndToEndTest {
         assertThat(outcome.runNumber()).isEqualTo(2);
         assertThat(outcome.result()).isEqualTo(RunResult.REVIEW);
         assertThat(ledger.findRuns(ledger.findSource("hofmann-it", reviewSha).orElseThrow().id())).hasSize(2);
+        // Beide Prüfablagen existieren nebeneinander: Run 1 unter dem Basisnamen, Run 2 mit Suffix (nie überschreiben)
+        String base = reviewSha.substring(0, 8) + "_Rechnung RE-2026-4712";
+        Path review = ROOT.resolve("manual-review");
+        assertThat(review.resolve(base).resolve("pruefung.txt")).exists();
+        assertThat(review.resolve(base + "_run-002").resolve("pruefung.txt")).exists();
+        assertThat(review.resolve(base + "_run-002").resolve("original.pdf")).exists();
+        assertThat(Files.readString(review.resolve(base + "_run-002").resolve("pruefung.txt"))).contains("run-002");
     }
 
     @Test

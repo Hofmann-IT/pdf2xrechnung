@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /** Einheitliche, verständliche Fehlerseiten; technische Details nur im Log. */
 @ControllerAdvice
@@ -25,6 +27,15 @@ public class WebExceptionHandler {
     public String notFound(NotFoundException e, Model model) {
         model.addAttribute("title", "Nicht gefunden");
         model.addAttribute("message", e.getMessage());
+        return "error";
+    }
+
+    /** Unbekannte Adresse oder fehlende statische Datei (z. B. /favicon.ico alter Browser): 404 ohne Fehlerprotokoll. */
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public String noResource(Exception e, Model model) {
+        model.addAttribute("title", "Seite nicht gefunden");
+        model.addAttribute("message", "Diese Adresse gibt es nicht.");
         return "error";
     }
 

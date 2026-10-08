@@ -67,7 +67,7 @@ Copy-Item $jar "$stage\app\pdf-zu-erechnung.jar"
 Copy-Item (Join-Path $root "validator") "$stage\app\validator" -Recurse
 Copy-Item (Join-Path $PSScriptRoot "pdf-zu-erechnung.xml.in") "$stage\app\pdf-zu-erechnung.xml.in"
 Copy-Item (Join-Path $root "config\application.yaml") "$stage\data\config\application.yaml"
-Copy-Item (Join-Path $root "profiles\standard.yaml") "$stage\data\profiles\standard.yaml"
+Copy-Item (Join-Path $root "profiles\*.yaml") "$stage\data\profiles\"
 Copy-Item (Join-Path $root "docs\Handbuch.html") "$stage\docs\Handbuch.html"
 foreach ($f in "README.md", "CHANGELOG.md", "THIRD-PARTY.md") { Copy-Item (Join-Path $root $f) "$stage\docs\$f" }
 Copy-Item (Join-Path $root "docs\datev-format-referenz.md") "$stage\docs\datev-format-referenz.md"

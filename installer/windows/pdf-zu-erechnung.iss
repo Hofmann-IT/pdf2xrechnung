@@ -69,7 +69,7 @@ Source: "{#StageDir}\app\LICENSE-WinSW.txt"; DestDir: "{app}"; Flags: ignorevers
 Source: "{#StageDir}\docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: docs
 ; Daten: Konfiguration und Profil nur anlegen, wenn noch nicht vorhanden; nie deinstallieren
 Source: "{#StageDir}\data\config\application.yaml"; DestDir: "{commonappdata}\PDF-zu-ERechnung\config"; Flags: onlyifdoesntexist uninsneveruninstall; Components: app
-Source: "{#StageDir}\data\profiles\standard.yaml"; DestDir: "{commonappdata}\PDF-zu-ERechnung\profiles"; Flags: onlyifdoesntexist uninsneveruninstall; Components: app
+Source: "{#StageDir}\data\profiles\*.yaml"; DestDir: "{commonappdata}\PDF-zu-ERechnung\profiles"; Flags: onlyifdoesntexist uninsneveruninstall; Components: app
 
 [Dirs]
 ; Arbeitsverzeichnisse: Benutzer dürfen Rechnungen ablegen und Ergebnisse abholen
