@@ -92,6 +92,13 @@ class SetupWizardTest {
             mvc.perform(get(path)).andExpect(status().is3xxRedirection()).andExpect(header().string("Location", "/einrichtung"));
         }
         mvc.perform(get("/css/app.css")).andExpect(status().isOk());
+        // Rechnungsvorlage und Feldbeschreibung sind schon vor der Einrichtung abrufbar
+        MvcResult docx = mvc.perform(get("/vorlagen/Rechnungsvorlage.docx")).andExpect(status().isOk()).andReturn();
+        assertThat(docx.getResponse().getContentType()).contains("officedocument.wordprocessingml");
+        assertThat(docx.getResponse().getContentAsByteArray()).startsWith(new byte[] {0x50, 0x4B});
+        String fields = body(mvc.perform(get("/vorlagen/Rechnungsvorlage-Felder.html")).andExpect(status().isOk()).andReturn());
+        assertThat(fields).contains("Pflichtangaben").contains("PDF/A").contains("Rechnungsnummer:").contains("E-Mail:");
+        assertThat(body(mvc.perform(get("/einrichtung")).andReturn())).contains("/vorlagen/Rechnungsvorlage.docx");
         String page = body(mvc.perform(get("/einrichtung")).andExpect(status().isOk()).andReturn());
         assertThat(page).contains("Willkommen").contains("name=\"iban\"").contains("name=\"adminPassword\"").contains("name=\"inbox\"")
                 .contains(ROOT.resolve("inbox").toString().replace("\\", "\\"));

@@ -17,6 +17,16 @@
     </div>
     <div class="notice info" th:unless="${tenantMissing}">Ein Mandant ist bereits vorhanden; es fehlt nur noch das Admin-Passwort.</div>
 
+    <section class="card">
+        <h2>Rechnungsvorlage für Word, Excel und andere Programme</h2>
+        <p class="small muted">Damit Ihre PDF-Rechnungen automatisch erkannt werden, müssen bestimmte Beschriftungen und Spalten vorhanden sein. Die Vorlage entspricht dem mitgelieferten Profil „standard"; die Beschreibung erklärt jedes Pflichtfeld und das Speichern als PDF/A.</p>
+        <div class="actions">
+            <a class="btn secondary" th:href="@{/vorlagen/Rechnungsvorlage.docx}" download>Word-Vorlage herunterladen (.docx)</a>
+            <a class="btn secondary" th:href="@{/vorlagen/Rechnungsvorlage-Felder.html}" target="_blank">Pflichtangaben und Aufbau (öffnet neue Seite)</a>
+        </div>
+        <p class="small muted" style="margin-top:.6rem">Schreiben Sie Ihre Rechnungen mit einem anderen Programm und festem Layout, prüfen Sie eine Beispiel-PDF später unter <em>Profile → Profil testen</em>; bei Abweichungen wird ein eigenes Profil kalibriert.</p>
+    </section>
+
     <form method="post" th:action="@{/einrichtung}">
         <div class="grid grid-3">
             <section class="card">

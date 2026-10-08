@@ -5,6 +5,16 @@ Die Versionsnummer steht im `pom.xml` und wird im Seitenfuß, im Systemstatus un
 
 ## [1.0.0] – 2026-09-25
 
+### Rechnungsvorlage für Word/Excel-Nutzer (2026-10-08)
+- Einrichtungs-Assistent und Seite „Profile" bieten `Rechnungsvorlage.docx` (WordprocessingML,
+  ohne Makros, aus XML erzeugt) und `Rechnungsvorlage-Felder.html` (alle Pflichtangaben, Aufbau,
+  Positionstabelle, Anschriftenposition, PDF/A-Export in Word, Excel, LibreOffice) zum Download;
+  abrufbar unter `/vorlagen/` auch vor der Einrichtung.
+- Profil `standard`: Kundennummer (`Kunden-Nr.:`, BT-46) und Rückfall der Käuferreferenz BT-10
+  auf Leitweg-ID → Bestellung → Kundennummer; Käufer-E-Mail BT-49 ist Pflicht (manuelle
+  Prüfung statt Validierungsfehler); Einheiten-Kurzformen (Stk., Std., m, km, Tag, Pauschal)
+  werden auf UN/ECE-Codes abgebildet.
+
 ### Kalibrierung und Korrekturen aus dem ersten Praxistest (2026-10-08)
 - Profil `profiles/hofmann-it.yaml` für Ausgangsrechnungen aus DATEV Rechnungsschreibung
   online (nur XRechnung, da kein PDF/A): Belegnummer, Belegdatum, Leistungsdatum,

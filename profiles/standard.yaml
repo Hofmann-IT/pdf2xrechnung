@@ -184,6 +184,39 @@ fields:
       maxDistance: 250
     transform: [trim]
 
+  # ---- Kundennummer (BT-46); zugleich Rückfall für die Käuferreferenz BT-10 (XRechnung-Pflicht
+  #      BR-DE-15), wenn weder Leitweg-ID noch Bestellung aufgedruckt sind (Entscheidung 2026-10-08).
+  #      Die erste gefundene Regel gewinnt: Leitweg-ID vor Bestellung vor Kunden-Nr. ----
+  - businessTerm: BT-46
+    required: false
+    rule:
+      type: anchor
+      page: 1
+      label: "Kunden-Nr.:"
+      direction: RIGHT
+      maxDistance: 200
+    transform: [trim]
+
+  - businessTerm: BT-10
+    required: false
+    rule:
+      type: anchor
+      page: 1
+      label: "Ihre Bestellung:"
+      direction: RIGHT
+      maxDistance: 200
+    transform: [trim]
+
+  - businessTerm: BT-10
+    required: true
+    rule:
+      type: anchor
+      page: 1
+      label: "Kunden-Nr.:"
+      direction: RIGHT
+      maxDistance: 200
+    transform: [trim]
+
   # ---- region: Empfängeradresse im Anschriftenfeld (DIN 5008, Seite 1) ----
   # regionMode: FIRST_LINE (nur erste Zeile), JOIN_LINES (Zeilen mit \n), JOIN_WORDS (Leerzeichen)
   # Aus dem Adressblock werden hier Name, Straße, PLZ/Ort über getrennte Regionen gelesen.
@@ -236,9 +269,11 @@ fields:
       regionMode: FIRST_LINE
     transform: [trim, "regexReplace:/^\\d{5}\\s+(.*)$/$1/"]
 
-  # ---- regex: elektronische Adresse des Käufers (BT-49), falls aufgedruckt ----
+  # ---- regex: elektronische Adresse des Käufers (BT-49). XRechnung-Pflicht (PEPPOL-EN16931-R010):
+  #      fehlt sie, geht die Rechnung in die manuelle Prüfung statt an der Validierung zu scheitern.
+  #      Das Label "E-Mail:" ist nötig, damit nicht die eigene Adresse aus der Fußzeile gelesen wird. ----
   - businessTerm: BT-49
-    required: false
+    required: true
     rule:
       type: regex
       page: 1
@@ -428,12 +463,12 @@ lineItems:
       align: RIGHT
       required: true
       transform: ["decimal:de"]
-    - businessTerm: BT-130        # Einheit (UN/ECE Rec. 20, z. B. C62 = Stück, HUR = Stunde)
+    - businessTerm: BT-130        # Einheit: UN/ECE Rec. 20 direkt (C62, HUR, MTR …) oder deutsche Kurzform
       x: 362
       width: 35
       align: LEFT
       required: false
-      transform: [trim, upper]
+      transform: [trim, "regexReplace:/^(?i)(Stück|Stck\\.?|Stk\\.?)$/C62/", "regexReplace:/^(?i)(Std\\.?|Stunden?|h)$/HUR/", "regexReplace:/^(?i)(m|Meter)$/MTR/", "regexReplace:/^(?i)km$/KMT/", "regexReplace:/^(?i)Tage?$/DAY/", "regexReplace:/^(?i)Pausch\\.?(ale)?$/LS/", upper]
     - businessTerm: BT-146        # Einzelpreis netto
       x: 400
       width: 60

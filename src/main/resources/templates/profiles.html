@@ -22,6 +22,15 @@
     </table>
 
     <section class="card" style="margin-top:1.5rem">
+        <h2>Rechnungsvorlage zum Profil „standard"</h2>
+        <p class="small muted">Für Rechnungen aus Word, Excel oder anderen Programmen: Vorlage mit den erwarteten Beschriftungen und Spalten sowie eine Beschreibung aller Pflichtangaben und des PDF/A-Exports.</p>
+        <div class="actions">
+            <a class="btn secondary" th:href="@{/vorlagen/Rechnungsvorlage.docx}" download>Word-Vorlage (.docx)</a>
+            <a class="btn secondary" th:href="@{/vorlagen/Rechnungsvorlage-Felder.html}" target="_blank">Pflichtangaben und Aufbau</a>
+        </div>
+    </section>
+
+    <section class="card" style="margin-top:1.5rem">
         <h2>Profil testen</h2>
         <p class="small muted">PDF hochladen: Das System zeigt das erkannte Profil, alle Business Terms mit Fundstellen und Regeln sowie die Plausibilität. Es wird nichts erzeugt, abgelegt, versendet oder im Ledger vermerkt.</p>
         <form th:action="@{/profile/test}" method="post" enctype="multipart/form-data" hx-post="/profile/test" hx-encoding="multipart/form-data" hx-target="#test" hx-indicator="#busy" class="filters">

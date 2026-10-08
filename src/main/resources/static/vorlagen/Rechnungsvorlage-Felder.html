@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rechnungsvorlage – Pflichtangaben und Aufbau</title>
+<style>
+  :root { --navy:#0B3A63; --cyan:#06C7D9; --bg:#F5F9FC; --text:#102A43; --muted:#526A7A; --line:#D9E4EC; --warn:#B45309; }
+  body { font-family: system-ui, "Segoe UI", Arial, sans-serif; color: var(--text); background: var(--bg); margin: 0; line-height: 1.5; }
+  header { background: var(--navy); color: #fff; padding: 1.6rem 1.5rem; }
+  header h1 { margin: 0; font-size: 1.6rem; }
+  main { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+  h2 { color: var(--navy); border-bottom: 2px solid var(--cyan); padding-bottom: .3rem; margin-top: 2rem; }
+  .box { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.4rem; margin: 1rem 0; }
+  .warn { border-left: 5px solid var(--warn); }
+  table { border-collapse: collapse; width: 100%; background: #fff; margin: .6rem 0; }
+  th, td { border: 1px solid var(--line); padding: .4rem .6rem; text-align: left; vertical-align: top; }
+  th { background: #EEF4F8; }
+  code { background: #EEF4F8; border-radius: 4px; padding: .05rem .35rem; font-family: Consolas, monospace; }
+  .mono { font-family: Consolas, monospace; white-space: pre; background: #fff; border: 1px solid var(--line); padding: .8rem; border-radius: 8px; overflow-x: auto; font-size: .9rem; }
+  @media print { header { -webkit-print-color-adjust: exact; } }
+</style>
+</head>
+<body>
+<header><h1>Rechnungsvorlage: Pflichtangaben und Aufbau</h1><p>Für Rechnungen aus Word, Excel oder anderen Programmen, die das Profil „standard" automatisch in XRechnung und ZUGFeRD umwandelt.</p></header>
+<main>
+
+<div class="box"><strong>Kurzfassung:</strong> Nutzen Sie die Word-Vorlage <code>Rechnungsvorlage.docx</code>, ersetzen Sie die Beispielwerte, lassen Sie die Beschriftungen („Rechnungsnummer:", „Summe netto:" usw.) und die Spaltenaufteilung unverändert und speichern Sie die fertige Rechnung als <strong>PDF/A</strong>. Legen Sie die PDF in die Inbox oder laden Sie sie in der Oberfläche hoch.</div>
+
+<h2>1. Warum ein festes Layout?</h2>
+<p>Die Anwendung liest Ihre PDF-Rechnung aus und ordnet jede Angabe einem Feld der E-Rechnung (EN 16931, „BT"-Nummern) zu. Dafür sucht sie nach festen Beschriftungen und an festen Stellen der Seite. Wenn Beschriftungen fehlen oder umbenannt sind, bleibt die Rechnung in der manuellen Prüfung. Abweichende Layouts sind möglich, brauchen aber ein eigenes Profil (Hofmann IT kalibriert das anhand von Beispielrechnungen).</p>
+
+<h2>2. Angaben, die auf jeder Rechnung stehen müssen</h2>
+<table>
+  <tr><th>Angabe</th><th>Beschriftung auf der Rechnung (exakt)</th><th>Beispiel</th><th>E-Rechnung</th></tr>
+  <tr><td>Rechnungsnummer</td><td><code>Rechnungsnummer:</code> gefolgt vom Wert auf derselben Zeile</td><td>Rechnungsnummer: 2026-0001</td><td>BT-1, Pflicht</td></tr>
+  <tr><td>Rechnungsdatum</td><td><code>Rechnungsdatum:</code> TT.MM.JJJJ</td><td>Rechnungsdatum: 24.09.2026</td><td>BT-2, Pflicht</td></tr>
+  <tr><td>Leistungs-/Lieferdatum</td><td><code>Leistungsdatum:</code> TT.MM.JJJJ</td><td>Leistungsdatum: 24.09.2026</td><td>BT-72, empfohlen (Umsatzsteuerrecht)</td></tr>
+  <tr><td>Kundennummer</td><td><code>Kunden-Nr.:</code></td><td>Kunden-Nr.: 10001</td><td>BT-46; dient als Käuferreferenz BT-10, wenn keine Leitweg-ID oder Bestellung vorhanden ist</td></tr>
+  <tr><td>Leitweg-ID (nur Behörden)</td><td><code>Leitweg-ID:</code></td><td>Leitweg-ID: 04011000-12345-67</td><td>BT-10, bei öffentlichen Auftraggebern Pflicht</td></tr>
+  <tr><td>Bestellnummer des Kunden</td><td><code>Ihre Bestellung:</code></td><td>Ihre Bestellung: PO-4711</td><td>BT-13, optional</td></tr>
+  <tr><td>Empfänger: Firma, Straße, PLZ Ort</td><td>drei Zeilen im Anschriftenfeld (Position siehe Abschnitt 4)</td><td>Muster GmbH / Beispielstraße 12 / 54321 Kundenstadt</td><td>BT-44, BT-50, BT-53, BT-52, Pflicht</td></tr>
+  <tr><td>E-Mail des Kunden</td><td><code>E-Mail:</code> im Anschriftenfeld</td><td>E-Mail: rechnung@muster-gmbh.de</td><td>BT-49, <strong>Pflicht</strong> (XRechnung verlangt eine elektronische Adresse des Käufers)</td></tr>
+  <tr><td>USt-IdNr. des Kunden</td><td><code>USt-IdNr. des Kunden:</code></td><td>USt-IdNr. des Kunden: DE987654321</td><td>BT-48, optional (bei EU-Geschäften Pflicht)</td></tr>
+  <tr><td>Dokumentart</td><td>Überschrift <code>Rechnung</code> (bei Gutschriften <code>Gutschrift</code>)</td><td>Rechnung</td><td>BT-3</td></tr>
+  <tr><td>Positionen</td><td>Tabelle mit Kopfzeile <code>Pos. Bezeichnung Menge Einheit Einzelpreis USt Gesamt</code></td><td>siehe Abschnitt 3</td><td>BG-25, Pflicht</td></tr>
+  <tr><td>Summe der Positionen</td><td><code>Summe netto:</code></td><td>Summe netto: 1.560,00</td><td>BT-106, Pflicht</td></tr>
+  <tr><td>Steuerbasis je Satz</td><td><code>Netto 19 %:</code></td><td>Netto 19 %: 1.560,00</td><td>BT-116</td></tr>
+  <tr><td>Steuerbetrag je Satz</td><td><code>USt 19 %:</code></td><td>USt 19 %: 296,40</td><td>BT-117, BT-119</td></tr>
+  <tr><td>Nettobetrag</td><td><code>Gesamt netto:</code></td><td>Gesamt netto: 1.560,00</td><td>BT-109, Pflicht</td></tr>
+  <tr><td>Umsatzsteuer gesamt</td><td><code>USt gesamt:</code></td><td>USt gesamt: 296,40</td><td>BT-110, Pflicht</td></tr>
+  <tr><td>Bruttobetrag</td><td><code>Gesamtbetrag:</code></td><td>Gesamtbetrag: 1.856,40</td><td>BT-112, Pflicht</td></tr>
+  <tr><td>Zahlbetrag</td><td><code>Zahlbetrag:</code></td><td>Zahlbetrag: 1.856,40</td><td>BT-115, Pflicht</td></tr>
+  <tr><td>Zahlungsbedingungen, Fälligkeit</td><td><code>Zahlungsbedingungen:</code> Text mit <code>zahlbar bis TT.MM.JJJJ</code></td><td>Zahlungsbedingungen: Zahlbar innerhalb von 14 Tagen ohne Abzug, zahlbar bis 08.10.2026</td><td>BT-20, BT-9</td></tr>
+</table>
+<p>Beträge immer mit zwei Nachkommastellen und Komma (1.560,00). Die Summen müssen rechnerisch zusammenpassen: Positionen × Preis = Positionsbetrag, Summe der Positionen = Summe netto = Gesamt netto, Netto + USt = Gesamtbetrag = Zahlbetrag. Abweichungen über 1 Cent führen zur manuellen Prüfung.</p>
+
+<h2>3. Positionstabelle</h2>
+<table>
+  <tr><th>Spalte</th><th>Inhalt</th><th>Hinweis</th></tr>
+  <tr><td>Pos.</td><td>fortlaufende Zahl 1, 2, 3 …</td><td>erkennt den Beginn einer Position; Folgezeilen der Bezeichnung lassen die Spalte leer</td></tr>
+  <tr><td>Bezeichnung</td><td>Artikel oder Leistung, mehrzeilig erlaubt</td><td>BT-153</td></tr>
+  <tr><td>Menge</td><td>Zahl mit Komma, rechtsbündig</td><td>BT-129</td></tr>
+  <tr><td>Einheit</td><td><code>Stk.</code>, <code>Std.</code>, <code>m</code>, <code>km</code>, <code>Tag</code>, <code>Pauschal</code> oder direkt ein UN/ECE-Code (C62, HUR, MTR, KMT, DAY, LS)</td><td>BT-130; andere Angaben werden unverändert übernommen und können die Prüfung scheitern lassen</td></tr>
+  <tr><td>Einzelpreis</td><td>Nettopreis je Einheit, rechtsbündig</td><td>BT-146</td></tr>
+  <tr><td>USt</td><td>Steuersatz mit Prozentzeichen, z. B. <code>19 %</code></td><td>BT-152</td></tr>
+  <tr><td>Gesamt</td><td>Menge × Einzelpreis, rechtsbündig</td><td>BT-131</td></tr>
+</table>
+<p>Die Spaltenbreiten der Word-Vorlage nicht verändern: Die Anwendung ordnet Werte über die Spaltenposition zu (Pos. ab 56 pt vom linken Blattrand, Bezeichnung ab 90 pt, Menge rechtsbündig bis 360 pt, Einheit ab 362 pt, Einzelpreis bis 460 pt, USt bis 498 pt, Gesamt bis 570 pt). Bei mehr Positionen einfach Zeilen in der Tabelle ergänzen; die Tabelle darf auf Folgeseiten weitergehen, wenn die Kopfzeile dort wiederholt wird.</p>
+
+<h2>4. Position des Anschriftenfelds</h2>
+<p>Der Empfänger steht im Anschriftenfeld links, beginnend etwa 5,1 cm (146 pt) vom oberen Blattrand, Zeilenabstand genau 14 pt (0,49 cm): Zeile 1 Firma/Name, Zeile 2 Straße, Zeile 3 PLZ und Ort, danach <code>E-Mail:</code> und optional <code>USt-IdNr. des Kunden:</code>. In der Word-Vorlage ist dieser Abstand bereits eingestellt (Leerabsatz mit fester Höhe und Tabelle mit fester Zeilenhöhe). Fügen Sie darüber keine zusätzlichen Zeilen ein; Logo oder Absenderzeile gehören in die Kopfzeile oder in den vorhandenen Platz.</p>
+
+<h2>5. Was nicht auf der Rechnung stehen muss</h2>
+<p>Ihre eigenen Angaben als Verkäufer (Name, Anschrift, USt-IdNr. oder Steuernummer, IBAN/BIC, E-Mail, Telefon, Ansprechpartner) kommen aus der Einrichtung der Anwendung und werden immer in die E-Rechnung geschrieben, auch wenn sie nur als Grafik im Briefpapier stehen. Sie dürfen natürlich zusätzlich aufgedruckt sein. Nur in der Fußzeile bitte vermeiden: das Wort „E-Mail" vor Ihrer eigenen Adresse (sonst könnte sie als Kundenadresse gelesen werden) und die Beschriftung „USt-IdNr." (verwenden Sie „Umsatzsteuer-ID"). Die Vorlage macht das bereits so.</p>
+
+<h2>6. Als PDF/A speichern</h2>
+<div class="box warn">ZUGFeRD (PDF mit eingebetteter E-Rechnung) entsteht nur aus PDF/A. XRechnung (reine XML-Datei) entsteht auch aus normalen PDFs. Ohne PDF/A wird der Vorgang als „Fehlgeschlagen" markiert.</div>
+<ul>
+  <li><strong>Word (Windows):</strong> Datei → Speichern unter → Dateityp PDF → Schaltfläche <em>Optionen</em> → „ISO 19005-1-kompatibel (PDF/A)" anhaken → Speichern. Alternativ Datei → Exportieren → PDF/XPS → Optionen.</li>
+  <li><strong>Excel:</strong> gleicher Weg wie in Word (Speichern unter → PDF → Optionen → PDF/A). Achten Sie auf einseitigen Druckbereich und dass Text als Text, nicht als Bild exportiert wird.</li>
+  <li><strong>LibreOffice:</strong> Datei → Exportieren als → Als PDF exportieren → Reiter „Allgemein" → „Archiv (PDF/A, ISO 19005)" wählen.</li>
+  <li><strong>Andere Programme:</strong> In den PDF-Einstellungen nach „PDF/A", „ISO 19005" oder „Archivformat" suchen. Nicht geeignet sind gescannte Rechnungen oder Bild-PDFs ohne Textebene.</li>
+</ul>
+
+<h2>7. Prüfen vor dem Produktivbetrieb</h2>
+<p>Öffnen Sie in der Anwendung <strong>Profile → Profil testen</strong>, laden Sie Ihre PDF hoch und wählen Sie Ihren Mandanten. Sie sehen jedes Feld mit Fundstelle. Alle Pflichtfelder gefunden und „Plausibilität: bestanden" bedeutet: Die Rechnung läuft automatisch durch. Dabei wird nichts erzeugt oder gespeichert.</p>
+
+<h2>8. Beispiel (Textansicht der Vorlage)</h2>
+<div class="mono">Hofmann IT · Musterstraße 1 · 12345 Musterstadt
+
+Muster GmbH                              Rechnungsnummer: 2026-0001
+Beispielstraße 12                        Rechnungsdatum: 24.09.2026
+54321 Kundenstadt                        Leistungsdatum: 24.09.2026
+E-Mail: rechnung@muster-gmbh.de          Kunden-Nr.: 10001
+USt-IdNr. des Kunden: DE987654321        Ihre Bestellung: PO-4711
+                                         Leitweg-ID: 04011000-12345-67
+Rechnung
+
+Pos.  Bezeichnung                         Menge  Einheit  Einzelpreis   USt    Gesamt
+1     Beratung Netzwerktechnik             8,00  Std.           95,00  19 %    760,00
+2     LWL-Kabel Single Mode 12E9/125 OS2 600,00  m               1,11  19 %    666,00
+      Trommel à 600 m, inkl. Lieferung
+3     Anfahrt pauschal                     1,00  Stk.          134,00  19 %    134,00
+
+                                    Summe netto:   1.560,00
+                                    Netto 19 %:    1.560,00
+                                    USt 19 %:        296,40
+                                    Gesamt netto:  1.560,00
+                                    USt gesamt:      296,40
+                                    Gesamtbetrag:  1.856,40
+                                    Zahlbetrag:    1.856,40
+
+Zahlungsbedingungen: Zahlbar innerhalb von 14 Tagen ohne Abzug, zahlbar bis 08.10.2026
+Vielen Dank für Ihren Auftrag.</div>
+
+</main>
+</body>
+</html>

@@ -30,7 +30,8 @@ public class SetupRedirectFilter extends OncePerRequestFilter {
     }
 
     static boolean exempt(String path) {
-        return path.startsWith("/einrichtung") || path.startsWith("/css/") || path.startsWith("/webjars/") || path.equals("/error")
+        return path.startsWith("/einrichtung") || path.startsWith("/css/") || path.startsWith("/webjars/") || path.startsWith("/vorlagen/")
+                || path.equals("/favicon.svg") || path.equals("/error")
                 || path.equals("/favicon.ico");
     }
 

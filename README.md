@@ -331,6 +331,18 @@ DATEV-Einstellungen je Mandant (Abschnitt 12), die dieselbe Anmeldung verlangen.
 
 ## 7. Profil-Einrichtung
 
+### Rechnungsvorlage für das Standardprofil
+
+Kunden, die Rechnungen mit Word, Excel oder anderen Programmen schreiben, erhalten im
+Einrichtungs-Assistenten und unter **Profile** eine Word-Vorlage (`/vorlagen/Rechnungsvorlage.docx`)
+und die Beschreibung aller Pflichtangaben (`/vorlagen/Rechnungsvorlage-Felder.html`). Die
+Vorlage ist auf das Profil `standard` abgestimmt: Beschriftungen („Rechnungsnummer:",
+„Kunden-Nr.:", „E-Mail:", „Summe netto:" usw.), Anschriftenfeld ab 146 pt von oben mit
+14 pt Zeilenabstand und die Tabellenspalten an den Koordinaten des Profils. Beide Dateien liegen
+unter `src/main/resources/static/vorlagen/`; die `.docx` ist reines WordprocessingML ohne
+Makros (erzeugt aus XML, siehe CHANGELOG). Nach einer Änderung an Profil oder Vorlage beide
+gemeinsam anpassen und mit dem Profil-Test gegen eine aus der Vorlage exportierte PDF/A prüfen.
+
 Ein Profil (`profiles/<name>.yaml`) beschreibt, wie Rechnungen eines Layouts erkannt und auf
 EN-16931-Felder abgebildet werden. `profiles/standard.yaml` ist vollständig kommentiert und
 zeigt jede Regelart:
