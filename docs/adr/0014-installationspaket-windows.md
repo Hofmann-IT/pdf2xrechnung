@@ -64,7 +64,9 @@ Installations-/Betriebsdokumentation für Kunden.
 ## Offene Punkte
 
 - Code-Signierung von Setup und WinSW-Wrapper.
-- Der Installationslauf selbst (UAC, Dienstregistrierung, Browserstart) konnte in der
-  Entwicklungsumgebung nicht ausgeführt werden (kein interaktives Admin-Fenster); geprüft
-  wurden Kompilierung des Setups, die Laufzeit mit der Testsuite und der Start der Anwendung
-  aus der Paketstruktur im CLI-Modus. Der erste Testlauf erfolgt auf einem Zielrechner.
+- Erster Installationslauf am 2026-10-08: Dateien, Ordner, Startmenü korrekt; die
+  Dienstregistrierung schlug fehl, weil `[Run]`-Einträge in Inno Setup **vor**
+  `CurStepChanged(ssPostInstall)` laufen und die Dienstkonfiguration noch fehlte. Behoben:
+  Registrierung, Start und Warten auf die Oberfläche erfolgen jetzt im `[Code]`-Teil direkt nach
+  dem Schreiben der Konfiguration; WinSW-Ausgaben liegen unter `logs\service\setup-*.log`.
+  Der Dienst selbst startete nach manueller Registrierung sofort und lieferte den Assistenten.

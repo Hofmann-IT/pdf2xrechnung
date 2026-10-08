@@ -34,6 +34,9 @@ Die Versionsnummer steht im `pom.xml` und wird im Seitenfuß, im Systemstatus un
   durch Deinstallation gelöscht.
 - `docs/Handbuch.html`: Installations- und Betriebshandbuch für Kunden.
 - CLI `calibrate` meldet ohne konfigurierten Mandanten einen verständlichen Fehler.
+- Behoben (2026-10-08): Setup registrierte den Dienst, bevor die Dienstkonfiguration
+  geschrieben war; Registrierung und Start laufen jetzt im Code-Teil nach dem Schreiben,
+  Ausgaben unter `logs\service\setup-*.log`.
 
 ### Phase 6 – Betrieb (2026-09-24)
 - Dockerfile (Multi-Stage, JRE 21, unprivilegierter Benutzer, Validierungsressourcen im Image),

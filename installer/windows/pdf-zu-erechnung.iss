@@ -95,9 +95,8 @@ Name: "{group}\Datenverzeichnis"; Filename: "{commonappdata}\PDF-zu-ERechnung"
 Name: "{group}\PDF-zu-E-Rechnung deinstallieren"; Filename: "{uninstallexe}"
 
 [Run]
-; Dienst registrieren und starten (WinSW liest die erzeugte XML neben der EXE)
-Filename: "{app}\pdf-zu-erechnung.exe"; Parameters: "install"; Flags: runhidden waituntilterminated; StatusMsg: "Windows-Dienst wird eingerichtet ..."
-Filename: "{app}\pdf-zu-erechnung.exe"; Parameters: "start"; Flags: runhidden waituntilterminated; StatusMsg: "Dienst wird gestartet ..."
+; Dienst registrieren und starten geschieht im [Code]-Teil (ssPostInstall), nachdem die
+; Dienstkonfiguration aus der Vorlage geschrieben wurde; [Run]-Einträge liefen davor.
 Filename: "http://localhost:8080/"; Description: "Einrichtungs-Assistent im Browser öffnen"; Flags: postinstall shellexec nowait skipifsilent; Check: ServiceAnswered
 
 [UninstallRun]
@@ -177,16 +176,42 @@ begin
   Result := ServiceReady;
 end;
 
+{ WinSW-Befehl ausführen; Ausgabe landet zur Diagnose in logs\service\setup-<Befehl>.log }
+function RunWinSW(Command: String): Integer;
+var
+  Exe, LogFile: String;
+  ResultCode: Integer;
+begin
+  Exe := ExpandConstant('{app}\pdf-zu-erechnung.exe');
+  LogFile := DataDir() + '\logs\service\setup-' + Command + '.log';
+  if Exec(ExpandConstant('{cmd}'), '/C ""' + Exe + '" ' + Command + ' > "' + LogFile + '" 2>&1"', ExpandConstant('{app}'),
+          SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    Result := ResultCode
+  else
+    Result := -1;
+  Log('WinSW ' + Command + ': Exit-Code ' + IntToStr(Result));
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Code: Integer;
 begin
   if CurStep = ssPostInstall then
-    WriteServiceXml();
-  if CurStep = ssDone then
   begin
-    { [Run]-Einträge (install/start) sind hier bereits gelaufen; nun auf die Oberfläche warten }
+    WizardForm.StatusLabel.Caption := 'Windows-Dienst wird eingerichtet ...';
+    WriteServiceXml();
+    Code := RunWinSW('install');
+    if Code <> 0 then
+    begin
+      MsgBox('Der Windows-Dienst konnte nicht eingerichtet werden (Code ' + IntToStr(Code) + ').' + #13#10 +
+             'Protokoll: ' + DataDir() + '\logs\service\setup-install.log', mbError, MB_OK);
+      Exit;
+    end;
+    WizardForm.StatusLabel.Caption := 'Dienst wird gestartet, bitte warten ...';
+    Code := RunWinSW('start');
     ServiceReady := WaitForService();
     if not ServiceReady then
-      MsgBox('Der Dienst wurde installiert, antwortet aber noch nicht unter http://localhost:8080.' + #13#10 +
+      MsgBox('Der Dienst wurde eingerichtet, antwortet aber noch nicht unter http://localhost:8080.' + #13#10 +
              'Bitte 1 bis 2 Minuten warten und dann die Verknüpfung "PDF-zu-E-Rechnung öffnen" im Startmenü verwenden.' + #13#10 +
              'Protokolle: ' + DataDir() + '\logs', mbInformation, MB_OK);
   end;
