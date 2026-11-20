@@ -455,7 +455,10 @@ class WebUiTest {
         assertThat(list).contains("abcdef12_Rechnung RE-2026-4712").contains("GROSS_TOTAL");
         String detail = body(mvc.perform(get("/pruefung/hofmann-it/abcdef12_Rechnung RE-2026-4712")).andExpect(status().isOk()).andReturn());
         assertThat(detail).contains("Plausibilitätsfehler").contains("RE-2026-4712").contains("x=450").contains("original.pdf");
-        mvc.perform(get("/pruefung/hofmann-it/abcdef12_Rechnung RE-2026-4712/original.pdf")).andExpect(status().isOk());
+        // Die Detailseite bettet die Original-PDF in einen Rahmen ein: nur dieselbe Anwendung darf einbetten (nicht DENY)
+        mvc.perform(get("/pruefung/hofmann-it/abcdef12_Rechnung RE-2026-4712/original.pdf")).andExpect(status().isOk())
+                .andExpect(header().string("X-Frame-Options", "SAMEORIGIN"));
+        assertThat(detail).contains("<iframe");
         // Pfadwechsel in der Adresse weist bereits die Web-Firewall der Anmeldung ab (400), bevor die Anwendung ihn sieht
         mvc.perform(get("/pruefung/hofmann-it/..")).andExpect(status().isBadRequest());
         mvc.perform(get("/pruefung/hofmann-it/x..y")).andExpect(status().isNotFound());

@@ -44,6 +44,13 @@ entwickelt; die Lizenz des Projekts legt der Auftraggeber fest.
 | LiberationSans (in Testdaten, aus PDFBox-Jar) | – | SIL Open Font License 1.1 | nur Tests |
 | sRGB-ICC-Profil (aus Mustang-Jar) | – | siehe Mustang | nur Tests |
 
+## Windows-Verwaltungsanwendung (`desktop/windows`, ADR 0015)
+
+| Komponente | Version | Lizenz | Hinweis |
+|------------|---------|--------|---------|
+| Microsoft Edge WebView2 SDK (`Microsoft.Web.WebView2.Core.dll`, `Microsoft.Web.WebView2.WinForms.dll`, `WebView2Loader.dll`) | 1.0.3856.49 | BSD-3-Clause (Microsoft) | wird mit der Anwendung ausgeliefert; Lizenz und Hinweise liegen als `LICENSE-WebView2.txt` und `NOTICE-WebView2.txt` bei. Bezug beim Build als NuGet-Paket mit fester SHA-256-Prüfsumme, zusätzlich Prüfung der Microsoft-Signatur |
+| Microsoft Edge WebView2-Laufzeit, .NET Framework 4.8 | Bestandteil von Windows | Microsoft-Lizenzbedingungen von Windows | werden nicht ausgeliefert, sondern auf dem Zielrechner vorausgesetzt (in Windows 11 enthalten) |
+
 ## Werkzeuge (nicht Teil der Auslieferung)
 
 | Werkzeug | Lizenz |
@@ -51,6 +58,7 @@ entwickelt; die Lizenz des Projekts legt der Auftraggeber fest.
 | WinSW (Windows-Dienst-Wrapper, vom Betreiber separat herunterzuladen) | MIT |
 | Eclipse Temurin JDK/JRE 21 | GPL-2.0 with Classpath Exception (Laufzeitumgebung, nicht verlinkt) |
 | Apache Maven | Apache-2.0 |
+| C#-Compiler des .NET Framework 4.8 (`csc.exe`, Bestandteil von Windows) | Microsoft-Lizenzbedingungen von Windows |
 
 Die vollständige, automatisch erzeugte Liste aller 132 Laufzeitartefakte inklusive
 transitiver Abhängigkeiten lässt sich jederzeit reproduzieren:

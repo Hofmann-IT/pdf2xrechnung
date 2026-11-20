@@ -36,6 +36,21 @@ Die Versionsnummer steht im `pom.xml` und wird im Seitenfuß, im Systemstatus un
   Docker-Image setzt `APP_NETWORK_MODE=open` und verhält sich wie bisher.
 - jlink-Laufzeit des Installationspakets um `jdk.crypto.mscapi` erweitert.
 
+### Phase C – Windows-Verwaltungsanwendung (2026-11-20)
+- Neu: `PdfZuERechnung.Verwaltung.exe` (`desktop/windows/`, WinForms + WebView2): eigenes
+  Fenster ohne Adresszeile, Symbol im Infobereich mit Dienststatus, Dienst starten/stoppen/neu
+  starten auf dem Server, Protokollordner, Handbuch; nur eine Instanz, Fensterlage wird gemerkt.
+- Verbindung mit „Dieser Computer" oder einem Server im Firmennetz; der Fingerabdruck des
+  Serverzertifikats wird beim ersten Verbinden bestätigt und danach bei jeder Verbindung
+  geprüft. Bei Abweichung wird nicht verbunden.
+- Downloads mit „Speichern unter"; Navigation außerhalb des Dienstes wird blockiert, fremde
+  Links öffnen im Standardbrowser. Verständliche Meldungen statt Fehlerseiten.
+- Es werden keine Passwörter gespeichert (Einstellungen je Windows-Benutzer unter `%APPDATA%`).
+- Build mit `desktop/windows/build-desktop.ps1` (C#-Compiler aus Windows, WebView2-SDK
+  1.0.3856.49 mit geprüfter SHA-256 und Signatur, BSD-3-Clause).
+- Behoben (Fehler aus Phase A): Die PDF-Vorschau in der manuellen Prüfung wurde vom
+  Schutz-Header `X-Frame-Options: DENY` blockiert; jetzt `SAMEORIGIN`.
+
 ## [1.0.0] – 2026-09-25
 
 ### Rechnungsvorlage für Word/Excel-Nutzer (2026-10-08)

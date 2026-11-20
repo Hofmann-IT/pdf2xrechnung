@@ -2,9 +2,10 @@
 
 - Status: Akzeptiert (2026-11-20); Freigaben F1–F4 vom Auftraggeber mit dem Plan „Dienst +
   Windows-Verwaltungsanwendung (Version 1.1.0)" erteilt. Umsetzung in vier Phasen; dieser ADR
-  wird je Phase fortgeschrieben. **Stand: Phasen A (Anmeldung) und B (Netzzugriff) umgesetzt.**
+  wird je Phase fortgeschrieben. **Stand: Phasen A (Anmeldung), B (Netzzugriff) und C (Verwaltungsanwendung) umgesetzt.**
 - Betrifft: `db/migration/V6__user_account.sql`, Module `admin`, `configuration`, `ledger`, `web`; `pom.xml`;
   `deploy/windows/netzbetrieb-einrichten.ps1`, jlink-Modulliste in `installer/windows/build-installer.ps1`;
+  neu `desktop/windows/` (Verwaltungsanwendung);
   löst die Anmeldung aus ADR 0012/0013 (HTTP Basic nur für die Verwaltung) ab
 
 ## Kontext
@@ -100,6 +101,44 @@ wurde als Freitext eingetragen. Für einen im Netz erreichbaren Dienst ist das n
 18. **Sitzungs-Cookie:** über HTTPS ausgestellt mit `Secure`; lokaler HTTP-Zugang und
     Netzzugang haben getrennte Sitzungen (unterschiedlicher Host).
 
+### Phase C – Windows-Verwaltungsanwendung
+
+19. **Technik (F1):** `desktop/windows/`, C# für .NET Framework 4.8 mit WinForms und dem
+    WebView2-Steuerelement. Übersetzt wird mit dem `csc.exe`, das zu Windows gehört
+    (Sprachstand C# 5), ohne .NET SDK und ohne Projektdatei. Das WebView2-SDK (BSD-3-Clause)
+    wird beim Build als NuGet-Paket mit fester Version bezogen; geprüft werden SHA-256 des
+    Pakets und die Microsoft-Signatur der DLLs. Die Anwendung enthält keine Fachlogik: sie
+    zeigt die Seiten des Dienstes.
+20. **Verbindung und Fingerabdruck (F4):** lokal `http://localhost:<Port>`, im Netz
+    ausschließlich `https://<Server>:<Port>`. Vor jeder Verbindung liest die Anwendung das
+    Zertifikat des Servers, ohne Daten zu senden, und vergleicht den SHA-256-Fingerabdruck mit
+    dem bestätigten Wert. Ohne Bestätigung oder bei Abweichung wird nicht verbunden; der neue
+    Wert muss ausdrücklich bestätigt werden (Vorgabe im Dialog: Nein). Zertifikatsfehler, die
+    WebView2 meldet (selbstsigniert), werden nur für den verbundenen Server und nur bei genau
+    diesem Fingerabdruck zugelassen; früher erteilte Ausnahmen werden vor jeder Verbindung
+    verworfen. Auch ein von Windows als vertrauenswürdig eingestuftes Zertifikat wird gebunden.
+21. **Nur der Dienst im Fenster:** Navigation zu Adressen außerhalb von Schema, Rechner und
+    Port des Dienstes wird abgebrochen; vom Benutzer angeklickte Webadressen öffnet der
+    Standardbrowser. Entwicklerwerkzeuge, Statusleiste, Kennwortspeicherung und automatisches
+    Ausfüllen sind abgeschaltet. Links mit neuem Fenster bleiben im selben Fenster
+    (Leiste mit Zurück, Start, Neu laden).
+22. **Keine Zugangsdaten auf dem Arbeitsplatz:** `%APPDATA%\PDF-zu-ERechnung\verwaltung.ini`
+    enthält nur Verbindung, Fingerabdruck und Fensterlage. Die Anmeldung bleibt die des
+    Dienstes (Sitzungs-Cookie im Profilordner der Anzeige unter `%LOCALAPPDATA%`).
+23. **Dienststatus und -steuerung:** Auf dem Server liest die Anwendung den Zustand des
+    Windows-Dienstes; Starten, Stoppen und Neustarten laufen über die vorhandene Steuerdatei
+    (WinSW) mit der Rückfrage von Windows nach Administratorrechten. Auf Arbeitsplätzen zeigt
+    das Symbol nur, ob der Server Verbindungen annimmt.
+24. **Meldungen statt Fehlerseiten:** Dienst gestoppt, Dienst startet noch, Server nicht
+    erreichbar, Zertifikat nicht bestätigt, WebView2 fehlt – jeweils mit dem nächsten Schritt.
+    Wartet das Fenster auf den Dienst, verbindet es sich von selbst, sobald er antwortet.
+25. **Rahmen nur aus derselben Anwendung:** `X-Frame-Options: SAMEORIGIN` statt `DENY`, weil
+    die manuelle Prüfung die Original-PDF in einem Rahmen zeigt (Fehler aus Phase A).
+26. **Diagnoselauf:** `/selbsttest <Ordner>` verbindet sich ohne Dialoge, schreibt Ergebnis
+    und Bildschirmfotos und ändert keine Einstellungen. Damit wurden lokale Verbindung, HTTPS
+    mit bestätigtem Fingerabdruck, Ablehnung bei falschem Fingerabdruck, Meldung bei nicht
+    erreichbarem Dienst und die Sperre fremder Adressen geprüft.
+
 ## Konsequenzen
 
 - Nach dem Update auf diese Version müssen sich alle Benutzer anmelden; bestehende
@@ -121,6 +160,8 @@ wurde als Freitext eingetragen. Für einen im Netz erreichbaren Dienst ist das n
 
 - **Schlüsseldatei (PKCS12) mit Passwort in der Konfiguration:** plattformunabhängig, aber ein
   Geheimnis in einer Datei – durch die Projektvorgabe ausgeschlossen.
+- **Java-Tray und Edge im App-Modus (`msedge --app=`):** keine neue Technik, aber keine
+  Bindung an den Fingerabdruck, kein eigener Umgang mit Downloads und Fehlern.
 - **HTTPS auch für den lokalen Zugang:** einheitlich, aber jeder lokale Aufruf (Setup,
   Verknüpfung, Dienstprüfung) bräuchte das Zertifikat; der Loopback-Verkehr verlässt den
   Rechner nicht.

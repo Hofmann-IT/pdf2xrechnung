@@ -369,6 +369,35 @@ Grund im Protokoll, im Systemstatus und in der Verwaltung. Er weicht nie auf unv
 Netzzugriff aus. Ein in `config/application.yaml` oder über `APP_NETWORK_MODE` gesetzter Modus
 geht der Einstellung aus der Verwaltung vor.
 
+### Windows-Verwaltungsanwendung
+
+`PdfZuERechnung.Verwaltung.exe` zeigt die Oberfläche in einem eigenen Fenster ohne Adresszeile
+und legt ein Symbol in den Infobereich. Sie läuft auf dem Server und auf jedem Arbeitsplatz im
+Firmennetz; der Browser bleibt daneben nutzbar (gleiche Anmeldung).
+
+- **Verbindung:** „Dieser Computer" (`http://localhost:8080`) oder „Server im Firmennetz"
+  (Servername und HTTPS-Port aus Verwaltung → Netzzugriff). Beim ersten Verbinden zeigt die
+  Anwendung den **Fingerabdruck** des Serverzertifikats; nach dem Vergleich mit der Anzeige auf
+  dem Server wird er gemerkt. Zeigt der Server später ein anderes Zertifikat, wird nicht
+  verbunden, bis der neue Fingerabdruck bestätigt ist.
+- **Infobereich:** Symbol mit Statuspunkt (grün = Dienst läuft bzw. erreichbar, rot = gestoppt
+  bzw. nicht erreichbar, gelb = startet/stoppt). Menü: Öffnen, Dienst starten/stoppen/neu
+  starten (nur auf dem Server; Windows fragt nach Administratorrechten), Protokollordner,
+  Handbuch, Verbindung, Beenden. Das Schließen des Fensters legt die Anwendung in den
+  Infobereich; `/tray` startet sie dort (für den Autostart).
+- **Downloads** (CSV, DATEV, XML, PDF) fragen mit „Speichern unter" nach dem Ziel. Fremde
+  Internetadressen öffnen im Standardbrowser, nie im Fenster.
+- **Gespeichert wird** je Windows-Benutzer nur `%APPDATA%\PDF-zu-ERechnung\verwaltung.ini`
+  (Verbindung, Fingerabdruck, Fensterlage) – **keine Passwörter**; die Kennwortspeicherung der
+  Anzeige ist abgeschaltet.
+- **Voraussetzungen:** Windows 10/11 (64 Bit), .NET Framework 4.8 und die Microsoft Edge
+  WebView2-Laufzeit (beides in Windows 11 enthalten). Fehlt WebView2, nennt die Anwendung die
+  Lösung statt einer Fehlermeldung.
+
+Build: `powershell -ExecutionPolicy Bypass -File desktop\windows\build-desktop.ps1` erzeugt
+`target\desktop\PdfZuERechnung.Verwaltung\` (Abschnitt 17). Das Setup liefert die Anwendung mit
+Version 1.1.0 aus.
+
 ### Verwaltung in der Oberfläche
 
 Unter **Verwaltung** (`/verwaltung`, nur für Administratoren) lassen sich
@@ -625,3 +654,19 @@ Modulabhängigkeiten sind in [docs/adr/README.md](docs/adr/README.md) festgelegt
 durch einen Test erzwungen.
 
 UI-Snapshots aller Seiten entstehen beim Test unter `target/ui-snapshots/`.
+
+**Windows-Verwaltungsanwendung** (`desktop/windows/`, C# für .NET Framework 4.8, WinForms +
+WebView2):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File desktop\windows\build-desktop.ps1
+```
+
+Das Skript braucht nur Windows: Es übersetzt mit dem C#-Compiler, der zu Windows gehört
+(`csc.exe`, Sprachstand C# 5 – kein .NET SDK), lädt das WebView2-SDK einmalig als NuGet-Paket
+(feste Version, SHA-256 und Microsoft-Signatur werden geprüft), erzeugt das Programmsymbol und
+führt die Tests der Kernlogik aus (`desktop/windows/tests/Tests.cs`; ein Fehler bricht den
+Build ab). Diagnose ohne Bedienung: `PdfZuERechnung.Verwaltung.exe /einstellungen <ini>
+/selbsttest <ordner>` verbindet sich, legt `ergebnis.txt` und Bildschirmfotos ab und beendet
+sich, ohne Einstellungen zu ändern.
+

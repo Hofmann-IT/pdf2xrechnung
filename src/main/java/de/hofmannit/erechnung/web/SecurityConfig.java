@@ -71,6 +71,8 @@ public class SecurityConfig {
                         .failureHandler(SecurityConfig::loginFailed))
                 .logout(logout -> logout.logoutUrl("/abmelden").logoutSuccessUrl("/anmelden?abgemeldet"))
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(SecurityConfig::loginRequired))
+                // Die manuelle Prüfung zeigt die Original-PDF in einem Rahmen derselben Anwendung; fremde Seiten dürfen nicht einbetten
+                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .addFilterBefore(new AccountStateFilter(accounts), AuthorizationFilter.class);
         return http.build();
     }
