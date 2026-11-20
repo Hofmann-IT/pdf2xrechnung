@@ -220,8 +220,9 @@ docker compose up -d --build
   müssen für diese UID beschreibbar sein.
 - SMTP-Zugangsdaten in einer `.env` neben der Compose-Datei (`SMTP_USERNAME`, `SMTP_PASSWORD`,
   Rechte 600). `.env` ist in `.gitignore`.
-- Port 8080 ist standardmäßig nur an `127.0.0.1` gebunden. Für das Firmennetz einen Reverse
-  Proxy mit Anmeldung vorschalten (Abschnitt 13).
+- Port 8080 ist standardmäßig nur an `127.0.0.1` veröffentlicht. Für das Firmennetz einen Reverse
+  Proxy mit TLS vorschalten (Abschnitt 13). Im Container ist `APP_NETWORK_MODE=open` gesetzt,
+  damit die Anwendung innerhalb des Containers erreichbar ist.
 - Der Build führt die Tests aus; `--build-arg SKIP_TESTS=true` nur, wenn `mvn -q verify`
   bereits anderweitig gelaufen ist.
 - CLI-Befehle laufen im selben Image, z. B. Kalibrierung gegen eine PDF im Archiv-Volume
@@ -250,7 +251,11 @@ Standardwerte) und `./config/tenant.yaml`, jeweils relativ zum Arbeitsverzeichni
 
 | Schlüssel | Bedeutung | Standard |
 |-----------|-----------|----------|
-| `server.port` | Port der Oberfläche | 8080 |
+| `server.port` | Port der Oberfläche auf diesem Computer (HTTP, `127.0.0.1`) | 8080 |
+| `app.network.mode` | Erreichbarkeit: `local`, `network` (HTTPS, nur Windows) oder `open` – siehe „Netzzugriff" | local |
+| `app.network.port` | HTTPS-Port für das Firmennetz | 8443 |
+| `app.network.certificate-alias` | Anzeigename des Zertifikats im Windows-Zertifikatsspeicher | PDF-zu-ERechnung |
+| `app.network.certificate-thumbprint` | Optional: Fingerabdruck (SHA-1) statt Anzeigename | – |
 | `app.directories.*` | Arbeitsverzeichnisse (siehe Tabelle in Abschnitt 1) | `./…` |
 | `app.watcher.enabled` | Inbox-Überwachung an/aus | true |
 | `app.watcher.poll-interval` | Prüfintervall | 5s |
@@ -290,6 +295,7 @@ im Log (fail fast).
 |----------|-------|
 | `SMTP_USERNAME`, `SMTP_PASSWORD` | Zugangsdaten für den Versand |
 | `ADMIN_PASSWORD` | Optionaler zusätzlicher Administrator-Zugang für Betreiber (Benutzername `admin`), z. B. bei vergessenem Passwort. Normalerweise werden Benutzerkonten im Einrichtungs-Assistenten und in der Verwaltung vergeben |
+| `APP_NETWORK_MODE` | `open` = HTTP auf allen Schnittstellen (Docker-Image: gesetzt; Linux: nur wenn der Reverse Proxy auf einem anderen Rechner läuft) |
 | `JAVA_OPTS` (Docker, systemd) | JVM-Optionen, z. B. `-Xmx1g` |
 | `TZ` | Zeitzone (Zeitstempel im Ledger sind immer UTC) |
 
@@ -323,6 +329,45 @@ unter „Mein Konto" (Klick auf den Benutzernamen in der Kopfzeile). Fünf Fehlv
 einen Benutzernamen für fünf Minuten; gesperrte Konten verlieren ihre Sitzung sofort. Der
 angemeldete Benutzer wird in Export-Protokoll, Reprocess, Versand und Einstellungs-Historie
 festgehalten. Sitzungen enden nach 60 Minuten ohne Aktivität und bei einem Dienst-Neustart.
+
+### Netzzugriff
+
+Nach der Installation ist die Oberfläche **nur auf dem Computer erreichbar, auf dem der Dienst
+läuft** (`http://localhost:8080`, gebunden an `127.0.0.1`). Bis Version 1.0.0 lauschte der
+Dienst auf allen Schnittstellen.
+
+| Modus | Erreichbarkeit | Einsatz |
+|-------|----------------|---------|
+| `local` (Standard) | HTTP nur auf `127.0.0.1:8080` | Einzelplatz; Linux mit Reverse Proxy auf demselben Server |
+| `network` | wie `local`, zusätzlich **HTTPS auf Port 8443** auf allen Schnittstellen | Windows-Server, Arbeitsplätze im Firmennetz |
+| `open` | HTTP auf allen Schnittstellen, **unverschlüsselt** | Docker; Reverse Proxy mit TLS auf einem anderen Rechner |
+
+**Zugriff aus dem Firmennetz einrichten (Windows):**
+
+1. Auf dem Server einmalig als Administrator `deploy\windows\netzbetrieb-einrichten.ps1`
+   ausführen (im Installationsordner: `netzbetrieb-einrichten.ps1`). Das Skript erzeugt ein
+   selbstsigniertes Zertifikat „PDF-zu-ERechnung" unter *Lokaler Computer → Eigene Zertifikate*
+   (RSA 3072, 5 Jahre, privater Schlüssel nicht exportierbar) und eine Firewall-Regel für den
+   Port, nur für die Profile Domäne und Privat. Es gibt **keine Schlüsseldatei und kein
+   Passwort** – der private Schlüssel bleibt im Windows-Zertifikatsspeicher.
+2. In der Oberfläche unter **Verwaltung → Netzzugriff** „Dieser Computer und Firmennetz (HTTPS)"
+   speichern (steht danach in `config/network.yaml`) und den Dienst neu starten.
+3. Arbeitsplätze verwenden `https://<servername>:8443`. Verwaltung und Systemstatus zeigen
+   Adresse und **Fingerabdruck (SHA-256)** des Zertifikats; bei einem selbstsignierten
+   Zertifikat warnt der Browser, bis der Fingerabdruck geprüft und das Zertifikat als
+   vertrauenswürdig hinterlegt ist.
+
+Ein Zertifikat der eigenen Zertifizierungsstelle wird verwendet, wenn es im selben Speicher mit
+privatem Schlüssel und dem Anzeigenamen „PDF-zu-ERechnung" liegt (oder über
+`app.network.certificate-thumbprint` ausgewählt wird); bei mehreren Treffern gilt das am
+längsten gültige. Rückbau: in der Verwaltung „Nur dieser Computer" speichern, Dienst neu
+starten, `netzbetrieb-einrichten.ps1 -Entfernen` entfernt die Firewall-Regel.
+
+Ist der Netzzugriff angefordert, das Zertifikat aber nicht nutzbar (fehlt, kein privater
+Schlüssel, Port belegt durch den lokalen Port), startet der Dienst **nur lokal** und nennt den
+Grund im Protokoll, im Systemstatus und in der Verwaltung. Er weicht nie auf unverschlüsselten
+Netzzugriff aus. Ein in `config/application.yaml` oder über `APP_NETWORK_MODE` gesetzter Modus
+geht der Einstellung aus der Verwaltung vor.
 
 ### Verwaltung in der Oberfläche
 
@@ -487,8 +532,9 @@ Vor Produktivstart:
 - [ ] Verzeichnisse liegen auf gesichertem Speicher; `archive/` und `data/` in der Datensicherung (Abschnitt 14)
 - [ ] Dienst eingerichtet (WinSW/systemd/Docker), Neustart nach Absturz geprüft
 - [ ] Einrichtung abgeschlossen, je Person ein eigenes Benutzerkonto, mindestens zwei Administratoren
-- [ ] Oberfläche nur im Firmennetz erreichbar; die Verbindung ist bis zur HTTPS-Unterstützung (ADR 0015, Phase B)
-      **unverschlüsselt**, daher Reverse Proxy mit TLS oder Beschränkung auf vertrauenswürdige Adressen
+- [ ] Netzzugriff bewusst gewählt (Abschnitt 6 „Netzzugriff"): nur lokal, oder Firmennetz über HTTPS mit geprüftem
+      Fingerabdruck; Modus `open` nur hinter einem Reverse Proxy mit TLS
+- [ ] Firewall-Regel für den HTTPS-Port nur für Domänen-/private Netze, nicht für öffentliche
 - [ ] Netzwerk: nur SMTP nach außen erlaubt (Firewall), keine weiteren Verbindungen nötig
 - [ ] SMTP-Zugangsdaten ausschließlich als Umgebungsvariablen, Test-Mail an interne Adresse
 - [ ] DATEV-Konten und Beraternummer vom Steuerberater bestätigt, Probeexport dort importiert
@@ -548,6 +594,8 @@ Archiv. Beide immer aus demselben Sicherungsstand wiederherstellen.
 | Start bricht ab mit „Mandantenkonfiguration ist ungültig" | Fehlerliste im Log lesen: Profil fehlt, Mandanten-ID ungültig, doppeltes Inbox-Verzeichnis, DATEV-Werte außerhalb der Regeln. Korrigieren, neu starten |
 | Start bricht ab mit `Unable to establish loopback connection` / `Selector.open()` | Betrifft die JVM, nicht die Anwendung: Ein Sicherheits- oder Backup-Produkt (z. B. Endpoint-Schutz mit Netzwerkfilter) blockiert lokale Loopback-Sockets. Java-Prozess in der Ausnahmeliste eintragen oder Filtertreiber prüfen; Test mit `java -jar` in einer anderen Sitzung/anderem Konto |
 | Port 8080 belegt | `server.port` in `application.yaml` ändern |
+| Oberfläche von anderen PCs nicht erreichbar | Standard seit 1.1.0: nur dieser Computer. Netzzugriff einrichten (Abschnitt 6 „Netzzugriff"); Systemstatus zeigt den wirksamen Modus und ggf. den Grund, warum HTTPS nicht läuft |
+| Systemstatus: „Kein Zertifikat mit dem Anzeigenamen …" | `netzbetrieb-einrichten.ps1` als Administrator ausführen, Dienst neu starten |
 | Datei bleibt in `inbox/` | Watcher deaktiviert? Datei noch im Schreibvorgang (Größe ändert sich)? Mandant `enabled: false`? Unterverzeichnis keinem Mandanten zugeordnet? Log prüfen |
 | Datei in `rejected/` | Klassifizierung hat keine Rechnung erkannt (Begründung in der `.txt` daneben) oder Duplikat (`rejected/duplikate/`, Hash bereits verarbeitet) |
 | Status REVIEW, Datei in `manual-review/` | Plausibilität verletzt oder Pflichtfeld fehlt; `pruefung.txt` und `extraction.json` bzw. Seite „Manuelle Prüfung" zeigen Feld und Fundstelle. Profil korrigieren, dann Reprocess |

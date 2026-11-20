@@ -24,7 +24,27 @@ public record AppProperties(
         Logging logging,
         Admin admin,
         /** Mandantendatei; wird beim Start über spring.config.import geladen und vom Assistenten geschrieben (ADR 0013). */
-        @DefaultValue("./config/tenant.yaml") Path tenantFile) {
+        @DefaultValue("./config/tenant.yaml") Path tenantFile,
+        @DefaultValue Network network) {
+
+    /**
+     * Erreichbarkeit der Oberfläche (ADR 0015, Phase B). {@code local}: nur von diesem Computer
+     * (HTTP auf 127.0.0.1); {@code network}: zusätzlich HTTPS auf {@code port} für das Firmennetz,
+     * Zertifikat samt privatem Schlüssel aus dem Windows-Zertifikatsspeicher (kein Passwort, keine
+     * Schlüsseldatei); {@code open}: HTTP auf allen Schnittstellen wie bis Version 1.0.0, nur für
+     * Container oder hinter einem eigenen Reverse Proxy. Wirkt nur beim Start. Die Verwaltung
+     * schreibt Modus und Port nach {@code file}.
+     */
+    public record Network(
+            @DefaultValue("local") String mode,
+            @DefaultValue("8443") int port,
+            @DefaultValue("Windows-MY-LOCALMACHINE") String certificateStore,
+            /** Anzeigename des Zertifikats im Speicher; bei mehreren Treffern gilt das am längsten gültige. */
+            @DefaultValue("PDF-zu-ERechnung") String certificateAlias,
+            /** Optional: SHA-1-Fingerabdruck (Windows „Fingerabdruck") statt des Anzeigenamens. */
+            String certificateThumbprint,
+            @DefaultValue("./config/network.yaml") Path file) {
+    }
 
     /**
      * Betreiber-Zugang (ADR 0015): zusätzlicher Administrator neben den Benutzerkonten in der

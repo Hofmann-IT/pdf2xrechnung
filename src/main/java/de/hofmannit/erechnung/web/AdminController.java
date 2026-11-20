@@ -8,8 +8,10 @@ import java.util.List;
 import de.hofmannit.erechnung.admin.UserAccountService;
 import de.hofmannit.erechnung.admin.UserAccountService.Role;
 import de.hofmannit.erechnung.admin.AdminSettingsService;
+import de.hofmannit.erechnung.admin.NetworkSettingsService;
 import de.hofmannit.erechnung.admin.AdminSettingsService.SettingsException;
 import de.hofmannit.erechnung.configuration.AppProperties;
+import de.hofmannit.erechnung.configuration.NetworkAccess;
 import de.hofmannit.erechnung.configuration.RuntimeConfig;
 import de.hofmannit.erechnung.configuration.profile.ProfileRegistry;
 import de.hofmannit.erechnung.dispatch.EmailDispatcher;
@@ -78,9 +80,11 @@ public class AdminController {
     private final InboxWatcher watcher;
     private final ProfileRegistry registry;
     private final UserAccountService accounts;
+    private final NetworkSettingsService network;
 
     public AdminController(AdminSettingsService service, AppProperties properties, EmailDispatcher email, InboxWatcher watcher,
-                           ProfileRegistry registry, UserAccountService accounts) {
+                           ProfileRegistry registry, UserAccountService accounts, NetworkSettingsService network) {
+        this.network = network;
         this.accounts = accounts;
         this.service = service;
         this.properties = properties;
@@ -175,6 +179,20 @@ public class AdminController {
         }
     }
 
+    /** Netzzugriff (ADR 0015, Phase B): wird gespeichert und wirkt nach dem Neustart des Dienstes. */
+    @PostMapping("/verwaltung/netz")
+    public String saveNetwork(@RequestParam String mode, @RequestParam(defaultValue = "8443") String port, Principal principal,
+                              RedirectAttributes redirect) {
+        try {
+            NetworkSettingsService.Pending saved = network.save(mode, port, principal.getName());
+            redirect.addFlashAttribute("notice", "Netzzugriff gespeichert: " + saved.mode().label()
+                    + ". Die Änderung wirkt nach einem Neustart des Dienstes.");
+        } catch (SettingsException e) {
+            redirect.addFlashAttribute("error", String.join("; ", e.errors()));
+        }
+        return "redirect:/verwaltung#netz";
+    }
+
     /** Mandanten und Profile aus den Dateien neu laden, ohne Neustart (ADR 0013). */
     @PostMapping("/verwaltung/neu-laden")
     public String reload(RedirectAttributes redirect) {
@@ -193,6 +211,13 @@ public class AdminController {
         model.addAttribute("roles", Role.values());
         model.addAttribute("envUsername", accounts.envUsername());
         model.addAttribute("envPassword", accounts.envConfigured());
+        NetworkAccess access = network.access();
+        model.addAttribute("net", access);
+        model.addAttribute("netPending", network.pending().orElse(null));
+        model.addAttribute("netFile", network.file());
+        model.addAttribute("netHost", StatusController.hostName());
+        // Solange der Netzzugriff nicht läuft, das Zertifikat für die Anzeige jetzt suchen
+        model.addAttribute("netLookup", access.certificate() != null ? null : network.lookupCertificate());
         model.addAttribute("tenantFile", registry.tenantFile().toAbsolutePath().normalize());
         model.addAttribute("form", form);
         model.addAttribute("source", service.source());

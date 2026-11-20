@@ -65,7 +65,7 @@ h2 { font-size: 1.15rem; margin: 0 0 .75rem; color: var(--navy); }
 .subtitle { color: var(--muted); margin: 0 0 1.5rem; }
 
 /* Karten und Raster */
-.card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.25rem 1.4rem; margin-bottom: 1.25rem; }
+.card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.25rem 1.4rem; margin-bottom: 1.25rem; overflow-x: auto; }
 .grid { display: grid; gap: 1.1rem; }
 .grid-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
 .grid-4 { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }

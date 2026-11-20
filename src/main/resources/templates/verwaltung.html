@@ -38,7 +38,7 @@
                 <label style="display:block;margin-bottom:.6rem"><input type="checkbox" name="storeReports" th:checked="${form.storeReports}"> Prüfprotokolle dauerhaft ablegen</label>
                 <h2 style="margin-top:1rem">Nur mit Neustart (config/application.yaml)</h2>
                 <dl class="kv small">
-                    <dt>Port</dt><dd>siehe server.port</dd>
+                    <dt>Lokaler Port</dt><dd th:text="${net.httpPort}"></dd>
                     <dt>Datenverzeichnis</dt><dd class="mono" th:text="${fixed.directories.data}"></dd>
                     <dt>Profile</dt><dd class="mono" th:text="${fixed.directories.profiles}"></dd>
                     <dt>Validator</dt><dd class="mono" th:text="${fixed.directories.validatorResources}"></dd>
@@ -119,6 +119,54 @@
             <label class="field">Wiederholen<input type="password" name="passwordRepeat" autocomplete="new-password" required></label>
             <button class="btn" type="submit">Anlegen</button>
         </form>
+    </section>
+
+    <section class="card" id="netz">
+        <h2>Netzzugriff</h2>
+        <p class="small muted">Legt fest, von wo die Oberfläche erreichbar ist. Auf diesem Computer bleibt sie immer unter <span class="mono" th:text="'http://localhost:' + ${net.httpPort}"></span> erreichbar. Änderungen wirken nach einem <strong>Neustart des Dienstes</strong>.</p>
+        <div class="notice error" th:if="${net.problem != null}">
+            Der angeforderte Netzzugriff ist nicht wirksam, der Dienst ist nur von diesem Computer erreichbar: <span th:text="${net.problem}"></span>
+        </div>
+        <div class="notice info" th:if="${netPending != null}">
+            Gespeichert, aber noch nicht wirksam: <strong th:text="${netPending.mode.label()}"></strong><span th:if="${netPending.mode.name() == 'NETWORK'}" th:text="', HTTPS-Port ' + ${netPending.port}"></span>. Bitte den Dienst „PDF-zu-E-Rechnung" neu starten.
+        </div>
+        <div class="notice info" th:if="${net.effective.name() == 'OPEN'}">
+            Der Dienst läuft im Modus <code>open</code> (HTTP auf allen Schnittstellen, unverschlüsselt). Dieser Modus wird über die Konfiguration bzw. die Umgebungsvariable <code>APP_NETWORK_MODE</code> vorgegeben und ist nur für Container oder hinter einem Reverse Proxy mit TLS gedacht; eine hier gespeicherte Einstellung wirkt erst, wenn diese Vorgabe entfällt.
+        </div>
+        <dl class="kv">
+            <dt>Wirksam</dt><dd><span th:class="${net.effective.name() == 'NETWORK'} ? 'badge badge-ok' : (${net.effective.name() == 'OPEN'} ? 'badge badge-warn' : 'badge badge-muted')" th:text="${net.effective.label()}"></span></dd>
+            <dt th:if="${net.effective.name() == 'NETWORK'}">Adresse im Firmennetz</dt>
+            <dd th:if="${net.effective.name() == 'NETWORK'}" class="mono" th:text="'https://' + ${netHost} + ':' + ${net.httpsPort}"></dd>
+            <th:block th:with="cert=${net.certificate != null ? net.certificate : (netLookup != null ? netLookup.certificate : null)}">
+                <dt>Zertifikat</dt>
+                <dd th:if="${cert == null}"><span class="badge badge-muted">nicht eingerichtet</span>
+                    <div class="small muted" th:if="${netLookup != null}" th:text="${netLookup.problem}"></div></dd>
+                <dd th:if="${cert != null}"><span th:text="${cert.subject}"></span>
+                    <span class="badge badge-warn" th:if="${net.certificate != null and !net.certificateValid}">zeitlich nicht gültig</span>
+                    <div class="small muted" th:text="'gültig bis ' + ${#temporals.format(cert.notAfter.atZone(T(java.time.ZoneId).systemDefault()), 'dd.MM.yyyy')} + (${#lists.isEmpty(cert.names)} ? '' : ' · Namen: ' + ${#strings.listJoin(cert.names, ', ')})"></div></dd>
+                <dt th:if="${cert != null}">Fingerabdruck (SHA-256)</dt>
+                <dd th:if="${cert != null}"><span class="mono small" th:text="${cert.sha256Grouped()}"></span>
+                    <div class="small muted">Diesen Fingerabdruck zeigt die Verwaltungsanwendung auf einem Arbeitsplatz beim ersten Verbinden an – bitte vergleichen.</div></dd>
+            </th:block>
+            <dt>Gespeichert in</dt><dd class="mono small" th:text="${netFile}"></dd>
+        </dl>
+        <form method="post" th:action="@{/verwaltung/netz}" class="filters" style="margin-top:1rem">
+            <label class="field">Erreichbarkeit
+                <select name="mode" th:with="sel=${netPending != null ? netPending.mode.name() : net.requested.name()}">
+                    <option value="local" th:selected="${sel != 'NETWORK'}">Nur dieser Computer</option>
+                    <option value="network" th:selected="${sel == 'NETWORK'}">Dieser Computer und Firmennetz (HTTPS)</option>
+                </select></label>
+            <label class="field">HTTPS-Port<input type="number" name="port" min="1024" max="65535" th:value="${netPending != null ? netPending.port : net.httpsPort}"></label>
+            <button class="btn" type="submit">Speichern</button>
+        </form>
+        <details style="margin-top:1rem">
+            <summary>Vorbereitung für den Zugriff aus dem Firmennetz</summary>
+            <ol class="small">
+                <li>Einmalig auf diesem Computer als Administrator ausführen: <code>deploy\windows\netzbetrieb-einrichten.ps1</code> – erzeugt das Zertifikat „PDF-zu-ERechnung" im Windows-Zertifikatsspeicher (Lokaler Computer → Eigene Zertifikate) und eine Firewall-Regel für Domänen- und private Netze. Ein Zertifikat der eigenen Zertifizierungsstelle kann stattdessen verwendet werden, wenn es dort mit diesem Anzeigenamen und privatem Schlüssel liegt.</li>
+                <li>Hier „Dieser Computer und Firmennetz (HTTPS)" speichern und den Dienst neu starten.</li>
+                <li>Auf den Arbeitsplätzen die oben angezeigte Adresse verwenden und den Fingerabdruck vergleichen.</li>
+            </ol>
+        </details>
     </section>
 
     <div class="grid grid-3">

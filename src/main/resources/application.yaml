@@ -7,6 +7,8 @@ spring:
   config:
     import:
       - "optional:file:./config/tenant.yaml"
+      # Netzzugriff (ADR 0015): wird von der Verwaltung bzw. vom Setup geschrieben.
+      - "optional:file:./config/network.yaml"
   main:
     banner-mode: "off"
   datasource:
@@ -88,6 +90,16 @@ app:
     timeout: 30s
   logging:
     directory: ./logs
+  network:
+    # local = nur dieser Computer (HTTP 127.0.0.1); network = zusätzlich HTTPS für das Firmennetz
+    # (Zertifikat aus dem Windows-Zertifikatsspeicher); open = HTTP auf allen Schnittstellen
+    # (nur Container / hinter eigenem Reverse Proxy). Wirkt nur beim Start.
+    mode: local
+    port: 8443
+    certificate-store: Windows-MY-LOCALMACHINE
+    certificate-alias: PDF-zu-ERechnung
+    certificate-thumbprint: ""
+    file: ./config/network.yaml
   admin:
     # Betreiber-Zugang (ADR 0015): zusätzlicher Administrator mit diesem Benutzernamen und dem
     # Passwort aus der Umgebungsvariable ADMIN_PASSWORD. Ohne Passwort gibt es diesen Zugang nicht;

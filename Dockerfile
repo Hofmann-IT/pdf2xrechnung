@@ -31,7 +31,10 @@ LABEL org.opencontainers.image.title="PDF-zu-E-Rechnung" \
       org.opencontainers.image.description="On-Premises PDF-zu-E-Rechnung Converter und E-Rechnungs-Validator" \
       org.opencontainers.image.vendor="Hofmann IT"
 
+# APP_NETWORK_MODE=open: im Container auf allen Schnittstellen lauschen (HTTP); erreichbar ist nur,
+# was docker-compose veröffentlicht (Standard 127.0.0.1). Für das Firmennetz Reverse Proxy mit TLS.
 ENV TZ=Europe/Berlin \
+    APP_NETWORK_MODE=open \
     LANG=de_DE.UTF-8 \
     JAVA_OPTS="-Xmx1g -XX:+UseSerialGC -Dfile.encoding=UTF-8"
 

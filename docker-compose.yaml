@@ -24,7 +24,7 @@ services:
     container_name: pdf-zu-erechnung
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8080:8080"      # UI nur lokal; für das Firmennetz Reverse Proxy mit Anmeldung vorschalten
+      - "127.0.0.1:8080:8080"      # UI nur lokal; für das Firmennetz Reverse Proxy mit TLS vorschalten
     environment:
       TZ: Europe/Berlin
       JAVA_OPTS: "-Xmx1g -XX:+UseSerialGC -Dfile.encoding=UTF-8"

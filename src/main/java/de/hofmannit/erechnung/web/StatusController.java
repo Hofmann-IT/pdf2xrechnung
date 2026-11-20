@@ -9,6 +9,7 @@ import java.util.Map;
 
 import de.hofmannit.erechnung.configuration.AppProperties;
 import de.hofmannit.erechnung.configuration.ApplicationVersion;
+import de.hofmannit.erechnung.configuration.NetworkAccess;
 import de.hofmannit.erechnung.configuration.RuntimeConfig;
 import de.hofmannit.erechnung.configuration.RuntimeSettings;
 import de.hofmannit.erechnung.configuration.profile.ProfileRegistry;
@@ -31,9 +32,11 @@ public class StatusController {
     private final EmailDispatcher email;
     private final ProfileRegistry registry;
     private final LedgerRepository ledger;
+    private final NetworkAccess network;
 
     public StatusController(AppProperties properties, RuntimeSettings settings, ApplicationVersion version, KositValidator kosit, EmailDispatcher email,
-                            ProfileRegistry registry, LedgerRepository ledger) {
+                            ProfileRegistry registry, LedgerRepository ledger, NetworkAccess network) {
+        this.network = network;
         this.properties = properties;
         this.settings = settings;
         this.version = version;
@@ -41,6 +44,15 @@ public class StatusController {
         this.email = email;
         this.registry = registry;
         this.ledger = ledger;
+    }
+
+    /** Rechnername für die Anzeige der Netzadresse; ohne Namensauflösung im Netz. */
+    static String hostName() {
+        String name = System.getenv("COMPUTERNAME");
+        if (name == null || name.isBlank()) {
+            name = System.getenv("HOSTNAME");
+        }
+        return name == null || name.isBlank() ? "servername" : name.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
     public record DirectoryStatus(String name, Path path, boolean exists, boolean writable) {
@@ -74,6 +86,8 @@ public class StatusController {
         model.addAttribute("profiles", registry.profiles().values());
         model.addAttribute("openRuns", ledger.countOpenRuns());
         model.addAttribute("storeReports", live.inboundValidation().storeReports());
+        model.addAttribute("net", network);
+        model.addAttribute("netHost", hostName());
         model.addAttribute("javaVersion", System.getProperty("java.version"));
         model.addAttribute("active", "status");
         return "status";

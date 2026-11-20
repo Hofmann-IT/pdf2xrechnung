@@ -10,8 +10,14 @@
 # =====================================================================================
 
 server:
-  # UI-Port
+  # Port der Oberfläche auf diesem Computer (HTTP, nur 127.0.0.1 – siehe Netzzugriff unten)
   port: 8080
+
+# Netzzugriff (ADR 0015): Standard ist "nur dieser Computer". Den Zugriff aus dem Firmennetz
+# (HTTPS, Port 8443) schaltet ein Administrator unter Verwaltung → Netzzugriff ein; die Einstellung
+# steht in config/network.yaml und geht dieser Datei NICHT vor, wenn hier app.network gesetzt wird.
+# Für Container oder einen eigenen Reverse Proxy: Umgebungsvariable APP_NETWORK_MODE=open
+# (HTTP auf allen Schnittstellen, unverschlüsselt).
 
 app:
   directories:

@@ -22,6 +22,20 @@ Die Versionsnummer steht im `pom.xml` und wird im Seitenfuß, im Systemstatus un
   Administrator existiert; `ADMIN_PASSWORD` bleibt als Betreiber-Zugang mit Administratorrechten.
 - Neue Laufzeitabhängigkeit `spring-boot-starter-security` (Apache 2.0, freigegeben).
 
+### Phase B – Netzzugriff und Verschlüsselung (2026-11-20)
+- **Geändert:** Die Oberfläche ist standardmäßig nur noch auf dem Computer des Dienstes
+  erreichbar (HTTP auf `127.0.0.1:8080`); bisher lauschte der Dienst auf allen Schnittstellen.
+- Neu: Zugriff aus dem Firmennetz als bewusste Einstellung (Verwaltung → Netzzugriff, wirkt
+  nach Dienst-Neustart): HTTPS auf Port 8443 (TLS 1.2/1.3) zusätzlich zum lokalen Zugang.
+- Zertifikat und privater Schlüssel liegen im Windows-Zertifikatsspeicher (nicht exportierbar,
+  keine Schlüsseldatei, kein Passwort). `deploy/windows/netzbetrieb-einrichten.ps1` erzeugt
+  das Zertifikat und die Firewall-Regel (nur Domänen- und private Netze).
+- Verwaltung und Systemstatus zeigen den wirksamen Modus, die Adresse und den Fingerabdruck
+  (SHA-256). Ist das Zertifikat nicht nutzbar, bleibt der Dienst lokal und nennt den Grund.
+- Modus `open` (HTTP auf allen Schnittstellen) für Container und externen Reverse Proxy; das
+  Docker-Image setzt `APP_NETWORK_MODE=open` und verhält sich wie bisher.
+- jlink-Laufzeit des Installationspakets um `jdk.crypto.mscapi` erweitert.
+
 ## [1.0.0] – 2026-09-25
 
 ### Rechnungsvorlage für Word/Excel-Nutzer (2026-10-08)

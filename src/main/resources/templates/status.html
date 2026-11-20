@@ -15,6 +15,9 @@
                 <dt>Offene Runs</dt><dd th:text="${openRuns}"></dd>
                 <dt>Watcher</dt><dd th:text="${watcher.enabled} ? ('aktiv, Intervall ' + ${watcher.pollInterval} + ', ' + ${watcher.stableChecks} + ' stabile Prüfungen') : 'deaktiviert'"></dd>
                 <dt>Parallelität</dt><dd th:text="${processing.tenantParallelism} + ' Mandant(en) gleichzeitig'"></dd>
+                <dt>Netzzugriff</dt><dd><span th:class="${net.problem != null} ? 'badge badge-error' : (${net.effective.name() == 'LOCAL'} ? 'badge badge-muted' : (${net.effective.name() == 'OPEN'} ? 'badge badge-warn' : 'badge badge-ok'))" th:text="${net.effective.label()}"></span>
+                    <div class="small mono" th:if="${net.effective.name() == 'NETWORK'}" th:text="'https://' + ${netHost} + ':' + ${net.httpsPort}"></div>
+                    <div class="small" style="color:var(--error)" th:if="${net.problem != null}" th:text="${net.problem}"></div></dd>
                 <dt>Einstellungen</dt><dd><span th:text="${settingsSource.name() == 'DATABASE'} ? 'aus der Verwaltung (Datenbank)' : 'aus config/application.yaml'"></span> · <a th:href="@{/verwaltung}">Verwaltung</a></dd>
             </dl>
         </section>

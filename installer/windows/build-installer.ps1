@@ -37,7 +37,7 @@ $winswLicenseUrl = "https://raw.githubusercontent.com/winsw/winsw/v2.12.0/LICENS
 $modules = @(
     "java.base", "java.desktop", "java.datatransfer", "java.sql", "java.transaction.xa", "java.naming", "java.management",
     "java.instrument", "java.xml", "java.xml.crypto", "java.logging", "java.scripting", "java.prefs", "java.security.jgss",
-    "java.security.sasl", "java.net.http", "java.compiler", "jdk.unsupported", "jdk.crypto.ec", "jdk.crypto.cryptoki",
+    "java.security.sasl", "java.net.http", "java.compiler", "jdk.unsupported", "jdk.crypto.ec", "jdk.crypto.cryptoki", "jdk.crypto.mscapi", "jdk.net",
     "jdk.localedata", "jdk.charsets", "jdk.zipfs", "jdk.management", "jdk.xml.dom", "jdk.naming.dns", "jdk.jfr", "jdk.attach"
 ) -join ","
 
@@ -66,6 +66,8 @@ New-Item -ItemType Directory -Force -Path "$stage\app", "$stage\docs", "$stage\d
 Copy-Item $jar "$stage\app\pdf-zu-erechnung.jar"
 Copy-Item (Join-Path $root "validator") "$stage\app\validator" -Recurse
 Copy-Item (Join-Path $PSScriptRoot "pdf-zu-erechnung.xml.in") "$stage\app\pdf-zu-erechnung.xml.in"
+# Netzzugriff (ADR 0015): Zertifikat und Firewall-Regel; ins Setup eingebunden wird das Skript mit Phase D
+Copy-Item (Join-Path $root "deploy\windows\netzbetrieb-einrichten.ps1") "$stage\app\netzbetrieb-einrichten.ps1"
 Copy-Item (Join-Path $root "config\application.yaml") "$stage\data\config\application.yaml"
 Copy-Item (Join-Path $root "profiles\*.yaml") "$stage\data\profiles\"
 Copy-Item (Join-Path $root "docs\Handbuch.html") "$stage\docs\Handbuch.html"

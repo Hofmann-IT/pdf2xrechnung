@@ -81,7 +81,7 @@ class UserAccountServiceTest {
     }
 
     private UserAccountService service(String envPassword) {
-        AppProperties props = new AppProperties(null, null, null, null, null, null, null, new AppProperties.Admin("betreiber", envPassword), null);
+        AppProperties props = new AppProperties(null, null, null, null, null, null, null, new AppProperties.Admin("betreiber", envPassword), null, null);
         return new UserAccountService(new UserAccountRepository(jdbc), props, clock);
     }
 

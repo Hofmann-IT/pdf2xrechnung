@@ -2,8 +2,9 @@
 
 - Status: Akzeptiert (2026-11-20); Freigaben F1–F4 vom Auftraggeber mit dem Plan „Dienst +
   Windows-Verwaltungsanwendung (Version 1.1.0)" erteilt. Umsetzung in vier Phasen; dieser ADR
-  wird je Phase fortgeschrieben. **Stand: Phase A (Anmeldung) umgesetzt.**
-- Betrifft: `db/migration/V6__user_account.sql`, Module `admin`, `ledger`, `web`; `pom.xml`;
+  wird je Phase fortgeschrieben. **Stand: Phasen A (Anmeldung) und B (Netzzugriff) umgesetzt.**
+- Betrifft: `db/migration/V6__user_account.sql`, Module `admin`, `configuration`, `ledger`, `web`; `pom.xml`;
+  `deploy/windows/netzbetrieb-einrichten.ps1`, jlink-Modulliste in `installer/windows/build-installer.ps1`;
   löst die Anmeldung aus ADR 0012/0013 (HTTP Basic nur für die Verwaltung) ab
 
 ## Kontext
@@ -67,6 +68,38 @@ wurde als Freitext eingetragen. Für einen im Netz erreichbaren Dienst ist das n
     (eigener `AuthenticationProvider` als Bean, damit Spring Boot keinen Standardbenutzer mit
     generiertem Passwort anlegt). Die Modulmatrix bleibt unverändert.
 
+### Phase B – Netzzugriff und Verschlüsselung
+
+12. **Standard „nur dieser Computer":** Der HTTP-Zugang (`server.port`, 8080) wird an die
+    Loopback-Adresse gebunden. Bis 1.0.0 lauschte der Dienst auf allen Schnittstellen.
+13. **Drei Modi** (`app.network.mode`): `local`; `network` = zusätzlich ein HTTPS-Connector auf
+    allen Schnittstellen (Port `app.network.port`, 8443; TLS 1.2 und 1.3), der lokale
+    HTTP-Zugang bleibt bestehen; `open` = HTTP auf allen Schnittstellen wie bisher, nur für
+    Container und Reverse Proxy auf einem anderen Rechner (Docker-Image setzt
+    `APP_NETWORK_MODE=open`). In der Oberfläche wählbar sind nur `local` und `network`.
+14. **Schlüssel im Windows-Zertifikatsspeicher (F4):** Der Dienst (Konto LocalSystem) liest
+    Zertifikat und privaten Schlüssel aus `Windows-MY-LOCALMACHINE` (JDK-Provider SunMSCAPI,
+    Modul `jdk.crypto.mscapi` in der jlink-Laufzeit). Der Schlüssel ist nicht exportierbar; es
+    gibt keine Schlüsseldatei und kein Passwort. Auswahl über den Anzeigenamen
+    „PDF-zu-ERechnung" (bei mehreren das am längsten gültige) oder über den Fingerabdruck.
+    Vorab geprüft: TLS-1.2- und TLS-1.3-Handshake mit einem nicht exportierbaren
+    RSA-3072-Schlüssel (CNG) aus dem Windows-Speicher auf der jlink-Laufzeit.
+15. **Kein Rückfall auf unverschlüsselten Netzzugriff:** Ist `network` angefordert und das
+    Zertifikat nicht nutzbar, startet der Dienst im Modus `local` und zeigt den Grund in
+    Protokoll, Systemstatus und Verwaltung. Ein zeitlich abgelaufenes Zertifikat wird weiter
+    verwendet und gemeldet (die Arbeitsplätze binden an den Fingerabdruck, Phase C).
+16. **Einstellung mit Neustart:** Die Bindung steht beim Start fest. Verwaltung → Netzzugriff
+    schreibt Modus und Port nach `config/network.yaml` (per `spring.config.import` eingebunden,
+    vorhandene Datei wird vorher gesichert) und speichert den Netzzugriff nur, wenn das
+    Zertifikat gefunden wird. Die Laufzeiteinstellungen in der Datenbank (ADR 0012) eignen sich
+    dafür nicht, weil der Webserver vor der Datenbank konfiguriert wird.
+17. **Zertifikat und Firewall außerhalb des Dienstes:** `netzbetrieb-einrichten.ps1` (als
+    Administrator) erzeugt das selbstsignierte Zertifikat und die Firewall-Regel (nur Profile
+    Domäne und Privat). Der Dienst selbst ändert weder Zertifikatsspeicher noch Firewall. Das
+    Setup bindet das Skript in Phase D ein.
+18. **Sitzungs-Cookie:** über HTTPS ausgestellt mit `Secure`; lokaler HTTP-Zugang und
+    Netzzugang haben getrennte Sitzungen (unterschiedlicher Host).
+
 ## Konsequenzen
 
 - Nach dem Update auf diese Version müssen sich alle Benutzer anmelden; bestehende
@@ -75,11 +108,24 @@ wurde als Freitext eingetragen. Für einen im Netz erreichbaren Dienst ist das n
   `Cache-Control: no-store`) und eine Web-Firewall, die Pfadwechsel wie `/..` bereits mit 400
   abweist, bevor die Anwendung sie sieht.
 - CLI (`calibrate`, `reprocess`) und die Verarbeitung über den Watcher sind nicht betroffen.
-- Offen bis Phase B: Der Dienst lauscht weiterhin unverschlüsselt auf allen Schnittstellen
-  (Port 8080). Anmeldedaten sollten bis dahin nicht über fremde Netze übertragen werden.
+- Nach dem Update ist die Oberfläche von anderen PCs erst wieder erreichbar, wenn der
+  Netzzugriff eingerichtet ist (Windows) bzw. `APP_NETWORK_MODE=open` gesetzt wird (Linux mit
+  Reverse Proxy auf einem anderen Rechner). Docker ist durch das Image unverändert erreichbar.
+- Bis zur Verwaltungsanwendung (Phase C) warnt der Browser auf Arbeitsplätzen bei einem
+  selbstsignierten Zertifikat; der Fingerabdruck steht in Verwaltung und Systemstatus.
+- Nicht automatisch prüfbar: Zugriff des Dienstkontos auf den privaten Schlüssel im Speicher
+  des lokalen Computers und die Firewall-Regel (beides verlangt Administratorrechte). Der
+  Dienst meldet einen nicht lesbaren Schlüssel beim Start.
 
 ## Verworfene Alternativen
 
+- **Schlüsseldatei (PKCS12) mit Passwort in der Konfiguration:** plattformunabhängig, aber ein
+  Geheimnis in einer Datei – durch die Projektvorgabe ausgeschlossen.
+- **HTTPS auch für den lokalen Zugang:** einheitlich, aber jeder lokale Aufruf (Setup,
+  Verknüpfung, Dienstprüfung) bräuchte das Zertifikat; der Loopback-Verkehr verlässt den
+  Rechner nicht.
+- **Dienst erzeugt Zertifikat und Firewall-Regel selbst:** ein Klick weniger, aber eine
+  Web-Anwendung, die Sicherheitseinstellungen des Betriebssystems ändert.
 - **Eigener Sitzungs-/CSRF-Filter ohne neue Abhängigkeit:** weniger Code im Classpath, aber
   Sitzungsfixierung, CSRF und Header müssten selbst gebaut und gepflegt werden.
 - **Ein gemeinsames Konto für alle:** kein V6 nötig, aber keine Nachvollziehbarkeit, wer
