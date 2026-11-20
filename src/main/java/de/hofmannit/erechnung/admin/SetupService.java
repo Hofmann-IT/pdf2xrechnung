@@ -44,19 +44,19 @@ public class SetupService {
 
     private final ProfileRegistry registry;
     private final AdminSettingsService settings;
-    private final AdminCredentialService credentials;
+    private final UserAccountService accounts;
     private final Clock clock;
 
-    public SetupService(ProfileRegistry registry, AdminSettingsService settings, AdminCredentialService credentials, Clock clock) {
+    public SetupService(ProfileRegistry registry, AdminSettingsService settings, UserAccountService accounts, Clock clock) {
         this.registry = registry;
         this.settings = settings;
-        this.credentials = credentials;
+        this.accounts = accounts;
         this.clock = clock;
     }
 
     /** Einrichtung nötig, solange kein aktiver Mandant existiert oder keine Anmeldung möglich ist. */
     public boolean needed() {
-        return registry.tenants().stream().noneMatch(Tenant::enabled) || !credentials.configured();
+        return registry.tenants().stream().noneMatch(Tenant::enabled) || !accounts.adminAvailable();
     }
 
     public boolean tenantMissing() {
@@ -64,7 +64,7 @@ public class SetupService {
     }
 
     public boolean passwordMissing() {
-        return !credentials.configured();
+        return !accounts.adminAvailable();
     }
 
     /** Technische Kennung aus dem Firmennamen: klein, ohne Umlaute, nur [a-z0-9-]. */
@@ -95,12 +95,8 @@ public class SetupService {
         }
         if (passwordMissing() || (password != null && !password.isEmpty())) {
             // Passwortregeln vorab prüfen, ohne zu speichern
-            if (password == null || password.length() < AdminCredentialService.MIN_LENGTH) {
-                throw new SettingsException(List.of("Passwort muss mindestens " + AdminCredentialService.MIN_LENGTH + " Zeichen haben"));
-            }
-            if (!password.equals(passwordRepeat)) {
-                throw new SettingsException(List.of("Passwort und Wiederholung stimmen nicht überein"));
-            }
+            UserAccountService.validUsername(username == null || username.isBlank() ? "admin" : username);
+            UserAccountService.validPassword(password, passwordRepeat);
         }
         String who = actor == null || actor.isBlank() ? "einrichtung" : actor.trim();
         if (tenantMissing()) {
@@ -108,7 +104,7 @@ public class SetupService {
         }
         settings.save(config, who, "Einrichtungs-Assistent");
         if (passwordMissing() || (password != null && !password.isEmpty())) {
-            credentials.set(username, password, passwordRepeat, who);
+            accounts.setAdministrator(username, password, passwordRepeat, who);
         }
         log.info("Einrichtung abgeschlossen durch {}: Mandant {}", who, tenant == null ? "-" : tenant.id());
     }

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Anmelden')}"></head>
+<body>
+<header class="topbar">
+    <div class="topbar-inner">
+        <span class="brand"><span class="brand-mark">E</span> PDF-zu-E-Rechnung</span>
+    </div>
+</header>
+<main style="max-width:460px">
+    <h1>Anmelden</h1>
+    <div th:replace="~{layout :: flash}"></div>
+    <section class="card">
+        <form method="post" th:action="@{/anmelden}">
+            <label class="field">Benutzername<input type="text" name="benutzer" autocomplete="username" autofocus required></label>
+            <label class="field">Passwort<input type="password" name="passwort" autocomplete="current-password" required></label>
+            <button class="btn accent" type="submit" style="margin-top:.8rem">Anmelden</button>
+        </form>
+        <p class="small muted" style="margin-top:1rem">Zugangsdaten vergibt Ihr Administrator in der Verwaltung unter „Benutzer".</p>
+    </section>
+</main>
+<footer th:replace="~{layout :: footer}"></footer>
+</body>
+</html>

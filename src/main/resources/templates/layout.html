@@ -19,8 +19,12 @@
             <a th:href="@{/pruefung}" th:classappend="${active == 'pruefung'} ? 'active'">Manuelle Prüfung</a>
             <a th:href="@{/profile}" th:classappend="${active == 'profile'} ? 'active'">Profile</a>
             <a th:href="@{/status}" th:classappend="${active == 'status'} ? 'active'">Systemstatus</a>
-            <a th:href="@{/verwaltung}" th:classappend="${active == 'verwaltung'} ? 'active'">Verwaltung</a>
+            <a th:if="${currentUserAdmin}" th:href="@{/verwaltung}" th:classappend="${active == 'verwaltung'} ? 'active'">Verwaltung</a>
         </nav>
+        <form class="userbox" th:if="${currentUser}" method="post" th:action="@{/abmelden}">
+            <a th:href="@{/konto}" th:text="${currentUser}" title="Mein Konto"></a>
+            <button type="submit">Abmelden</button>
+        </form>
     </div>
 </header>
 <div th:fragment="flash">

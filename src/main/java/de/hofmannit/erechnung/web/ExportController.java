@@ -1,5 +1,6 @@
 package de.hofmannit.erechnung.web;
 
+import java.security.Principal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 
@@ -56,13 +57,11 @@ public class ExportController {
     @GetMapping("/rechnungen/export/vorschau")
     public String preview(@RequestParam String tenant, @RequestParam String variant,
                           @RequestParam(required = false) String von, @RequestParam(required = false) String bis,
-                          @RequestParam(required = false) String user,
                           @RequestHeader(value = "HX-Request", required = false) String hx, Model model) {
         model.addAttribute("tenants", registry.tenants());
         model.addAttribute("tenantId", tenant);
         model.addAttribute("variants", exports.availableVariants(tenant));
         model.addAttribute("active", "rechnungen");
-        model.addAttribute("user", user);
         try {
             ExportResult r = exports.preview(Variant.valueOf(variant), tenant, parse(von), parse(bis));
             model.addAttribute("preview", r);
@@ -79,8 +78,8 @@ public class ExportController {
     @GetMapping("/rechnungen/export/download")
     public ResponseEntity<byte[]> download(@RequestParam String tenant, @RequestParam String variant,
                                            @RequestParam(required = false) String von, @RequestParam(required = false) String bis,
-                                           @RequestParam String user) throws ExportException {
-        ExportResult r = exports.export(Variant.valueOf(variant), tenant, parse(von), parse(bis), user);
+                                           Principal principal) throws ExportException {
+        ExportResult r = exports.export(Variant.valueOf(variant), tenant, parse(von), parse(bis), principal.getName());
         String[] ct = r.contentType().split(";charset=");
         MediaType type = ct.length > 1 ? new MediaType(MediaType.parseMediaType(ct[0]), java.nio.charset.Charset.forName(ct[1]))
                 : MediaType.parseMediaType(r.contentType());

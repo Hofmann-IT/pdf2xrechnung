@@ -18,7 +18,6 @@
             </label>
             <label class="field">Rechnungsdatum von<input type="date" name="von" th:value="${von}"></label>
             <label class="field">Rechnungsdatum bis<input type="date" name="bis" th:value="${bis}"></label>
-            <label class="field">Benutzer<input type="text" name="user" th:value="${user}" required></label>
             <button class="btn" type="submit">Vorschau</button>
             <span id="busy" class="htmx-indicator">Erzeuge Vorschau …</span>
         </form>
@@ -40,7 +39,7 @@
                     <dt>SHA-256</dt><dd class="mono" th:text="${preview.sha256}"></dd>
                 </dl>
                 <div class="actions" style="margin-top:.8rem">
-                    <a class="btn accent" th:href="@{/rechnungen/export/download(tenant=${tenantId}, variant=${previewVariant}, von=${von}, bis=${bis}, user=${user})}">Herunterladen</a>
+                    <a class="btn accent" th:href="@{/rechnungen/export/download(tenant=${tenantId}, variant=${previewVariant}, von=${von}, bis=${bis})}">Herunterladen</a>
                     <span class="small muted">Der Download wird mit Benutzer, Zeitraum und SHA-256 protokolliert.</span>
                 </div>
             </section>

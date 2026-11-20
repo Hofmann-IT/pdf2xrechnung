@@ -1,5 +1,6 @@
 package de.hofmannit.erechnung.web;
 
+import java.security.Principal;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -104,14 +105,14 @@ public class InvoiceController {
      * die normale Pipeline (Idempotenz, Ledger, Archiv unverändert). Nie überschreiben.
      */
     @PostMapping("/rechnungen/einlesen")
-    public String ingest(@RequestParam("file") MultipartFile file, @RequestParam String tenant, @RequestParam String user,
+    public String ingest(@RequestParam("file") MultipartFile file, @RequestParam String tenant, Principal principal,
                          RedirectAttributes redirect) throws IOException {
         Tenant t = registry.tenant(tenant).filter(Tenant::enabled).orElse(null);
         if (t == null) {
             redirect.addFlashAttribute("error", "Mandant '" + tenant + "' ist unbekannt oder inaktiv.");
             return "redirect:/rechnungen";
         }
-        if (user == null || user.isBlank()) {
+        if (principal.getName() == null || principal.getName().isBlank()) {
             redirect.addFlashAttribute("error", "Benutzername ist erforderlich.");
             return "redirect:/rechnungen";
         }
@@ -147,7 +148,7 @@ public class InvoiceController {
             Files.copy(in, temp);
         }
         Files.move(temp, target);
-        log.info("PDF über die Oberfläche eingelesen von {}: {} → {}", user.trim(), original, target);
+        log.info("PDF über die Oberfläche eingelesen von {}: {} → {}", principal.getName().trim(), original, target);
         redirect.addFlashAttribute("notice", "Datei " + target.getFileName() + " in die Inbox von " + t.name()
                 + " gelegt. Die Verarbeitung beginnt in wenigen Sekunden; der Vorgang erscheint dann in dieser Liste.");
         return "redirect:/rechnungen";
@@ -185,9 +186,9 @@ public class InvoiceController {
 
     /** Manuelle (erneute) Übergabe der ZUGFeRD-PDF an das DATEV-Belegtransfer-Verzeichnis (ADR 0011). */
     @PostMapping("/rechnungen/{runId}/belegtransfer")
-    public String belegtransfer(@PathVariable long runId, @RequestParam String user, RedirectAttributes redirect) {
+    public String belegtransfer(@PathVariable long runId, Principal principal, RedirectAttributes redirect) {
         try {
-            var t = belegtransferService.transferManually(runId, user);
+            var t = belegtransferService.transferManually(runId, principal.getName());
             if ("FAILED".equals(t.outcome())) {
                 redirect.addFlashAttribute("error", "Belegtransfer fehlgeschlagen: " + t.message());
             } else {
@@ -201,13 +202,13 @@ public class InvoiceController {
 
     /** Ergänzt DATEV-Felder (#115/#116, #117, #40) je Quelldokument; append-only, gilt für alle Runs des Dokuments (ADR 0010). */
     @PostMapping("/rechnungen/{runId}/export-felder")
-    public String exportFields(@PathVariable long runId, @RequestParam String user, @RequestParam(required = false) String serviceDate,
+    public String exportFields(@PathVariable long runId, Principal principal, @RequestParam(required = false) String serviceDate,
                                @RequestParam(required = false) String taxPeriodDate, @RequestParam(required = false) String dueDate,
                                @RequestParam(required = false) String buyerVatId, @RequestParam(required = false) String note,
                                RedirectAttributes redirect) {
         InvoiceListRow row = ledger.findInvoice(runId).orElseThrow(() -> new NotFoundException("Run " + runId + " existiert nicht"));
         try {
-            exportSettings.saveInvoiceFields(row.source().id(), serviceDate, taxPeriodDate, dueDate, buyerVatId, user, note);
+            exportSettings.saveInvoiceFields(row.source().id(), serviceDate, taxPeriodDate, dueDate, buyerVatId, principal.getName(), note);
             redirect.addFlashAttribute("notice", "DATEV-Zusatzfelder gespeichert. Sie gelten für alle Runs dieses Dokuments und werden beim nächsten Export verwendet.");
         } catch (ExportException e) {
             redirect.addFlashAttribute("error", e.getMessage());
@@ -234,11 +235,11 @@ public class InvoiceController {
     }
 
     @PostMapping("/rechnungen/{runId}/reprocess")
-    public String reprocess(@PathVariable long runId, @RequestParam String user, @RequestParam String reason,
+    public String reprocess(@PathVariable long runId, Principal principal, @RequestParam String reason,
                             @RequestParam(required = false) String confirm, RedirectAttributes redirect) throws IOException {
         InvoiceListRow row = ledger.findInvoice(runId).orElseThrow(() -> new NotFoundException("Run " + runId + " existiert nicht"));
         try {
-            String parent = reprocess.reprocessAsync(row.source().tenantId(), row.source().sha256(), user, reason, "on".equals(confirm) || "true".equals(confirm), executors);
+            String parent = reprocess.reprocessAsync(row.source().tenantId(), row.source().sha256(), principal.getName(), reason, "on".equals(confirm) || "true".equals(confirm), executors);
             redirect.addFlashAttribute("notice", "Reprocess für " + parent + " gestartet. Der neue Run erscheint in der Liste, sobald er begonnen hat.");
         } catch (ReprocessException e) {
             redirect.addFlashAttribute("error", e.getMessage() + (e.isConfirmationRequired() ? " Bitte die Bestätigung setzen." : ""));
@@ -247,9 +248,9 @@ public class InvoiceController {
     }
 
     @PostMapping("/rechnungen/{runId}/versand")
-    public String dispatch(@PathVariable long runId, @RequestParam String user, RedirectAttributes redirect) {
+    public String dispatch(@PathVariable long runId, Principal principal, RedirectAttributes redirect) {
         try {
-            PostProcessService.DispatchOutcome outcome = postProcess.dispatchManually(runId, user == null || user.isBlank() ? "web" : user);
+            PostProcessService.DispatchOutcome outcome = postProcess.dispatchManually(runId, principal.getName() == null || principal.getName().isBlank() ? "web" : principal.getName());
             redirect.addFlashAttribute("notice", outcome.message());
         } catch (DispatchException e) {
             redirect.addFlashAttribute("error", "Versand fehlgeschlagen: " + e.getMessage());

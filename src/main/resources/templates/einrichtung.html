@@ -78,7 +78,8 @@
                 <label class="field">Absenderadresse<input type="email" name="smtpFrom" th:value="${form.smtpFrom}"></label>
                 <label class="field">Timeout in Sekunden<input type="number" name="smtpTimeoutSeconds" min="1" max="600" th:value="${form.smtpTimeoutSeconds}"></label>
 
-                <h2 style="margin-top:1rem">4. Verwaltungszugang</h2>
+                <h2 style="margin-top:1rem">4. Administrator-Konto</h2>
+                <p class="small muted">Mit diesem Konto melden Sie sich an und legen später in der Verwaltung weitere Benutzer an.</p>
                 <p class="small muted" th:if="${envPassword}">ADMIN_PASSWORD ist gesetzt; ein zusätzliches Passwort ist optional.</p>
                 <label class="field">Benutzername<input type="text" name="adminUser" th:value="${adminUser}" required></label>
                 <label class="field">Passwort (mindestens 10 Zeichen)<input type="password" name="adminPassword" th:required="${passwordMissing}"></label>

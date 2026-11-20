@@ -1,5 +1,6 @@
 package de.hofmannit.erechnung.web;
 
+import java.security.Principal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -128,7 +129,7 @@ public class ExportSettingsController {
     }
 
     @PostMapping("/rechnungen/export/einstellungen")
-    public String save(@RequestParam String tenant, @RequestParam String user, @RequestParam(required = false) String note,
+    public String save(@RequestParam String tenant, Principal principal, @RequestParam(required = false) String note,
                        @RequestParam(required = false) String enabled, @RequestParam(defaultValue = "") String consultantNumber,
                        @RequestParam(defaultValue = "") String clientNumber, @RequestParam(defaultValue = "01-01") String fiscalYearStart,
                        @RequestParam(defaultValue = "4") String accountLength, @RequestParam(defaultValue = "03") String chartOfAccounts,
@@ -144,13 +145,12 @@ public class ExportSettingsController {
                 collectiveDebtorAccount, customerAccounts, revenueAccounts, origin, exportedBy, dictationShortcut, checked(lockRecords),
                 bookingTextTemplate, checked(belegtransferEnabled), belegtransferDirectory);
         try {
-            settings.save(tenant, form.toDatev(), form.toBelegtransfer(), user, note);
+            settings.save(tenant, form.toDatev(), form.toBelegtransfer(), principal.getName(), note);
             redirect.addFlashAttribute("notice", "Export-Einstellungen für " + tenant + " gespeichert (neuer Datensatz, Historie bleibt erhalten).");
             return "redirect:/rechnungen/export/einstellungen?tenant=" + tenant;
         } catch (ExportException e) {
             fill(model, tenant, form, settings.effective(tenant));
             model.addAttribute("error", e.getMessage());
-            model.addAttribute("user", user);
             model.addAttribute("note", note);
             return "export-settings";
         }

@@ -17,7 +17,6 @@
                 <select name="tenant"><option th:each="t : ${tenants}" th:if="${t.enabled}" th:value="${t.id}" th:text="${t.name}"></option></select>
             </label>
             <label class="field">PDF-Rechnung<input type="file" name="file" accept="application/pdf,.pdf" required></label>
-            <label class="field">Benutzer<input type="text" name="user" required></label>
             <button class="btn accent" type="submit">Einlesen starten</button>
             <span class="small muted">Für ZUGFeRD muss die PDF als PDF/A vorliegen.</span>
         </form>

@@ -3,7 +3,7 @@ package de.hofmannit.erechnung.web;
 import java.io.IOException;
 import java.util.List;
 
-import de.hofmannit.erechnung.admin.AdminCredentialService;
+import de.hofmannit.erechnung.admin.UserAccountService;
 import de.hofmannit.erechnung.admin.AdminSettingsService;
 import de.hofmannit.erechnung.admin.AdminSettingsService.SettingsException;
 import de.hofmannit.erechnung.admin.SetupService;
@@ -26,15 +26,15 @@ public class SetupController {
 
     private final SetupService setup;
     private final AdminSettingsService settings;
-    private final AdminCredentialService credentials;
+    private final UserAccountService accounts;
     private final ProfileRegistry registry;
     private final ApplicationVersion version;
 
-    public SetupController(SetupService setup, AdminSettingsService settings, AdminCredentialService credentials, ProfileRegistry registry,
+    public SetupController(SetupService setup, AdminSettingsService settings, UserAccountService accounts, ProfileRegistry registry,
                            ApplicationVersion version) {
         this.setup = setup;
         this.settings = settings;
-        this.credentials = credentials;
+        this.accounts = accounts;
         this.registry = registry;
         this.version = version;
     }
@@ -89,9 +89,7 @@ public class SetupController {
                 on(smtpSsl), on(smtpAuth), smtpFrom, smtpTimeoutSeconds);
         try {
             setup.complete(tenant, form.toConfig(), adminUser, adminPassword, adminPasswordRepeat, actor.isBlank() ? contactName : actor);
-            redirect.addFlashAttribute("notice", "Einrichtung abgeschlossen. Melden Sie sich in der Verwaltung mit Benutzer '"
-                    + credentials.username() + "' und dem vergebenen Passwort an.");
-            return "redirect:/";
+            return "redirect:/anmelden?eingerichtet";
         } catch (SettingsException e) {
             fill(model, tenant, form, adminUser);
             model.addAttribute("errors", e.errors());
@@ -106,7 +104,7 @@ public class SetupController {
         model.addAttribute("adminUser", adminUser);
         model.addAttribute("tenantMissing", setup.tenantMissing());
         model.addAttribute("passwordMissing", setup.passwordMissing());
-        model.addAttribute("envPassword", credentials.envConfigured());
+        model.addAttribute("envPassword", accounts.envConfigured());
         model.addAttribute("tenantFile", registry.tenantFile().toAbsolutePath().normalize());
         model.addAttribute("version", version.value());
         model.addAttribute("active", "verwaltung");

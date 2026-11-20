@@ -11,6 +11,7 @@ entwickelt; die Lizenz des Projekts legt der Auftraggeber fest.
 | Komponente | Version | Lizenz | Hinweis |
 |------------|---------|--------|---------|
 | Spring Boot (Web, Thymeleaf, JDBC, Mail) | 3.5.16 | Apache-2.0 | inkl. Spring Framework 6.2, Tomcat Embedded 10.1, Thymeleaf 3.1, HikariCP, Jackson, SnakeYAML, Logback, SLF4J, Micrometer |
+| Spring Security (Web, Config, Core, Crypto) | 6.5.11 | Apache-2.0 | über `spring-boot-starter-security`; Anmeldung, Sitzungen, CSRF-Schutz (ADR 0015) |
 | Apache PDFBox (pdfbox, preflight, xmpbox, fontbox) | 3.0.5 | Apache-2.0 | Textextraktion, PDF/A-Prüfung |
 | Mustangproject library | 2.17.0 | Apache-2.0 | ZUGFeRD/XRechnung-Erzeugung; zieht Apache FOP, Batik, XML Graphics (Apache-2.0), ph-* (Apache-2.0), dom4j (BSD-Style „Plexus"), stax-utils (BSD) |
 | Mustangproject validator | 2.17.0 | Apache-2.0 | ZUGFeRD-Validierung; zieht veraPDF (siehe unten) |

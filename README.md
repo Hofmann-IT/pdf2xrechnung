@@ -289,7 +289,7 @@ im Log (fail fast).
 | Variable | Zweck |
 |----------|-------|
 | `SMTP_USERNAME`, `SMTP_PASSWORD` | Zugangsdaten für den Versand |
-| `ADMIN_PASSWORD` | Optionaler zusätzlicher Zugang zum Verwaltungsbereich für Betreiber (Benutzername `admin`). Normalerweise wird das Passwort im Einrichtungs-Assistenten vergeben |
+| `ADMIN_PASSWORD` | Optionaler zusätzlicher Administrator-Zugang für Betreiber (Benutzername `admin`), z. B. bei vergessenem Passwort. Normalerweise werden Benutzerkonten im Einrichtungs-Assistenten und in der Verwaltung vergeben |
 | `JAVA_OPTS` (Docker, systemd) | JVM-Optionen, z. B. `-Xmx1g` |
 | `TZ` | Zeitzone (Zeitstempel im Ledger sind immer UTC) |
 
@@ -308,15 +308,25 @@ jeden Aufruf auf `http://<server>:8080/einrichtung`. Der Assistent erfasst in ei
 
 Beim Abschluss schreibt der Assistent `config/tenant.yaml` (eine vorhandene Datei wird als
 `tenant.yaml.bak-<Zeitstempel>` gesichert), lädt Mandanten und Profile ohne Neustart, speichert
-die Laufzeiteinstellungen und das Passwort (nur als Hash). Danach ist die Oberfläche frei und
-die Verwaltung mit den vergebenen Zugangsdaten erreichbar. Weitere Mandanten und Profile
+die Laufzeiteinstellungen und das Administrator-Konto (Passwort nur als Hash). Danach führt
+jede Seite zur Anmeldung (`/anmelden`). Weitere Mandanten und Profile
 werden in den Dateien gepflegt und in der Verwaltung mit „Mandanten und Profile neu laden"
-übernommen. Solange die Einrichtung läuft, ist der Assistent ohne Anmeldung erreichbar; die
+übernommen. Solange noch kein Administrator existiert, ist der Assistent ohne Anmeldung erreichbar; die
 Erstinstallation sollte deshalb abgeschlossen sein, bevor die Oberfläche im Netz freigegeben wird.
+
+### Anmeldung und Benutzer
+
+Alle Seiten verlangen eine Anmeldung (ADR 0015). Benutzer legt ein Administrator unter
+**Verwaltung → Benutzer** an: **Administrator** (alle Funktionen) oder **Sachbearbeiter** (alle
+Funktionen außer Verwaltung und Export-Einstellungen). Jeder Benutzer ändert sein Passwort
+unter „Mein Konto" (Klick auf den Benutzernamen in der Kopfzeile). Fünf Fehlversuche sperren
+einen Benutzernamen für fünf Minuten; gesperrte Konten verlieren ihre Sitzung sofort. Der
+angemeldete Benutzer wird in Export-Protokoll, Reprocess, Versand und Einstellungs-Historie
+festgehalten. Sitzungen enden nach 60 Minuten ohne Aktivität und bei einem Dienst-Neustart.
 
 ### Verwaltung in der Oberfläche
 
-Unter **Verwaltung** (`/verwaltung`, Anmeldung mit `admin` und `ADMIN_PASSWORD`) lassen sich
+Unter **Verwaltung** (`/verwaltung`, nur für Administratoren) lassen sich
 die Laufzeiteinstellungen ohne Neustart ändern: Arbeitsverzeichnisse (außer `data`,
 `profiles`, `validator`), Watcher (aktiv, Intervall, stabile Prüfungen), Parallelität,
 Ablage der Prüfprotokolle und der SMTP-Server (Host, Port, STARTTLS/SSL, Anmeldung,
@@ -476,9 +486,9 @@ Vor Produktivstart:
 - [ ] Testlauf: PDF in `inbox/` → Ergebnis in `output/`, Detailseite zeigt alle Validierungen VALID
 - [ ] Verzeichnisse liegen auf gesichertem Speicher; `archive/` und `data/` in der Datensicherung (Abschnitt 14)
 - [ ] Dienst eingerichtet (WinSW/systemd/Docker), Neustart nach Absturz geprüft
-- [ ] `ADMIN_PASSWORD` gesetzt (sonst ist die Verwaltung gesperrt), Passwort nur beim Betreiber
-- [ ] Oberfläche nur im Firmennetz erreichbar; **außer der Verwaltung hat die Anwendung keine Anmeldung**, daher
-      Reverse Proxy mit Authentifizierung oder Beschränkung auf vertrauenswürdige Adressen
+- [ ] Einrichtung abgeschlossen, je Person ein eigenes Benutzerkonto, mindestens zwei Administratoren
+- [ ] Oberfläche nur im Firmennetz erreichbar; die Verbindung ist bis zur HTTPS-Unterstützung (ADR 0015, Phase B)
+      **unverschlüsselt**, daher Reverse Proxy mit TLS oder Beschränkung auf vertrauenswürdige Adressen
 - [ ] Netzwerk: nur SMTP nach außen erlaubt (Firewall), keine weiteren Verbindungen nötig
 - [ ] SMTP-Zugangsdaten ausschließlich als Umgebungsvariablen, Test-Mail an interne Adresse
 - [ ] DATEV-Konten und Beraternummer vom Steuerberater bestätigt, Probeexport dort importiert

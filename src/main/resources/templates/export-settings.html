@@ -65,7 +65,6 @@
                 <label style="display:block;margin:.6rem 0"><input type="checkbox" name="belegtransferEnabled" th:checked="${form.belegtransferEnabled}"> Übergabe aktivieren</label>
                 <label class="field">Belegtransfer-Verzeichnis (z. B. C:\DATEV\Belegtransfer\Firma\Rechnungsausgang)<input type="text" name="belegtransferDirectory" th:value="${form.belegtransferDirectory}"></label>
                 <hr style="margin:1rem 0;border:0;border-top:1px solid #e3e8ef">
-                <label class="field">Benutzer<input type="text" name="user" th:value="${user}" required></label>
                 <label class="field">Notiz (z. B. „Konten laut Steuerberater vom …")<input type="text" name="note" th:value="${note}"></label>
                 <button class="btn" type="submit" style="margin-top:.6rem">Einstellungen speichern</button>
             </section>

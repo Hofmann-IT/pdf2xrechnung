@@ -27,9 +27,9 @@ public record AppProperties(
         @DefaultValue("./config/tenant.yaml") Path tenantFile) {
 
     /**
-     * Zugriffsschutz des Verwaltungsbereichs (ADR 0012): HTTP-Basic-Anmeldung nur für
-     * {@code /verwaltung} und die Export-Einstellungen. Das Passwort kommt ausschließlich aus
-     * der Umgebungsvariable ADMIN_PASSWORD; ohne gesetztes Passwort ist der Bereich gesperrt.
+     * Betreiber-Zugang (ADR 0015): zusätzlicher Administrator neben den Benutzerkonten in der
+     * Datenbank. Das Passwort kommt ausschließlich aus der Umgebungsvariable ADMIN_PASSWORD;
+     * ohne gesetztes Passwort existiert dieser Zugang nicht.
      */
     public record Admin(@DefaultValue("admin") String username, String password) {
         public boolean configured() {

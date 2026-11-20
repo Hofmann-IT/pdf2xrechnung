@@ -1,5 +1,6 @@
 package de.hofmannit.erechnung.web;
 
+import java.security.Principal;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -55,14 +56,14 @@ public class InboundController {
     }
 
     @PostMapping("/pruefen")
-    public String validate(@RequestParam("file") MultipartFile file, @RequestParam(value = "user", required = false) String user,
+    public String validate(@RequestParam("file") MultipartFile file, Principal principal,
                            @RequestHeader(value = "HX-Request", required = false) String hx, Model model) throws IOException {
         model.addAttribute("active", "pruefen");
         if (file == null || file.isEmpty()) {
             model.addAttribute("error", "Bitte eine XML- oder PDF-Datei auswählen.");
             return hx != null ? "inbound :: result" : "inbound";
         }
-        InboundValidationResult result = service.validate(file.getOriginalFilename(), file.getBytes(), user);
+        InboundValidationResult result = service.validate(file.getOriginalFilename(), file.getBytes(), principal.getName());
         String token = remember(result);
         model.addAttribute("result", result);
         model.addAttribute("token", token);

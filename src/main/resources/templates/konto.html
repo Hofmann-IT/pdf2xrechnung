@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Mein Konto')}"></head>
+<body>
+<header th:replace="~{layout :: topbar('konto')}"></header>
+<main style="max-width:560px">
+    <h1>Mein Konto</h1>
+    <div th:replace="~{layout :: flash}"></div>
+    <section class="card">
+        <p>Angemeldet als <strong th:text="${account.username}"></strong> · <span th:text="${account.role.label()}"></span></p>
+        <p class="small muted" th:if="${account.fromEnvironment}">Dies ist der Betreiber-Zugang; sein Passwort wird über die Umgebungsvariable ADMIN_PASSWORD des Dienstes festgelegt und kann hier nicht geändert werden.</p>
+        <form method="post" th:action="@{/konto/passwort}" th:unless="${account.fromEnvironment}">
+            <h2>Passwort ändern</h2>
+            <label class="field">Bisheriges Passwort<input type="password" name="currentPassword" autocomplete="current-password" required></label>
+            <label class="field">Neues Passwort (mindestens 10 Zeichen)<input type="password" name="password" autocomplete="new-password" minlength="10" required></label>
+            <label class="field">Neues Passwort wiederholen<input type="password" name="passwordRepeat" autocomplete="new-password" minlength="10" required></label>
+            <button class="btn" type="submit" style="margin-top:.6rem">Passwort ändern</button>
+        </form>
+    </section>
+</main>
+<footer th:replace="~{layout :: footer}"></footer>
+</body>
+</html>

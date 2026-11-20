@@ -1,10 +1,16 @@
 package de.hofmannit.erechnung.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
+import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.unauthenticated;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.io.IOException;
@@ -12,10 +18,10 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Base64;
 import java.util.List;
 
 import de.hofmannit.erechnung.admin.SetupService;
+import de.hofmannit.erechnung.admin.UserAccountService;
 import de.hofmannit.erechnung.configuration.RuntimeSettings;
 import de.hofmannit.erechnung.configuration.profile.ProfileRegistry;
 import de.hofmannit.erechnung.watcher.InboxWatcher;
@@ -26,11 +32,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.MockMvcBuilderCustomizer;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.RequestBuilder;
 
 /**
  * Einrichtungs-Assistent (ADR 0013): Start ohne aktiven Mandanten und ohne Passwort, Umleitung
@@ -70,14 +81,29 @@ class SetupWizardTest {
         r.add("tenants[0].profiles[0]", () -> "standard");
     }
 
+    /** Alle Anfragen tragen ein gueltiges CSRF-Token (wie die gerenderten Formulare); angemeldet wird ueber das Formular. */
+    @TestConfiguration
+    static class Csrf {
+        @Bean
+        MockMvcBuilderCustomizer csrfByDefault() {
+            return builder -> builder.defaultRequest(get("/").with(csrf()));
+        }
+    }
+
     @Autowired MockMvc mvc;
+    @Autowired UserAccountService accounts;
     @Autowired SetupService setup;
     @Autowired ProfileRegistry registry;
     @Autowired RuntimeSettings runtimeSettings;
     @Autowired InboxWatcher watcher;
 
-    private static String basic(String userAndPassword) {
-        return "Basic " + Base64.getEncoder().encodeToString(userAndPassword.getBytes(StandardCharsets.UTF_8));
+    /** Anmeldung ueber das Formular wie im Browser (mit CSRF-Token). */
+    private static RequestBuilder login(String username, String password) {
+        return formLogin("/anmelden").userParameter("benutzer").passwordParam("passwort").user(username).password(password);
+    }
+
+    private static MockHttpSession session(MvcResult result) {
+        return (MockHttpSession) result.getRequest().getSession(false);
     }
 
     private static String body(MvcResult r) throws Exception {
@@ -138,7 +164,7 @@ class SetupWizardTest {
                 .param("smtpPort", "587").param("smtpTimeoutSeconds", "30")
                 .param("adminUser", "admin").param("adminPassword", "sehr-geheim-123").param("adminPasswordRepeat", "sehr-geheim-123")
                 .param("actor", "Anna"))
-                .andExpect(status().is3xxRedirection()).andExpect(header().string("Location", "/")).andExpect(flash().attributeExists("notice"));
+                .andExpect(status().is3xxRedirection()).andExpect(header().string("Location", "/anmelden?eingerichtet"));
 
         // Mandantendatei geschrieben und neu geladen: Kennung aus dem Firmennamen, feste Werte normalisiert
         Path file = ROOT.resolve("config").resolve("tenant.yaml");
@@ -153,29 +179,81 @@ class SetupWizardTest {
         assertThat(runtimeSettings.source()).isEqualTo(RuntimeSettings.Source.DATABASE);
         assertThat(watcher.activeIntervalMillis()).isEqualTo(2000);
 
-        // Oberfläche frei, Assistent zeigt nur noch den Hinweis, Verwaltung mit dem vergebenen Passwort
-        mvc.perform(get("/")).andExpect(status().isOk());
-        assertThat(body(mvc.perform(get("/einrichtung")).andExpect(status().isOk()).andReturn())).contains("Einrichtung abgeschlossen");
-        mvc.perform(get("/verwaltung")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/verwaltung").header("Authorization", basic("admin:falsch"))).andExpect(status().isUnauthorized());
-        String admin = body(mvc.perform(get("/verwaltung").header("Authorization", basic("admin:sehr-geheim-123"))).andExpect(status().isOk()).andReturn());
-        assertThat(admin).contains("Passwort ist in der Anwendung vergeben").contains("mueller-soehne-gmbh");
-        mvc.perform(post("/einrichtung").param("name", "x")).andExpect(status().is3xxRedirection()).andExpect(header().string("Location", "/verwaltung"));
+        // Ohne Anmeldung führt jede Seite zur Anmeldeseite; der Assistent ist nicht mehr frei zugänglich
+        mvc.perform(get("/")).andExpect(status().is3xxRedirection()).andExpect(redirectedUrlPattern("**/anmelden"));
+        mvc.perform(get("/einrichtung")).andExpect(status().is3xxRedirection()).andExpect(redirectedUrlPattern("**/anmelden"));
+        mvc.perform(post("/einrichtung").param("name", "x")).andExpect(status().is3xxRedirection()).andExpect(redirectedUrlPattern("**/anmelden"));
+        assertThat(body(mvc.perform(get("/anmelden").param("eingerichtet", "")).andExpect(status().isOk()).andReturn()))
+                .contains("Einrichtung abgeschlossen").contains("name=\"benutzer\"").contains("name=\"passwort\"").contains("name=\"_csrf\"");
 
-        // Passwort ändern und Mandanten neu laden über die Verwaltung
-        mvc.perform(post("/verwaltung/passwort").header("Authorization", basic("admin:sehr-geheim-123")).param("adminUser", "admin")
-                .param("adminPassword", "neues-passwort-9").param("adminPasswordRepeat", "neues-passwort-9").param("user", "Anna"))
-                .andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("notice"));
-        mvc.perform(get("/verwaltung").header("Authorization", basic("admin:sehr-geheim-123"))).andExpect(status().isUnauthorized());
-        mvc.perform(get("/verwaltung").header("Authorization", basic("admin:neues-passwort-9"))).andExpect(status().isOk());
+        // Anmeldung: falsches Passwort abgewiesen, richtiges öffnet eine Sitzung als Administrator
+        mvc.perform(login("admin", "falsch")).andExpect(unauthenticated()).andExpect(redirectedUrl("/anmelden?fehler"));
+        MockHttpSession admin = session(mvc.perform(login("admin", "sehr-geheim-123")).andExpect(authenticated().withUsername("admin").withRoles("ADMIN"))
+                .andExpect(redirectedUrl("/")).andReturn());
+        mvc.perform(get("/").session(admin)).andExpect(status().isOk());
+        assertThat(body(mvc.perform(get("/einrichtung").session(admin)).andExpect(status().isOk()).andReturn())).contains("Einrichtung abgeschlossen");
+        mvc.perform(post("/einrichtung").session(admin).param("name", "x")).andExpect(status().is3xxRedirection()).andExpect(header().string("Location", "/verwaltung"));
+        String page = body(mvc.perform(get("/verwaltung").session(admin)).andExpect(status().isOk()).andReturn());
+        assertThat(page).contains("mueller-soehne-gmbh").contains("Benutzer anlegen").contains("Administrator").contains("Abmelden");
+
+        // Benutzer anlegen: Sachbearbeiterin darf arbeiten, aber nicht in die Verwaltung
+        mvc.perform(post("/verwaltung/benutzer").session(admin).param("username", "erika").param("role", "USER")
+                .param("password", "kurz").param("passwordRepeat", "kurz")).andExpect(flash().attributeExists("error"));
+        mvc.perform(post("/verwaltung/benutzer").session(admin).param("username", "erika").param("role", "USER")
+                .param("password", "erikas-passwort-1").param("passwordRepeat", "erikas-passwort-1")).andExpect(flash().attributeExists("notice"));
+        mvc.perform(post("/verwaltung/benutzer").session(admin).param("username", "Erika").param("role", "ADMIN")
+                .param("password", "erikas-passwort-1").param("passwordRepeat", "erikas-passwort-1")).andExpect(flash().attributeExists("error"));
+        assertThat(accounts.accounts()).extracting(a -> a.username() + ":" + a.role() + ":" + a.active()).containsExactly("admin:ADMIN:true", "erika:USER:true");
+        MockHttpSession erika = session(mvc.perform(login("erika", "erikas-passwort-1")).andExpect(authenticated().withUsername("erika").withRoles("USER")).andReturn());
+        assertThat(body(mvc.perform(get("/").session(erika)).andExpect(status().isOk()).andReturn())).contains("erika").doesNotContain("href=\"/verwaltung\"");
+        mvc.perform(get("/verwaltung").session(erika)).andExpect(status().isForbidden());
+        mvc.perform(post("/verwaltung/benutzer/rolle").session(erika).param("username", "erika").param("role", "ADMIN")).andExpect(status().isForbidden());
+
+        // Eigenes Passwort ändern verlangt das bisherige; danach gilt nur noch das neue
+        mvc.perform(post("/konto/passwort").session(erika).param("currentPassword", "falsch").param("password", "neues-passwort-9")
+                .param("passwordRepeat", "neues-passwort-9")).andExpect(flash().attributeExists("error"));
+        mvc.perform(post("/konto/passwort").session(erika).param("currentPassword", "erikas-passwort-1").param("password", "neues-passwort-9")
+                .param("passwordRepeat", "neues-passwort-9")).andExpect(flash().attributeExists("notice"));
+        mvc.perform(login("erika", "erikas-passwort-1")).andExpect(unauthenticated());
+        mvc.perform(login("erika", "neues-passwort-9")).andExpect(authenticated());
+
+        // Schreibende Anfrage ohne gültiges CSRF-Token wird abgewiesen
+        mvc.perform(post("/verwaltung/neu-laden").session(admin).with(csrf().useInvalidToken())).andExpect(status().isForbidden());
+
+        // Der letzte Administrator kann weder gesperrt noch herabgestuft werden
+        mvc.perform(post("/verwaltung/benutzer/aktiv").session(admin).param("username", "admin").param("active", "false")).andExpect(flash().attributeExists("error"));
+        mvc.perform(post("/verwaltung/benutzer/rolle").session(admin).param("username", "admin").param("role", "USER")).andExpect(flash().attributeExists("error"));
+
+        // Sperren beendet die laufende Sitzung mit der nächsten Anfrage und verhindert die Anmeldung
+        mvc.perform(post("/verwaltung/benutzer/aktiv").session(admin).param("username", "erika").param("active", "false")).andExpect(flash().attributeExists("notice"));
+        mvc.perform(get("/").session(erika)).andExpect(status().is3xxRedirection()).andExpect(redirectedUrlPattern("**/anmelden"));
+        mvc.perform(login("erika", "neues-passwort-9")).andExpect(unauthenticated());
+
+        // Fünf Fehlversuche sperren den Benutzernamen vorübergehend, auch für das richtige Passwort
+        mvc.perform(post("/verwaltung/benutzer").session(admin).param("username", "karl").param("role", "USER")
+                .param("password", "karls-passwort-1").param("passwordRepeat", "karls-passwort-1")).andExpect(flash().attributeExists("notice"));
+        for (int i = 0; i < 4; i++) {
+            mvc.perform(login("karl", "falsch-" + i)).andExpect(redirectedUrl("/anmelden?fehler"));
+        }
+        mvc.perform(login("karl", "falsch-5")).andExpect(redirectedUrl("/anmelden?gesperrt"));
+        mvc.perform(login("karl", "karls-passwort-1")).andExpect(unauthenticated()).andExpect(redirectedUrl("/anmelden?gesperrt"));
+        // Ein Administrator hebt die Sperre auf, indem er das Passwort neu vergibt
+        mvc.perform(post("/verwaltung/benutzer/passwort").session(admin).param("username", "karl")
+                .param("password", "karls-passwort-2").param("passwordRepeat", "karls-passwort-2")).andExpect(flash().attributeExists("notice"));
+        mvc.perform(login("karl", "karls-passwort-2")).andExpect(authenticated());
+
+        // Abmelden beendet die Sitzung
+        mvc.perform(post("/abmelden").session(admin)).andExpect(redirectedUrl("/anmelden?abgemeldet"));
+        mvc.perform(get("/verwaltung").session(admin)).andExpect(status().is3xxRedirection()).andExpect(redirectedUrlPattern("**/anmelden"));
+        admin = session(mvc.perform(login("admin", "sehr-geheim-123")).andExpect(authenticated()).andReturn());
 
         // Manuelle Änderung der Datei: gültig → übernommen; ungültig → abgelehnt, alter Stand bleibt
         Files.writeString(file, yaml.replace("name: \"Müller & Söhne GmbH\"", "name: \"Müller und Söhne GmbH\""), StandardCharsets.UTF_8);
-        mvc.perform(post("/verwaltung/neu-laden").header("Authorization", basic("admin:neues-passwort-9")))
+        mvc.perform(post("/verwaltung/neu-laden").session(admin))
                 .andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("notice"));
         assertThat(registry.tenant("mueller-soehne-gmbh").orElseThrow().name()).isEqualTo("Müller und Söhne GmbH");
         Files.writeString(file, yaml.replace("- standard", "- gibt-es-nicht"), StandardCharsets.UTF_8);
-        mvc.perform(post("/verwaltung/neu-laden").header("Authorization", basic("admin:neues-passwort-9")))
+        mvc.perform(post("/verwaltung/neu-laden").session(admin))
                 .andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("error"));
         assertThat(registry.tenant("mueller-soehne-gmbh").orElseThrow().name()).isEqualTo("Müller und Söhne GmbH");
     }

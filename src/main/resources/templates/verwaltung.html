@@ -59,27 +59,69 @@
                 <label class="field">Absenderadresse<input type="email" name="smtpFrom" th:value="${form.smtpFrom}"></label>
                 <label class="field">Timeout in Sekunden<input type="number" name="smtpTimeoutSeconds" min="1" max="600" th:value="${form.smtpTimeoutSeconds}"></label>
                 <hr style="margin:1rem 0;border:0;border-top:1px solid #e3e8ef">
-                <label class="field">Benutzer<input type="text" name="user" th:value="${user}" required></label>
                 <label class="field">Notiz<input type="text" name="note" th:value="${note}"></label>
                 <button class="btn" type="submit" style="margin-top:.6rem">Einstellungen speichern</button>
             </section>
         </div>
     </form>
 
+    <section class="card" id="benutzer">
+        <h2>Benutzer</h2>
+        <p class="small muted">Jede Person meldet sich mit eigenem Konto an. <strong>Administrator</strong>: alle Funktionen einschließlich Verwaltung und Export-Einstellungen. <strong>Sachbearbeiter</strong>: alle Funktionen außer Verwaltung. Nach 5 Fehlversuchen ist ein Benutzername 5 Minuten gesperrt.
+            <span th:if="${envPassword}">Zusätzlich ist der Betreiber-Zugang <strong th:text="${envUsername}"></strong> über ADMIN_PASSWORD aktiv.</span></p>
+        <table class="data compact" th:if="${!#lists.isEmpty(accounts)}">
+            <thead><tr><th>Benutzername</th><th>Rolle</th><th>Status</th><th>Zuletzt geändert</th><th>Rolle ändern</th><th>Sperren</th><th>Passwort</th></tr></thead>
+            <tbody>
+            <tr th:each="a : ${accounts}">
+                <td><strong th:text="${a.username}"></strong></td>
+                <td th:text="${a.role.label()}"></td>
+                <td><span class="badge" th:classappend="${a.active} ? 'badge-ok' : 'badge-error'" th:text="${a.active} ? 'aktiv' : 'gesperrt'"></span></td>
+                <td class="small"><span th:text="${@fmt.dateTime(a.changedAt)}"></span> · <span th:text="${a.changedBy}"></span></td>
+                <td>
+                    <form method="post" th:action="@{/verwaltung/benutzer/rolle}" class="filters">
+                        <input type="hidden" name="username" th:value="${a.username}">
+                        <select name="role" aria-label="Rolle">
+                            <option th:each="r : ${roles}" th:value="${r.name()}" th:text="${r.label()}" th:selected="${r == a.role}"></option>
+                        </select>
+                        <button class="btn secondary" type="submit">Setzen</button>
+                    </form>
+                </td>
+                <td>
+                    <form method="post" th:action="@{/verwaltung/benutzer/aktiv}">
+                        <input type="hidden" name="username" th:value="${a.username}">
+                        <input type="hidden" name="active" th:value="${!a.active}">
+                        <button class="btn secondary" type="submit" th:text="${a.active} ? 'Sperren' : 'Freigeben'"></button>
+                    </form>
+                </td>
+                <td>
+                    <details><summary class="small">neu vergeben</summary>
+                        <form method="post" th:action="@{/verwaltung/benutzer/passwort}">
+                            <input type="hidden" name="username" th:value="${a.username}">
+                            <label class="field">Neues Passwort (mindestens 10 Zeichen)<input type="password" name="password" autocomplete="new-password" required></label>
+                            <label class="field">Wiederholen<input type="password" name="passwordRepeat" autocomplete="new-password" required></label>
+                            <button class="btn secondary" type="submit" style="margin-top:.4rem">Passwort setzen</button>
+                        </form>
+                    </details>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+        <p class="muted" th:if="${#lists.isEmpty(accounts)}">Noch keine Benutzerkonten in der Anwendung angelegt.</p>
+        <h3 style="margin-top:1rem">Benutzer anlegen</h3>
+        <form method="post" th:action="@{/verwaltung/benutzer}" class="filters">
+            <label class="field">Benutzername<input type="text" name="username" pattern="[A-Za-z0-9._\-]{1,64}" autocomplete="off" required></label>
+            <label class="field">Rolle
+                <select name="role">
+                    <option th:each="r : ${roles}" th:value="${r.name()}" th:text="${r.label()}" th:selected="${r.name() == 'USER'}"></option>
+                </select>
+            </label>
+            <label class="field">Passwort (mindestens 10 Zeichen)<input type="password" name="password" autocomplete="new-password" required></label>
+            <label class="field">Wiederholen<input type="password" name="passwordRepeat" autocomplete="new-password" required></label>
+            <button class="btn" type="submit">Anlegen</button>
+        </form>
+    </section>
+
     <div class="grid grid-3">
-        <section class="card">
-            <h2>Verwaltungszugang</h2>
-            <p class="small muted">Benutzer <strong th:text="${adminUsername}"></strong>.
-                <span th:if="${storedPassword}">Passwort ist in der Anwendung vergeben (Hash).</span>
-                <span th:if="${envPassword}">ADMIN_PASSWORD ist zusätzlich gesetzt.</span></p>
-            <form method="post" th:action="@{/verwaltung/passwort}">
-                <label class="field">Benutzername<input type="text" name="adminUser" th:value="${adminUsername}" required></label>
-                <label class="field">Neues Passwort (mindestens 10 Zeichen)<input type="password" name="adminPassword" required></label>
-                <label class="field">Wiederholen<input type="password" name="adminPasswordRepeat" required></label>
-                <label class="field">Geändert von<input type="text" name="user" required></label>
-                <button class="btn secondary" type="submit" style="margin-top:.5rem">Passwort ändern</button>
-            </form>
-        </section>
         <section class="card">
             <h2>Mandanten und Profile</h2>
             <p class="small muted">Datei <span class="mono" th:text="${tenantFile}"></span> und <code>profiles/*.yaml</code>. Nach manuellen Änderungen hier neu laden; ein fehlerhafter Stand wird abgelehnt, der bisherige bleibt wirksam.</p>

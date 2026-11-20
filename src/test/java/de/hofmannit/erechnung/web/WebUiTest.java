@@ -1,11 +1,14 @@
 package de.hofmannit.erechnung.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.io.IOException;
@@ -16,6 +19,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 
+import de.hofmannit.erechnung.admin.UserAccountService;
 import de.hofmannit.erechnung.configuration.DirectoryLayout;
 import de.hofmannit.erechnung.configuration.RuntimeSettings;
 import de.hofmannit.erechnung.configuration.profile.LoadedProfile;
@@ -43,6 +47,7 @@ import de.hofmannit.erechnung.model.ArtifactType;
 import de.hofmannit.erechnung.model.OutputFormat;
 import de.hofmannit.erechnung.security.Sha256;
 import de.hofmannit.erechnung.testsupport.TestInvoicePdf;
+import de.hofmannit.erechnung.testsupport.TestLogin;
 import de.hofmannit.erechnung.watcher.InboxWatcher;
 import de.hofmannit.erechnung.watcher.TenantExecutors;
 
@@ -53,7 +58,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.MockMvcBuilderCustomizer;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -90,7 +98,17 @@ class WebUiTest {
         r.add("app.admin.password", () -> "test-geheim");
     }
 
+    /** Alle Anfragen laufen als Administrator „uwe" mit gültigem CSRF-Token; Abweichungen setzt der jeweilige Test. */
+    @TestConfiguration
+    static class Login {
+        @Bean
+        MockMvcBuilderCustomizer login() {
+            return TestLogin.defaultAdministrator("uwe");
+        }
+    }
+
     @Autowired MockMvc mvc;
+    @Autowired UserAccountService accounts;
     @Autowired LedgerRepository ledger;
     @Autowired ExportRepository exportRepository;
     @Autowired BelegtransferService belegtransfer;
@@ -119,6 +137,9 @@ class WebUiTest {
         if (prepared) {
             return;
         }
+        // Konten der Testbenutzer (die Sitzungsprüfung verlangt ein aktives Konto mit passender Rolle)
+        accounts.create("uwe", UserAccountService.Role.ADMIN, "uwes-passwort-1", "uwes-passwort-1", "test");
+        accounts.create("erika", UserAccountService.Role.USER, "erikas-passwort-1", "erikas-passwort-1", "test");
         Path work = Files.createDirectories(ROOT.resolve("fixtures"));
         Path pdf = work.resolve("source.pdf");
         TestInvoicePdf.standardInvoice().writeTo(pdf);
@@ -204,18 +225,20 @@ class WebUiTest {
                 .contains("kein DATEV-Buchungsstapel konfiguriert");
 
         String preview = body(mvc.perform(get("/rechnungen/export/vorschau").param("tenant", "hofmann-it").param("variant", "CSV")
-                .param("user", "uwe").header("HX-Request", "true")).andExpect(status().isOk()).andReturn());
-        assertThat(preview).contains("rechnungsausgangsbuch_hofmann-it_anfang_ende.csv").contains("Herunterladen").contains("user=uwe").doesNotContain("<html");
+                .header("HX-Request", "true")).andExpect(status().isOk()).andReturn());
+        assertThat(preview).contains("rechnungsausgangsbuch_hofmann-it_anfang_ende.csv").contains("Herunterladen").doesNotContain("user=").doesNotContain("<html");
         assertThat(exportRepository.exportLog("hofmann-it", 10)).as("Vorschau wird nicht protokolliert").isEmpty();
 
         String refused = body(mvc.perform(get("/rechnungen/export/vorschau").param("tenant", "hofmann-it").param("variant", "DATEV_BUCHUNGSSTAPEL")
-                .param("von", "2026-09-01").param("bis", "2026-09-30").param("user", "uwe")).andExpect(status().isOk()).andReturn());
+                .param("von", "2026-09-01").param("bis", "2026-09-30")).andExpect(status().isOk()).andReturn());
         assertThat(refused).contains("nicht aktiviert");
 
-        // Download ohne Benutzer wird abgewiesen (Parameter fehlt)
-        mvc.perform(get("/rechnungen/export/download").param("tenant", "hofmann-it").param("variant", "CSV")).andExpect(status().is4xxClientError());
+        // Download ohne Anmeldung wird zur Anmeldeseite geleitet und nicht protokolliert
+        mvc.perform(get("/rechnungen/export/download").param("tenant", "hofmann-it").param("variant", "CSV").with(anonymous()))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrlPattern("**/anmelden"));
+        assertThat(exportRepository.exportLog("hofmann-it", 10)).isEmpty();
 
-        MvcResult download = mvc.perform(get("/rechnungen/export/download").param("tenant", "hofmann-it").param("variant", "CSV").param("user", "uwe"))
+        MvcResult download = mvc.perform(get("/rechnungen/export/download").param("tenant", "hofmann-it").param("variant", "CSV"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition", "attachment; filename=\"rechnungsausgangsbuch_hofmann-it_anfang_ende.csv\""))
                 .andReturn();
@@ -238,12 +261,12 @@ class WebUiTest {
     @Order(2)
     void exportSettingsPageSavesValidatedHistory() throws Exception {
         prepare();
-        String page = body(mvc.perform(get("/rechnungen/export/einstellungen").header("Authorization", ADMIN).param("tenant", "hofmann-it")).andExpect(status().isOk()).andReturn());
+        String page = body(mvc.perform(get("/rechnungen/export/einstellungen").param("tenant", "hofmann-it")).andExpect(status().isOk()).andReturn());
         assertThat(page).contains("Export-Einstellungen").contains("noch nie in der Oberfläche gespeichert")
                 .contains("DOMESTIC_STANDARD:19 = 8400").contains("name=\"consultantNumber\"");
 
         // Ungültig (Beraternummer zu kurz): Formular kommt mit Meldung und Eingaben zurück, nichts gespeichert
-        String invalid = body(mvc.perform(post("/rechnungen/export/einstellungen").header("Authorization", ADMIN).param("tenant", "hofmann-it").param("user", "uwe")
+        String invalid = body(mvc.perform(post("/rechnungen/export/einstellungen").param("tenant", "hofmann-it")
                 .param("enabled", "on").param("consultantNumber", "12").param("clientNumber", "7").param("fiscalYearStart", "01-01")
                 .param("accountLength", "4").param("chartOfAccounts", "04").param("debtorStrategy", "COLLECTIVE")
                 .param("collectiveDebtorAccount", "10000").param("revenueAccounts", "DOMESTIC_STANDARD:19 = 4400")
@@ -252,14 +275,14 @@ class WebUiTest {
         assertThat(exportRepository.settingsHistory("hofmann-it")).isEmpty();
 
         // Zuordnungszeile ohne '=' wird gemeldet
-        String badLine = body(mvc.perform(post("/rechnungen/export/einstellungen").header("Authorization", ADMIN).param("tenant", "hofmann-it").param("user", "uwe")
+        String badLine = body(mvc.perform(post("/rechnungen/export/einstellungen").param("tenant", "hofmann-it")
                 .param("enabled", "on").param("consultantNumber", "29098").param("clientNumber", "7").param("accountLength", "4")
                 .param("chartOfAccounts", "04").param("collectiveDebtorAccount", "10000").param("revenueAccounts", "DOMESTIC_STANDARD:19 4400")
                 .param("bookingTextTemplate", "x")).andExpect(status().isOk()).andReturn());
         assertThat(badLine).contains("Schlüssel = Konto");
 
         // Gültig: SKR04 mit Konto je Kunde und BU-Schlüssel → Redirect, Historie, Export nutzt die neuen Werte
-        mvc.perform(post("/rechnungen/export/einstellungen").header("Authorization", ADMIN).param("tenant", "hofmann-it").param("user", "uwe").param("note", "laut StB")
+        mvc.perform(post("/rechnungen/export/einstellungen").param("tenant", "hofmann-it").param("note", "laut StB")
                 .param("enabled", "on").param("consultantNumber", "29098").param("clientNumber", "55003").param("fiscalYearStart", "01-01")
                 .param("accountLength", "4").param("chartOfAccounts", "04").param("debtorStrategy", "PER_CUSTOMER")
                 .param("customerAccounts", "Beispiel GmbH = 10001\n# Kommentar\n")
@@ -274,13 +297,13 @@ class WebUiTest {
         assertThat(history.get(0).customerAccountsJson()).contains("\"Beispiel GmbH\":\"10001\"");
         assertThat(history.get(0).revenueAccountsJson()).contains("\"buKey\":\"0094\"");
 
-        String after = body(mvc.perform(get("/rechnungen/export/einstellungen").header("Authorization", ADMIN).param("tenant", "hofmann-it")).andExpect(status().isOk()).andReturn());
+        String after = body(mvc.perform(get("/rechnungen/export/einstellungen").param("tenant", "hofmann-it")).andExpect(status().isOk()).andReturn());
         assertThat(after).contains("in der Oberfläche gespeicherte Einstellungen").contains("EU_REVERSE_CHARGE = 4336 ; 0094").contains("laut StB");
 
         String exportPage = body(mvc.perform(get("/rechnungen/export").param("tenant", "hofmann-it")).andExpect(status().isOk()).andReturn());
         assertThat(exportPage).contains("DATEV-Format Buchungsstapel (EXTF)").contains("aus der Datenbank");
         MvcResult datev = mvc.perform(get("/rechnungen/export/download").param("tenant", "hofmann-it").param("variant", "DATEV_BUCHUNGSSTAPEL")
-                .param("von", "2026-09-01").param("bis", "2026-09-30").param("user", "uwe")).andExpect(status().isOk()).andReturn();
+                .param("von", "2026-09-01").param("bis", "2026-09-30")).andExpect(status().isOk()).andReturn();
         String extf = new String(datev.getResponse().getContentAsByteArray(), java.nio.charset.Charset.forName("windows-1252"));
         assertThat(extf).startsWith("\"EXTF\";700;21;\"Buchungsstapel\";13;").contains(";29098;55003;").contains(";10001;4400;");
     }
@@ -290,30 +313,30 @@ class WebUiTest {
     void belegtransferCopiesZugferdWithoutOverwriting() throws Exception {
         prepare();
         // Nicht aktiviert (Einstellungen aus Order(2) ohne Belegtransfer): manuelle Übergabe wird abgelehnt
-        mvc.perform(post("/rechnungen/" + runId + "/belegtransfer").param("user", "uwe"))
+        mvc.perform(post("/rechnungen/" + runId + "/belegtransfer"))
                 .andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("error"));
         assertThat(belegtransfer.afterSuccessfulRun(runId)).isEmpty();
         assertThat(exportRepository.transfers(runId)).isEmpty();
 
         // UNC-Pfad wird abgewiesen
-        String unc = body(mvc.perform(post("/rechnungen/export/einstellungen").header("Authorization", ADMIN).param("tenant", "hofmann-it").param("user", "uwe")
+        String unc = body(mvc.perform(post("/rechnungen/export/einstellungen").param("tenant", "hofmann-it")
                 .param("consultantNumber", "29098").param("clientNumber", "55003").param("accountLength", "4").param("chartOfAccounts", "04")
                 .param("collectiveDebtorAccount", "10000").param("revenueAccounts", "DOMESTIC_STANDARD:19 = 4400").param("bookingTextTemplate", "x")
                 .param("belegtransferEnabled", "on").param("belegtransferDirectory", "\\\\server\\datev\\belege")).andExpect(status().isOk()).andReturn());
         assertThat(unc).contains("Netzwerkpfad");
 
         Path dir = Files.createDirectories(ROOT.resolve("belegtransfer"));
-        mvc.perform(post("/rechnungen/export/einstellungen").header("Authorization", ADMIN).param("tenant", "hofmann-it").param("user", "uwe").param("note", "Belegtransfer an")
+        mvc.perform(post("/rechnungen/export/einstellungen").param("tenant", "hofmann-it").param("note", "Belegtransfer an")
                 .param("enabled", "on").param("consultantNumber", "29098").param("clientNumber", "55003").param("accountLength", "4")
                 .param("chartOfAccounts", "04").param("debtorStrategy", "COLLECTIVE").param("collectiveDebtorAccount", "10000")
                 .param("revenueAccounts", "DOMESTIC_STANDARD:19 = 4400").param("lockRecords", "on").param("bookingTextTemplate", "Rechnung {invoiceNumber}")
                 .param("belegtransferEnabled", "on").param("belegtransferDirectory", dir.toString()))
                 .andExpect(status().is3xxRedirection());
-        String settingsPage = body(mvc.perform(get("/rechnungen/export/einstellungen").header("Authorization", ADMIN).param("tenant", "hofmann-it")).andReturn());
+        String settingsPage = body(mvc.perform(get("/rechnungen/export/einstellungen").param("tenant", "hofmann-it")).andReturn());
         assertThat(settingsPage).contains("name=\"belegtransferEnabled\" checked").contains(dir.toString().replace("\\", "\\"));
 
         // Erste Übergabe kopiert, zweite erkennt die identische Datei
-        mvc.perform(post("/rechnungen/" + runId + "/belegtransfer").param("user", "uwe"))
+        mvc.perform(post("/rechnungen/" + runId + "/belegtransfer"))
                 .andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("notice"));
         Path copied = dir.resolve("RE-2026-4711_zugferd.pdf");
         assertThat(copied).exists();
@@ -335,12 +358,12 @@ class WebUiTest {
         assertThat(Files.readString(copied, StandardCharsets.UTF_8)).isEqualTo("fremder Inhalt");
 
         // Verzeichnis nicht vorhanden: FAILED, nichts geworfen, Run und Status unverändert
-        mvc.perform(post("/rechnungen/export/einstellungen").header("Authorization", ADMIN).param("tenant", "hofmann-it").param("user", "uwe")
+        mvc.perform(post("/rechnungen/export/einstellungen").param("tenant", "hofmann-it")
                 .param("enabled", "on").param("consultantNumber", "29098").param("clientNumber", "55003").param("accountLength", "4")
                 .param("chartOfAccounts", "04").param("collectiveDebtorAccount", "10000").param("revenueAccounts", "DOMESTIC_STANDARD:19 = 4400")
                 .param("bookingTextTemplate", "x").param("belegtransferEnabled", "on").param("belegtransferDirectory", ROOT.resolve("gibt-es-nicht").toString()))
                 .andExpect(status().is3xxRedirection());
-        mvc.perform(post("/rechnungen/" + runId + "/belegtransfer").param("user", "uwe"))
+        mvc.perform(post("/rechnungen/" + runId + "/belegtransfer"))
                 .andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("error"));
         assertThat(exportRepository.transfers(runId)).hasSize(4);
         assertThat(exportRepository.transfers(runId).get(3).outcome()).isEqualTo("FAILED");
@@ -357,11 +380,11 @@ class WebUiTest {
         assertThat(before).contains("DATEV-Zusatzfelder").contains("08.10.2026");
 
         // #115 ohne #116 wird abgelehnt
-        mvc.perform(post("/rechnungen/" + runId + "/export-felder").param("user", "uwe").param("serviceDate", "2026-09-15"))
+        mvc.perform(post("/rechnungen/" + runId + "/export-felder").param("serviceDate", "2026-09-15"))
                 .andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("error"));
         assertThat(exportRepository.invoiceFieldHistory(sourceId())).isEmpty();
 
-        mvc.perform(post("/rechnungen/" + runId + "/export-felder").param("user", "uwe").param("serviceDate", "2026-09-15")
+        mvc.perform(post("/rechnungen/" + runId + "/export-felder").param("serviceDate", "2026-09-15")
                 .param("taxPeriodDate", "2026-09-15").param("buyerVatId", "de 133546770").param("note", "StB"))
                 .andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("notice"));
         var fields = exportRepository.latestInvoiceFields(sourceId()).orElseThrow();
@@ -398,7 +421,7 @@ class WebUiTest {
     @Test
     void reprocessOfArchivedInvoiceRequiresConfirmationInUi() throws Exception {
         prepare();
-        MvcResult r = mvc.perform(post("/rechnungen/" + runId + "/reprocess").param("user", "uwe").param("reason", "Test"))
+        MvcResult r = mvc.perform(post("/rechnungen/" + runId + "/reprocess").param("reason", "Test"))
                 .andExpect(status().is3xxRedirection()).andReturn();
         assertThat(r.getFlashMap().get("error").toString()).contains("Bestätigung");
         assertThat(ledger.findRuns(ledger.findInvoice(runId).orElseThrow().source().id())).hasSize(1);
@@ -433,7 +456,10 @@ class WebUiTest {
         String detail = body(mvc.perform(get("/pruefung/hofmann-it/abcdef12_Rechnung RE-2026-4712")).andExpect(status().isOk()).andReturn());
         assertThat(detail).contains("Plausibilitätsfehler").contains("RE-2026-4712").contains("x=450").contains("original.pdf");
         mvc.perform(get("/pruefung/hofmann-it/abcdef12_Rechnung RE-2026-4712/original.pdf")).andExpect(status().isOk());
-        mvc.perform(get("/pruefung/hofmann-it/..")).andExpect(status().isNotFound());
+        // Pfadwechsel in der Adresse weist bereits die Web-Firewall der Anmeldung ab (400), bevor die Anwendung ihn sieht
+        mvc.perform(get("/pruefung/hofmann-it/..")).andExpect(status().isBadRequest());
+        mvc.perform(get("/pruefung/hofmann-it/x..y")).andExpect(status().isNotFound());
+        mvc.perform(get("/pruefung/hofmann-it/gibt-es-nicht")).andExpect(status().isNotFound());
     }
 
     @Test
@@ -459,18 +485,25 @@ class WebUiTest {
     @Test
     void adminAreaRequiresLoginAndAppliesSettingsLive() throws Exception {
         prepare();
-        // Ohne Anmeldung: 401 mit Basic-Challenge; falsches Passwort ebenfalls
-        mvc.perform(get("/verwaltung")).andExpect(status().isUnauthorized()).andExpect(header().exists("WWW-Authenticate"));
-        String wrong = "Basic " + java.util.Base64.getEncoder().encodeToString("admin:falsch".getBytes(StandardCharsets.UTF_8));
-        mvc.perform(get("/verwaltung").header("Authorization", wrong)).andExpect(status().isUnauthorized());
-        mvc.perform(get("/rechnungen/export/einstellungen").param("tenant", "hofmann-it")).andExpect(status().isUnauthorized());
+        // Ohne Anmeldung: Umleitung zur Anmeldeseite; Sachbearbeiter: 403; schreibend ohne CSRF-Token: 403
+        mvc.perform(get("/verwaltung").with(anonymous())).andExpect(status().is3xxRedirection()).andExpect(redirectedUrlPattern("**/anmelden"));
+        mvc.perform(get("/rechnungen/export/einstellungen").param("tenant", "hofmann-it").with(anonymous()))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrlPattern("**/anmelden"));
+        mvc.perform(get("/verwaltung").with(TestLogin.as("erika", "USER"))).andExpect(status().isForbidden());
+        mvc.perform(get("/rechnungen/export/einstellungen").param("tenant", "hofmann-it").with(TestLogin.as("erika", "USER"))).andExpect(status().isForbidden());
+        mvc.perform(post("/verwaltung").param("note", "x").with(csrf().useInvalidToken())).andExpect(status().isForbidden());
+        assertThat(body(mvc.perform(get("/").with(TestLogin.as("erika", "USER"))).andExpect(status().isOk()).andReturn()))
+                .contains("erika").contains("Abmelden").doesNotContain("href=\"/verwaltung\"");
+        // HTMX-Teilanfrage ohne Sitzung: 401 mit HX-Redirect statt Anmeldeseite im Fragment
+        mvc.perform(get("/rechnungen").header("HX-Request", "true").with(anonymous()))
+                .andExpect(status().isUnauthorized()).andExpect(header().string("HX-Redirect", "/anmelden"));
 
-        String page = body(mvc.perform(get("/verwaltung").header("Authorization", ADMIN)).andExpect(status().isOk()).andReturn());
+        String page = body(mvc.perform(get("/verwaltung")).andExpect(status().isOk()).andReturn());
         assertThat(page).contains("Verwaltung").contains("name=\"inbox\"").contains("name=\"smtpHost\"").contains("noch nie in der Verwaltung gespeichert")
                 .contains("SMTP_USERNAME").contains(ROOT.resolve("inbox").toString().replace("\\", "\\"));
 
         // Ungültig: leeres Archiv, Intervall zu klein, SMTP aktiv ohne Host → nichts gespeichert, Eingaben zurück
-        String invalid = body(mvc.perform(post("/verwaltung").header("Authorization", ADMIN).param("user", "uwe")
+        String invalid = body(mvc.perform(post("/verwaltung")
                 .param("inbox", ROOT.resolve("inbox").toString()).param("processing", ROOT.resolve("processing").toString())
                 .param("output", ROOT.resolve("output").toString()).param("failed", ROOT.resolve("failed").toString())
                 .param("manualReview", ROOT.resolve("manual-review").toString()).param("rejected", ROOT.resolve("rejected").toString())
@@ -484,7 +517,7 @@ class WebUiTest {
 
         // Gültig: neue Inbox, Intervall 1 s, Parallelität 3, SMTP-Server ohne Aktivierung → sofort wirksam
         Path newInbox = ROOT.resolve("inbox-neu");
-        mvc.perform(post("/verwaltung").header("Authorization", ADMIN).param("user", "uwe").param("note", "Inbox verschoben")
+        mvc.perform(post("/verwaltung").param("note", "Inbox verschoben")
                 .param("inbox", newInbox.toString()).param("processing", ROOT.resolve("processing").toString())
                 .param("output", ROOT.resolve("output").toString()).param("failed", ROOT.resolve("failed").toString())
                 .param("manualReview", ROOT.resolve("manual-review").toString()).param("rejected", ROOT.resolve("rejected").toString())
@@ -503,14 +536,14 @@ class WebUiTest {
         // Watcher ist in diesem Test deaktiviert gestartet (app.watcher.enabled=false) und wird durch die Einstellung aktiv
         assertThat(inboxWatcher.activeIntervalMillis()).isEqualTo(1000);
 
-        String after = body(mvc.perform(get("/verwaltung").header("Authorization", ADMIN)).andExpect(status().isOk()).andReturn());
+        String after = body(mvc.perform(get("/verwaltung")).andExpect(status().isOk()).andReturn());
         assertThat(after).contains("in der Verwaltung gespeicherte Einstellungen").contains("Inbox verschoben").contains("mail.intern")
                 .contains("Watcher-Intervall aktiv: <span>1000 ms");
         String status = body(mvc.perform(get("/status")).andExpect(status().isOk()).andReturn());
         assertThat(status).contains("aus der Verwaltung (Datenbank)").contains("inbox-neu");
 
         // Watcher wieder aus, sonst verarbeitet er Dateien, die andere Tests in die Inbox legen
-        mvc.perform(post("/verwaltung").header("Authorization", ADMIN).param("user", "uwe").param("note", "Watcher aus")
+        mvc.perform(post("/verwaltung").param("note", "Watcher aus")
                 .param("inbox", ROOT.resolve("inbox").toString()).param("processing", ROOT.resolve("processing").toString())
                 .param("output", ROOT.resolve("output").toString()).param("failed", ROOT.resolve("failed").toString())
                 .param("manualReview", ROOT.resolve("manual-review").toString()).param("rejected", ROOT.resolve("rejected").toString())
@@ -530,24 +563,24 @@ class WebUiTest {
 
         // Keine PDF → abgelehnt, nichts abgelegt
         mvc.perform(multipart("/rechnungen/einlesen").file(new MockMultipartFile("file", "text.pdf", "application/pdf", "hallo".getBytes(StandardCharsets.UTF_8)))
-                .param("tenant", "hofmann-it").param("user", "uwe"))
+                .param("tenant", "hofmann-it"))
                 .andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("error"));
         assertThat(inbox.resolve("text.pdf")).doesNotExist();
 
         // Unbekannter Mandant → abgelehnt
         mvc.perform(multipart("/rechnungen/einlesen").file(new MockMultipartFile("file", "a.pdf", "application/pdf", pdfBytes))
-                .param("tenant", "gibt-es-nicht").param("user", "uwe"))
+                .param("tenant", "gibt-es-nicht"))
                 .andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("error"));
 
         // Gültige PDF → in der Inbox, zweite gleichnamige bekommt Zeitstempel, nichts wird überschrieben
         mvc.perform(multipart("/rechnungen/einlesen").file(new MockMultipartFile("file", "..\\Upload Rechnung.pdf", "application/pdf", pdfBytes))
-                .param("tenant", "hofmann-it").param("user", "uwe"))
+                .param("tenant", "hofmann-it"))
                 .andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("notice"));
         Path first = inbox.resolve("Upload Rechnung.pdf");
         assertThat(first).exists();
         assertThat(Files.readAllBytes(first)).isEqualTo(pdfBytes);
         mvc.perform(multipart("/rechnungen/einlesen").file(new MockMultipartFile("file", "Upload Rechnung.pdf", "application/pdf", pdfBytes))
-                .param("tenant", "hofmann-it").param("user", "uwe")).andExpect(status().is3xxRedirection());
+                .param("tenant", "hofmann-it")).andExpect(status().is3xxRedirection());
         assertThat(Files.list(inbox).filter(p -> p.getFileName().toString().startsWith("Upload Rechnung")).count()).isEqualTo(2);
         assertThat(Files.list(inbox).filter(p -> p.getFileName().toString().endsWith(".upload")).count()).isZero();
     }
@@ -560,9 +593,9 @@ class WebUiTest {
         snapshot(out, "dashboard.html", body(mvc.perform(get("/")).andReturn()));
         snapshot(out, "rechnungen.html", body(mvc.perform(get("/rechnungen")).andReturn()));
         snapshot(out, "rechnung-detail.html", body(mvc.perform(get("/rechnungen/" + runId)).andReturn()));
-        snapshot(out, "export.html", body(mvc.perform(get("/rechnungen/export/vorschau").param("tenant", "hofmann-it").param("variant", "CSV").param("user", "uwe")).andReturn()));
-        snapshot(out, "export-einstellungen.html", body(mvc.perform(get("/rechnungen/export/einstellungen").header("Authorization", ADMIN).param("tenant", "hofmann-it")).andReturn()));
-        snapshot(out, "verwaltung.html", body(mvc.perform(get("/verwaltung").header("Authorization", ADMIN)).andReturn()));
+        snapshot(out, "export.html", body(mvc.perform(get("/rechnungen/export/vorschau").param("tenant", "hofmann-it").param("variant", "CSV")).andReturn()));
+        snapshot(out, "export-einstellungen.html", body(mvc.perform(get("/rechnungen/export/einstellungen").param("tenant", "hofmann-it")).andReturn()));
+        snapshot(out, "verwaltung.html", body(mvc.perform(get("/verwaltung")).andReturn()));
         snapshot(out, "pruefen.html", body(mvc.perform(get("/pruefen")).andReturn()));
         MockMultipartFile file = new MockMultipartFile("file", "eingang.xml", "application/xml", ciiBytes);
         snapshot(out, "pruefen-ergebnis.html", body(mvc.perform(multipart("/pruefen").file(file)).andReturn()));
@@ -577,8 +610,6 @@ class WebUiTest {
         Files.writeString(dir.resolve(name), html.replace("/css/app.css", "app.css"), StandardCharsets.UTF_8);
     }
 
-    /** Admin-Anmeldung (ADR 0012): admin / test-geheim, Base64 wie vom Browser gesendet. */
-    static final String ADMIN = "Basic " + java.util.Base64.getEncoder().encodeToString("admin:test-geheim".getBytes(StandardCharsets.UTF_8));
 
     private static String body(MvcResult r) throws Exception {
         return r.getResponse().getContentAsString(StandardCharsets.UTF_8);

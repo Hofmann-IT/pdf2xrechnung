@@ -107,6 +107,12 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
+        <!-- Anmeldung, Sitzungen und CSRF-Schutz für die gesamte Oberfläche (Apache 2.0);
+             Freigabe als neue Laufzeitabhängigkeit am 2026-11-20, siehe docs/adr/0015. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
 
         <!-- ===== Persistenz: SQLite + Flyway (kein JPA, kein Hibernate) ===== -->
         <dependency>
@@ -215,6 +221,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Testunterstützung für angemeldete Benutzer und CSRF-Token in MockMvc (Apache 2.0). -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
         <!-- GreenMail (Apache 2.0): lokaler SMTP-Server für den Versandtest (Vorgabe Phase 4). -->

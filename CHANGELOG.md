@@ -3,6 +3,25 @@
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach SemVer.
 Die Versionsnummer steht im `pom.xml` und wird im Seitenfuß, im Systemstatus und je Verarbeitungslauf im Ledger angezeigt.
 
+## [Unveröffentlicht] – Version 1.1.0 in Arbeit (Dienst + Windows-Verwaltungsanwendung, ADR 0015)
+
+### Phase A – Anmeldung für alle Funktionen (2026-11-20)
+- V6: Tabelle `user_account` (append-only, PBKDF2-SHA256-Hash) mit den Rollen Administrator
+  und Sachbearbeiter; das bisherige Verwaltungskonto aus V5 wird als erster Administrator
+  übernommen, das Passwort gilt weiter.
+- Alle Seiten verlangen eine Anmeldung über `/anmelden` (Sitzung, Abmelden in der Kopfzeile);
+  Verwaltung und Export-Einstellungen nur für Administratoren. HTTP Basic entfällt.
+- Verwaltung → **Benutzer**: anlegen, Rolle ändern, sperren/freigeben, Passwort neu vergeben;
+  „Mein Konto" zum Ändern des eigenen Passworts. Der letzte Administrator ist geschützt.
+- Fünf Fehlversuche sperren einen Benutzernamen für fünf Minuten; gesperrte oder in der Rolle
+  geänderte Konten verlieren ihre Sitzung mit der nächsten Anfrage.
+- CSRF-Schutz für alle schreibenden Anfragen; Sitzungs-Cookie HttpOnly und SameSite=Strict.
+- Der angemeldete Benutzer ersetzt die Freitextfelder „Benutzer" (Export, Reprocess, Versand,
+  Belegtransfer, Zusatzfelder, PDF-Upload, Einstellungen).
+- Geändert: Der Einrichtungs-Assistent ist nur noch ohne Anmeldung erreichbar, solange kein
+  Administrator existiert; `ADMIN_PASSWORD` bleibt als Betreiber-Zugang mit Administratorrechten.
+- Neue Laufzeitabhängigkeit `spring-boot-starter-security` (Apache 2.0, freigegeben).
+
 ## [1.0.0] – 2026-09-25
 
 ### Rechnungsvorlage für Word/Excel-Nutzer (2026-10-08)

@@ -1,10 +1,12 @@
 package de.hofmannit.erechnung.web;
 
+import java.security.Principal;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 
-import de.hofmannit.erechnung.admin.AdminCredentialService;
+import de.hofmannit.erechnung.admin.UserAccountService;
+import de.hofmannit.erechnung.admin.UserAccountService.Role;
 import de.hofmannit.erechnung.admin.AdminSettingsService;
 import de.hofmannit.erechnung.admin.AdminSettingsService.SettingsException;
 import de.hofmannit.erechnung.configuration.AppProperties;
@@ -22,7 +24,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
  * Verwaltungsbereich (ADR 0012): Laufzeiteinstellungen anzeigen, ändern und historisieren.
- * Zugriff nur mit Admin-Anmeldung ({@link AdminAuthFilter}).
+ * Zugriff nur für Administratoren ({@link SecurityConfig}).
  */
 @Controller
 public class AdminController {
@@ -75,11 +77,11 @@ public class AdminController {
     private final EmailDispatcher email;
     private final InboxWatcher watcher;
     private final ProfileRegistry registry;
-    private final AdminCredentialService credentials;
+    private final UserAccountService accounts;
 
     public AdminController(AdminSettingsService service, AppProperties properties, EmailDispatcher email, InboxWatcher watcher,
-                           ProfileRegistry registry, AdminCredentialService credentials) {
-        this.credentials = credentials;
+                           ProfileRegistry registry, UserAccountService accounts) {
+        this.accounts = accounts;
         this.service = service;
         this.properties = properties;
         this.email = email;
@@ -94,7 +96,7 @@ public class AdminController {
     }
 
     @PostMapping("/verwaltung")
-    public String save(@RequestParam String user, @RequestParam(required = false) String note,
+    public String save(Principal principal, @RequestParam(required = false) String note,
                        @RequestParam(defaultValue = "") String inbox, @RequestParam(defaultValue = "") String processing,
                        @RequestParam(defaultValue = "") String output, @RequestParam(defaultValue = "") String failed,
                        @RequestParam(defaultValue = "") String manualReview, @RequestParam(defaultValue = "") String rejected,
@@ -111,29 +113,66 @@ public class AdminController {
                 pollIntervalSeconds, stableChecks, tenantParallelism, on(storeReports), on(smtpEnabled), smtpHost, smtpPort, on(smtpStarttls),
                 on(smtpSsl), on(smtpAuth), smtpFrom, smtpTimeoutSeconds);
         try {
-            service.save(form.toConfig(), user, note);
+            service.save(form.toConfig(), principal.getName(), note);
             redirect.addFlashAttribute("notice", "Einstellungen gespeichert und sofort übernommen (neuer Datensatz, Historie bleibt erhalten).");
             return "redirect:/verwaltung";
         } catch (SettingsException e) {
             fill(model, form);
             model.addAttribute("errors", e.errors());
-            model.addAttribute("user", user);
             model.addAttribute("note", note);
             return "verwaltung";
         }
     }
 
-    /** Admin-Passwort ändern (neuer Datensatz in admin_credential, ADR 0013). */
-    @PostMapping("/verwaltung/passwort")
-    public String changePassword(@RequestParam(defaultValue = "admin") String adminUser, @RequestParam String adminPassword,
-                                 @RequestParam String adminPasswordRepeat, @RequestParam String user, RedirectAttributes redirect) {
+    // ---- Benutzer (ADR 0015) ----------------------------------------------------------------
+
+    @PostMapping("/verwaltung/benutzer")
+    public String createUser(@RequestParam String username, @RequestParam String role, @RequestParam String password,
+                             @RequestParam String passwordRepeat, Principal principal, RedirectAttributes redirect) {
+        return userAction(redirect, "Benutzer '" + username.trim() + "' angelegt.",
+                () -> accounts.create(username, role(role), password, passwordRepeat, principal.getName()));
+    }
+
+    @PostMapping("/verwaltung/benutzer/passwort")
+    public String resetUserPassword(@RequestParam String username, @RequestParam String password, @RequestParam String passwordRepeat,
+                                    Principal principal, RedirectAttributes redirect) {
+        return userAction(redirect, "Passwort für '" + username.trim() + "' neu vergeben.",
+                () -> accounts.changePassword(username, password, passwordRepeat, principal.getName()));
+    }
+
+    @PostMapping("/verwaltung/benutzer/rolle")
+    public String changeUserRole(@RequestParam String username, @RequestParam String role, Principal principal, RedirectAttributes redirect) {
+        return userAction(redirect, "Rolle von '" + username.trim() + "' geändert; wirkt ab der nächsten Anfrage dieses Benutzers.",
+                () -> accounts.changeRole(username, role(role), principal.getName()));
+    }
+
+    @PostMapping("/verwaltung/benutzer/aktiv")
+    public String setUserActive(@RequestParam String username, @RequestParam boolean active, Principal principal, RedirectAttributes redirect) {
+        return userAction(redirect, "Benutzer '" + username.trim() + "' " + (active ? "freigegeben." : "gesperrt; laufende Sitzungen enden mit der nächsten Anfrage."),
+                () -> accounts.setActive(username, active, principal.getName()));
+    }
+
+    @FunctionalInterface
+    private interface UserAction {
+        void run() throws SettingsException;
+    }
+
+    private static String userAction(RedirectAttributes redirect, String notice, UserAction action) {
         try {
-            credentials.set(adminUser, adminPassword, adminPasswordRepeat, user);
-            redirect.addFlashAttribute("notice", "Admin-Passwort geändert. Der Browser fragt beim nächsten Aufruf nach den neuen Zugangsdaten.");
+            action.run();
+            redirect.addFlashAttribute("notice", notice);
         } catch (SettingsException e) {
             redirect.addFlashAttribute("error", String.join("; ", e.errors()));
         }
-        return "redirect:/verwaltung";
+        return "redirect:/verwaltung#benutzer";
+    }
+
+    private static Role role(String value) throws SettingsException {
+        try {
+            return Role.valueOf(value);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new SettingsException(List.of("Rolle ungültig"));
+        }
     }
 
     /** Mandanten und Profile aus den Dateien neu laden, ohne Neustart (ADR 0013). */
@@ -150,9 +189,10 @@ public class AdminController {
     }
 
     private void fill(Model model, Form form) {
-        model.addAttribute("adminUsername", credentials.username());
-        model.addAttribute("storedPassword", credentials.storedConfigured());
-        model.addAttribute("envPassword", credentials.envConfigured());
+        model.addAttribute("accounts", accounts.accounts());
+        model.addAttribute("roles", Role.values());
+        model.addAttribute("envUsername", accounts.envUsername());
+        model.addAttribute("envPassword", accounts.envConfigured());
         model.addAttribute("tenantFile", registry.tenantFile().toAbsolutePath().normalize());
         model.addAttribute("form", form);
         model.addAttribute("source", service.source());
