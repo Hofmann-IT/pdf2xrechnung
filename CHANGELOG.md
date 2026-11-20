@@ -3,7 +3,28 @@
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach SemVer.
 Die Versionsnummer steht im `pom.xml` und wird im Seitenfuß, im Systemstatus und je Verarbeitungslauf im Ledger angezeigt.
 
-## [Unveröffentlicht] – Version 1.1.0 in Arbeit (Dienst + Windows-Verwaltungsanwendung, ADR 0015)
+## [1.1.0] – 2026-11-20 (Dienst + Windows-Verwaltungsanwendung, ADR 0015)
+
+**Beim Update von 1.0.0 beachten:** Alle Benutzer müssen sich anmelden (das Konto aus der
+Ersteinrichtung ist der erste Administrator, sein Passwort gilt weiter). Die Oberfläche ist
+danach nur noch auf dem Server selbst erreichbar, bis der Zugriff aus dem Firmennetz
+eingeschaltet wird. Das Datenbankschema wird beim ersten Start auf V6 gehoben; vor dem Update
+den Datenordner sichern.
+
+### Phase D – Installationspaket und Handbuch (2026-11-20)
+- Setup mit zwei Installationsarten: „Server: Dienst und Verwaltung" und „Arbeitsplatz: nur
+  Verwaltung". Startmenü- und optionale Desktop-Verknüpfung starten die Verwaltungsanwendung;
+  optional Autostart des Symbols im Infobereich.
+- Aufgabe „Zugriff aus dem Firmennetz erlauben": führt `netzbetrieb-einrichten.ps1` aus
+  (Zertifikat, Firewall-Regel) und schreibt `config\network.yaml`; schlägt das fehl, bleibt die
+  Installation lokal nutzbar. Die Deinstallation entfernt die Firewall-Regel; Zertifikat und
+  Daten bleiben erhalten.
+- Setup prüft die WebView2-Laufzeit und nennt bei Fehlen die Lösung; eine Arbeitsplatz-
+  Installation über einem vorhandenen Dienst wird abgelehnt.
+- Handbuch überarbeitet: Anwendung und Infobereich, Anmeldung und Benutzer, neuer Abschnitt
+  „Weitere Arbeitsplätze im Firmennetz", Update-Hinweise, Fehlersuche, IT-Hinweise.
+- Version 1.1.0.
+
 
 ### Phase A – Anmeldung für alle Funktionen (2026-11-20)
 - V6: Tabelle `user_account` (append-only, PBKDF2-SHA256-Hash) mit den Rollen Administrator

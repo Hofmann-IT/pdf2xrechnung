@@ -103,10 +103,20 @@ Verzeichnisse (relativ zum Arbeitsverzeichnis, alle in `config/application.yaml`
 
 ### 3a. Installationspaket (empfohlen für Kunden)
 
-`PDF-zu-ERechnung-<Version>-Setup.exe` enthält Anwendung, eigene Java-Laufzeit, Windows-Dienst
-und Handbuch. Der Kunde braucht nichts weiter zu installieren: Setup ausführen, der Dienst wird
-eingerichtet und gestartet, der Browser öffnet den Einrichtungs-Assistenten. Anleitung für
-Kunden: [docs/Handbuch.html](docs/Handbuch.html). Aufbau und Entscheidungen: ADR 0014.
+`PDF-zu-ERechnung-<Version>-Setup.exe` enthält Anwendung, eigene Java-Laufzeit, Windows-Dienst,
+Verwaltungsanwendung und Handbuch. Der Kunde braucht nichts weiter zu installieren. Zwei
+Installationsarten:
+
+- **Server: Dienst und Verwaltung** – der Dienst wird eingerichtet und gestartet, die
+  Verwaltungsanwendung öffnet den Einrichtungs-Assistenten. Optionale Aufgaben:
+  Desktop-Verknüpfung, Symbol im Infobereich bei der Anmeldung, **Zugriff aus dem Firmennetz**
+  (führt `netzbetrieb-einrichten.ps1` aus und schreibt `config\network.yaml`).
+- **Arbeitsplatz: nur Verwaltung** – nur die Verwaltungsanwendung, die sich mit dem Server
+  verbindet. Still verteilbar mit `/VERYSILENT /TYPE=client`.
+
+Ein Update über eine Installation 1.0.0 wählt „Server" vor und behält alle Daten; V6 läuft
+beim Start automatisch. Fehlt die WebView2-Laufzeit, weist das Setup darauf hin. Anleitung für
+Kunden: [docs/Handbuch.html](docs/Handbuch.html). Aufbau und Entscheidungen: ADR 0014 und 0015.
 
 Paket bauen (Entwicklerrechner mit JDK 21, Maven und Inno Setup 6, `winget install JRSoftware.InnoSetup`):
 
@@ -115,8 +125,9 @@ powershell -ExecutionPolicy Bypass -File installer\windows\build-installer.ps1
 ```
 
 Ergebnis: `target\installer\PDF-zu-ERechnung-<Version>-Setup.exe` plus `.sha256`. Das Skript
-führt `mvn -q verify` aus (überspringbar mit `-SkipBuild`), erzeugt die Laufzeit mit `jlink`,
-lädt WinSW 2.12.0 mit geprüfter Prüfsumme und kompiliert das Setup. Installierte Struktur:
+führt `mvn -q verify` aus (überspringbar mit `-SkipBuild`), baut die Verwaltungsanwendung
+(`desktop\windows\build-desktop.ps1`, überspringbar mit `-SkipDesktop`), erzeugt die Laufzeit
+mit `jlink`, lädt WinSW 2.12.0 mit geprüfter Prüfsumme und kompiliert das Setup. Installierte Struktur:
 Programm unter `C:\Program Files\PDF-zu-ERechnung`, Daten unter `C:\ProgramData\PDF-zu-ERechnung`.
 
 ### 3b. Manuelle Installation
@@ -395,8 +406,8 @@ Firmennetz; der Browser bleibt daneben nutzbar (gleiche Anmeldung).
   Lösung statt einer Fehlermeldung.
 
 Build: `powershell -ExecutionPolicy Bypass -File desktop\windows\build-desktop.ps1` erzeugt
-`target\desktop\PdfZuERechnung.Verwaltung\` (Abschnitt 17). Das Setup liefert die Anwendung mit
-Version 1.1.0 aus.
+`target\desktop\PdfZuERechnung.Verwaltung\` (Abschnitt 17). Das Setup installiert die Anwendung
+nach `<Programmordner>\verwaltung` und legt die Startmenü-Verknüpfung „PDF-zu-E-Rechnung" an.
 
 ### Verwaltung in der Oberfläche
 

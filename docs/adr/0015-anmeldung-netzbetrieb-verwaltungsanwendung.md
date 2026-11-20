@@ -2,7 +2,7 @@
 
 - Status: Akzeptiert (2026-11-20); Freigaben F1–F4 vom Auftraggeber mit dem Plan „Dienst +
   Windows-Verwaltungsanwendung (Version 1.1.0)" erteilt. Umsetzung in vier Phasen; dieser ADR
-  wird je Phase fortgeschrieben. **Stand: Phasen A (Anmeldung), B (Netzzugriff) und C (Verwaltungsanwendung) umgesetzt.**
+  wird je Phase fortgeschrieben. **Stand: alle vier Phasen umgesetzt, ausgeliefert mit Version 1.1.0.**
 - Betrifft: `db/migration/V6__user_account.sql`, Module `admin`, `configuration`, `ledger`, `web`; `pom.xml`;
   `deploy/windows/netzbetrieb-einrichten.ps1`, jlink-Modulliste in `installer/windows/build-installer.ps1`;
   neu `desktop/windows/` (Verwaltungsanwendung);
@@ -97,7 +97,7 @@ wurde als Freitext eingetragen. Für einen im Netz erreichbaren Dienst ist das n
 17. **Zertifikat und Firewall außerhalb des Dienstes:** `netzbetrieb-einrichten.ps1` (als
     Administrator) erzeugt das selbstsignierte Zertifikat und die Firewall-Regel (nur Profile
     Domäne und Privat). Der Dienst selbst ändert weder Zertifikatsspeicher noch Firewall. Das
-    Setup bindet das Skript in Phase D ein.
+    Setup führt das Skript bei gewählter Aufgabe aus (Phase D).
 18. **Sitzungs-Cookie:** über HTTPS ausgestellt mit `Secure`; lokaler HTTP-Zugang und
     Netzzugang haben getrennte Sitzungen (unterschiedlicher Host).
 
@@ -139,6 +139,26 @@ wurde als Freitext eingetragen. Für einen im Netz erreichbaren Dienst ist das n
     mit bestätigtem Fingerabdruck, Ablehnung bei falschem Fingerabdruck, Meldung bei nicht
     erreichbarem Dienst und die Sperre fremder Adressen geprüft.
 
+### Phase D – Installationspaket (ergänzt ADR 0014)
+
+27. **Zwei Installationsarten in einem Setup:** „Server" (Dienst, Verwaltungsanwendung,
+    Handbuch) und „Arbeitsplatz" (Verwaltungsanwendung, Handbuch). „Server" steht an erster
+    Stelle und ist damit die Vorgabe beim Update einer Installation 1.0.0. Datenordner und
+    Dienst entstehen nur bei „Server". Eine Arbeitsplatz-Installation in einen Ordner mit
+    vorhandenem Dienst lehnt das Setup ab, weil der Dienst sonst in der alten Version bliebe.
+28. **Start über die Anwendung:** Startmenü- und Desktop-Verknüpfung sowie der Start nach der
+    Installation führen zur Verwaltungsanwendung (mit den Rechten des angemeldeten Benutzers,
+    nicht denen des Setups). Die Browser-Verknüpfung bleibt auf dem Server zusätzlich erhalten.
+29. **Netzzugriff als Aufgabe, nicht als Vorgabe:** Nur wenn die Aufgabe angehakt ist, führt
+    das Setup `netzbetrieb-einrichten.ps1` aus und schreibt `config\network.yaml` (eine
+    vorhandene Datei wird als `.bak-setup` gesichert). Ohne die Aufgabe bleibt eine vorhandene
+    Einstellung unverändert. Scheitert das Skript, wird die Einstellung nicht geschrieben.
+30. **Deinstallation:** beendet die Verwaltungsanwendung, entfernt Dienst und Firewall-Regel.
+    Zertifikat, Datenordner und die Einstellungen der Benutzer bleiben erhalten.
+31. **WebView2:** Das Setup prüft die Laufzeit über den Registrierungseintrag des
+    Edge-Updaters und weist bei Fehlen auf die Lösung hin; es lädt nichts nach (kein
+    Netzzugriff durch das Setup).
+
 ## Konsequenzen
 
 - Nach dem Update auf diese Version müssen sich alle Benutzer anmelden; bestehende
@@ -150,8 +170,8 @@ wurde als Freitext eingetragen. Für einen im Netz erreichbaren Dienst ist das n
 - Nach dem Update ist die Oberfläche von anderen PCs erst wieder erreichbar, wenn der
   Netzzugriff eingerichtet ist (Windows) bzw. `APP_NETWORK_MODE=open` gesetzt wird (Linux mit
   Reverse Proxy auf einem anderen Rechner). Docker ist durch das Image unverändert erreichbar.
-- Bis zur Verwaltungsanwendung (Phase C) warnt der Browser auf Arbeitsplätzen bei einem
-  selbstsignierten Zertifikat; der Fingerabdruck steht in Verwaltung und Systemstatus.
+- Im Browser warnen Arbeitsplätze bei einem selbstsignierten Zertifikat (die
+  Verwaltungsanwendung bindet stattdessen an den Fingerabdruck); der Fingerabdruck steht in Verwaltung und Systemstatus.
 - Nicht automatisch prüfbar: Zugriff des Dienstkontos auf den privaten Schlüssel im Speicher
   des lokalen Computers und die Firewall-Regel (beides verlangt Administratorrechte). Der
   Dienst meldet einen nicht lesbaren Schlüssel beim Start.

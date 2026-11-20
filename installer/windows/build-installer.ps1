@@ -7,8 +7,9 @@
     1. mvn -q verify (Tests, Jar)                     – überspringbar mit -SkipBuild
     2. jlink: schlanke Java-Laufzeit aus dem JDK 21   – Modulliste unten, gegen die Testsuite geprüft
     3. WinSW 2.12.0 herunterladen und SHA-256 prüfen  – einmalig, wird unter target\installer zwischengespeichert
-    4. Staging-Ordner zusammenstellen
-    5. Inno Setup (ISCC.exe) kompilieren
+    4. Verwaltungsanwendung bauen (desktop\windows\build-desktop.ps1) – überspringbar mit -SkipDesktop
+    5. Staging-Ordner zusammenstellen
+    6. Inno Setup (ISCC.exe) kompilieren
 
   Voraussetzungen auf dem Build-Rechner: JDK 21 (JAVA_HOME oder Standardpfad), Maven, Inno Setup 6
   (winget install JRSoftware.InnoSetup). Der Kunde braucht nichts davon.
@@ -19,6 +20,7 @@
 [CmdletBinding()]
 param(
     [switch] $SkipBuild,
+    [switch] $SkipDesktop,
     [string] $JavaHome = $(if ($env:JAVA_HOME) { $env:JAVA_HOME } else { "C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot" }),
     [string] $Iscc = $(if (Test-Path "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe") { "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" } else { "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" })
 )
@@ -66,13 +68,26 @@ New-Item -ItemType Directory -Force -Path "$stage\app", "$stage\docs", "$stage\d
 Copy-Item $jar "$stage\app\pdf-zu-erechnung.jar"
 Copy-Item (Join-Path $root "validator") "$stage\app\validator" -Recurse
 Copy-Item (Join-Path $PSScriptRoot "pdf-zu-erechnung.xml.in") "$stage\app\pdf-zu-erechnung.xml.in"
-# Netzzugriff (ADR 0015): Zertifikat und Firewall-Regel; ins Setup eingebunden wird das Skript mit Phase D
+# Netzzugriff (ADR 0015): Zertifikat und Firewall-Regel; das Setup führt das Skript bei gewählter Aufgabe aus
 Copy-Item (Join-Path $root "deploy\windows\netzbetrieb-einrichten.ps1") "$stage\app\netzbetrieb-einrichten.ps1"
 Copy-Item (Join-Path $root "config\application.yaml") "$stage\data\config\application.yaml"
 Copy-Item (Join-Path $root "profiles\*.yaml") "$stage\data\profiles\"
 Copy-Item (Join-Path $root "docs\Handbuch.html") "$stage\docs\Handbuch.html"
 foreach ($f in "README.md", "CHANGELOG.md", "THIRD-PARTY.md") { Copy-Item (Join-Path $root $f) "$stage\docs\$f" }
 Copy-Item (Join-Path $root "docs\datev-format-referenz.md") "$stage\docs\datev-format-referenz.md"
+
+Step "Verwaltungsanwendung"
+$desktop = Join-Path $root "target\desktop\PdfZuERechnung.Verwaltung"
+if (-not $SkipDesktop) {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "desktop\windows\build-desktop.ps1")
+    if ($LASTEXITCODE -ne 0) { throw "Build der Verwaltungsanwendung fehlgeschlagen" }
+}
+if (-not (Test-Path (Join-Path $desktop "PdfZuERechnung.Verwaltung.exe"))) { throw "Verwaltungsanwendung fehlt: $desktop (desktop\windows\build-desktop.ps1 ausführen)" }
+# Die Anwendung muss zur Version des Pakets gehören
+$desktopVersion = (Get-Item (Join-Path $desktop "PdfZuERechnung.Verwaltung.exe")).VersionInfo.ProductVersion
+if ($desktopVersion -ne $version) { throw "Verwaltungsanwendung hat Version $desktopVersion, erwartet $version (neu bauen)" }
+New-Item -ItemType Directory -Force -Path "$stage\verwaltung" | Out-Null
+Copy-Item (Join-Path $desktop "*") "$stage\verwaltung\"
 
 Step "jlink-Laufzeit"
 $runtime = "$stage\app\runtime"

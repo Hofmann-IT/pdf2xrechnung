@@ -31,7 +31,7 @@
 <body>
 <header>
   <h1>PDF-zu-E-Rechnung</h1>
-  <p>Installations- und Betriebshandbuch · Version 1.0.0 · Hofmann IT</p>
+  <p>Installations- und Betriebshandbuch · Version 1.1.0 · Hofmann IT</p>
 </header>
 <main>
 
@@ -47,8 +47,9 @@
     <li><a href="#pruefen">Empfangene E-Rechnungen prüfen</a></li>
     <li><a href="#export">Rechnungsausgangsbuch, DATEV und Belegtransfer</a></li>
     <li><a href="#versand">Versand per E-Mail (optional)</a></li>
-    <li><a href="#verwaltung">Verwaltung und Einstellungen</a></li>
-    <li><a href="#sicherung">Datensicherung und Wiederherstellung</a></li>
+    <li><a href="#verwaltung">Verwaltung, Benutzer und Einstellungen</a></li>
+    <li><a href="#arbeitsplaetze">Weitere Arbeitsplätze im Firmennetz</a></li>
+<li><a href="#sicherung">Datensicherung und Wiederherstellung</a></li>
     <li><a href="#update">Update und Deinstallation</a></li>
     <li><a href="#probleme">Wenn etwas nicht funktioniert</a></li>
     <li><a href="#technik">Technische Hinweise für Ihre IT</a></li>
@@ -67,18 +68,19 @@
   <li>Ihre Rechnungen als <strong>PDF/A</strong>. Word, Excel und die meisten Programme bieten beim Speichern als PDF die Option „PDF/A" an. Ohne PDF/A entsteht trotzdem eine XRechnung, aber kein ZUGFeRD.</li>
   <li>Die PDFs müssen Text enthalten (keine eingescannten Bilder).</li>
 </ul>
-<p>Java oder andere Software müssen Sie <strong>nicht</strong> installieren; alles Nötige ist im Installationspaket enthalten.</p>
+<p>Java oder andere Software müssen Sie <strong>nicht</strong> installieren; alles Nötige ist im Installationspaket enthalten. Die Anzeige nutzt zwei Bestandteile von Windows (Microsoft Edge WebView2-Laufzeit und .NET Framework 4.8). Beide sind in Windows 11 enthalten und auf aktuellem Windows 10 in der Regel vorhanden; fehlt WebView2, weist das Setup darauf hin und nennt die Lösung.</p>
 <div class="box tip"><strong>Rechnungen aus Word, Excel oder anderen Programmen:</strong> Die Anwendung erkennt Rechnungen anhand fester Beschriftungen und Spalten. Im Einrichtungs-Assistenten und unter <em>Profile</em> finden Sie eine <strong>Word-Vorlage</strong> und eine Beschreibung aller Pflichtangaben („Rechnungsvorlage – Pflichtangaben und Aufbau"). Erstellen Sie Ihre Rechnungen aus dieser Vorlage und speichern Sie sie als PDF/A, dann laufen sie ohne weitere Einrichtung durch. Haben Sie bereits ein eigenes Layout, kalibriert Hofmann IT dafür ein Profil anhand von zwei bis drei Beispielrechnungen.</div>
 
 <h2 id="installation">3. Installation in fünf Schritten</h2>
+<p>Diese Schritte gelten für den Computer, der die Rechnungen verarbeitet (den „Server" – das kann auch Ihr normaler Arbeitsplatz-PC sein). Weitere Computer im Firmennetz richten Sie danach nach Abschnitt 11 ein.</p>
 <ol>
-  <li>Doppelklick auf <code>PDF-zu-ERechnung-1.0.0-Setup.exe</code>. Bestätigen Sie die Windows-Nachfrage „Möchten Sie zulassen, dass durch diese App Änderungen an Ihrem Gerät vorgenommen werden?" mit <em>Ja</em>.</li>
-  <li>Im Assistenten auf <em>Weiter</em> klicken. Den vorgeschlagenen Installationsordner können Sie übernehmen.</li>
+  <li>Doppelklick auf <code>PDF-zu-ERechnung-1.1.0-Setup.exe</code>. Bestätigen Sie die Windows-Nachfrage „Möchten Sie zulassen, dass durch diese App Änderungen an Ihrem Gerät vorgenommen werden?" mit <em>Ja</em>.</li>
+  <li>Auf <em>Weiter</em> klicken und den vorgeschlagenen Installationsordner übernehmen. Als Installationsart <strong>„Server: Dienst und Verwaltung"</strong> wählen.</li>
+  <li>Zusätzliche Aufgaben nach Bedarf anhaken: Verknüpfung auf dem Desktop, Symbol im Infobereich bei der Windows-Anmeldung, und – nur wenn weitere Computer zugreifen sollen – <em>Zugriff aus dem Firmennetz erlauben</em> (lässt sich später nachholen, Abschnitt 11).</li>
   <li>Auf <em>Installieren</em> klicken. Die Anwendung wird als Windows-Dienst eingerichtet und startet automatisch, auch nach jedem Neustart des Computers.</li>
-  <li>Am Ende bleibt „Einrichtungs-Assistent im Browser öffnen" angehakt. Klicken Sie auf <em>Fertigstellen</em>. Ihr Browser öffnet die Seite <code>http://localhost:8080</code>.</li>
-  <li>Führen Sie die Ersteinrichtung durch (nächster Abschnitt).</li>
+  <li>Am Ende bleibt „PDF-zu-E-Rechnung jetzt öffnen" angehakt. Klicken Sie auf <em>Fertigstellen</em>. Die Anwendung öffnet sich in einem eigenen Fenster mit der Ersteinrichtung (nächster Abschnitt).</li>
 </ol>
-<div class="box tip">Falls der Browser meldet, die Seite sei nicht erreichbar: eine Minute warten und die Seite neu laden. Der Dienst braucht beim ersten Start etwas Zeit. Sie finden die Oberfläche jederzeit im Startmenü unter <strong>PDF-zu-E-Rechnung → PDF-zu-E-Rechnung öffnen</strong>.</div>
+<div class="box tip">Zeigt das Fenster „Der Dienst ist nicht erreichbar": Der Dienst braucht beim ersten Start bis zu einer Minute; die Anzeige aktualisiert sich von selbst. Sie finden die Anwendung jederzeit im Startmenü unter <strong>PDF-zu-E-Rechnung</strong>. Die Oberfläche lässt sich auf diesem Computer zusätzlich im Browser öffnen (<code>http://localhost:8080</code>).</div>
 
 <h2 id="einrichtung">4. Ersteinrichtung (Assistent)</h2>
 <p>Beim ersten Aufruf fragt die Anwendung einmalig alles Nötige ab. Halten Sie Ihr Briefpapier bereit, denn diese Angaben erscheinen in jeder E-Rechnung.</p>
@@ -87,16 +89,19 @@
   <tr><td>1. Unternehmen</td><td>Firmenname, Anschrift, Land, USt-IdNr. (oder Steuernummer), E-Mail und Telefon für Rückfragen, Ansprechpartner, IBAN und BIC Ihres Geschäftskontos, Währung. Die IBAN wird auf Richtigkeit geprüft.</td></tr>
   <tr><td>2. Verzeichnisse</td><td>Sind vorbelegt und können so bleiben. Alle Ordner liegen unter <code>C:\ProgramData\PDF-zu-ERechnung</code>.</td></tr>
   <tr><td>3. Versand</td><td>Nur ausfüllen, wenn Rechnungen automatisch per E-Mail verschickt werden sollen (siehe Abschnitt 9). Kann leer bleiben.</td></tr>
-  <tr><td>4. Verwaltungszugang</td><td>Benutzername und Passwort (mindestens 10 Zeichen) für den Verwaltungsbereich. <strong>Notieren Sie das Passwort sicher.</strong></td></tr>
+  <tr><td>4. Administrator-Konto</td><td>Benutzername und Passwort (mindestens 10 Zeichen) des ersten Administrators. <strong>Notieren Sie das Passwort sicher.</strong> Weitere Benutzer legen Sie später in der Verwaltung an.</td></tr>
 </table>
-<p>Mit <em>Einrichtung abschließen</em> ist die Anwendung betriebsbereit. Alle Angaben lassen sich später in der Verwaltung ändern.</p>
-<div class="box warn">Die Ersteinrichtung ist ohne Anmeldung erreichbar. Schließen Sie sie deshalb direkt nach der Installation ab, bevor andere Personen im Netzwerk die Adresse aufrufen können.</div>
+<p>Mit <em>Einrichtung abschließen</em> ist die Anwendung betriebsbereit und zeigt die Anmeldeseite. Melden Sie sich mit dem eben vergebenen Konto an. Alle Angaben lassen sich später in der Verwaltung ändern.</p>
+<div class="box warn">Solange noch kein Administrator angelegt ist, ist die Ersteinrichtung ohne Anmeldung erreichbar. Schließen Sie sie deshalb direkt nach der Installation ab.</div>
 
 <h2 id="taeglich">5. Tägliche Nutzung</h2>
+<h3>Anwendung öffnen und anmelden</h3>
+<p>Startmenü oder Desktop: <strong>PDF-zu-E-Rechnung</strong>. Die Anwendung öffnet ein eigenes Fenster; melden Sie sich mit Benutzername und Passwort an. Jede Person hat ein eigenes Konto, damit nachvollziehbar bleibt, wer exportiert oder eine Rechnung erneut verarbeitet hat. Nach 60 Minuten ohne Aktivität ist eine neue Anmeldung nötig; <em>Abmelden</em> steht oben rechts. Ihr eigenes Passwort ändern Sie mit einem Klick auf Ihren Benutzernamen.</p>
+<p>Das Schließen des Fensters beendet die Anwendung nicht: Sie bleibt als Symbol im Infobereich (neben der Uhr) und zeigt dort den Zustand an – <strong>grün</strong>: Dienst läuft bzw. Server erreichbar, <strong>rot</strong>: gestoppt bzw. nicht erreichbar, <strong>gelb</strong>: startet oder stoppt gerade. Doppelklick öffnet das Fenster wieder, Rechtsklick zeigt das Menü (auf dem Server auch <em>Dienst starten/stoppen/neu starten</em>, <em>Protokollordner</em>, <em>Handbuch</em>, <em>Beenden</em>). Die Verarbeitung der Rechnungen läuft im Dienst und ist davon unabhängig, ob die Anwendung geöffnet ist.</p>
 <h3>Rechnung umwandeln – zwei Wege</h3>
 <ol>
   <li><strong>Ordner:</strong> Speichern oder kopieren Sie die PDF-Rechnung in den Ordner <code>C:\ProgramData\PDF-zu-ERechnung\inbox</code> (Startmenü: „Rechnungen ablegen (Inbox)"). Nach wenigen Sekunden beginnt die Verarbeitung automatisch. Praktisch: Richten Sie in Ihrem Rechnungsprogramm diesen Ordner als Speicherort für den PDF-Export ein.</li>
-  <li><strong>Oberfläche:</strong> Auf der Seite <em>Ausgangsrechnungen</em> die Schaltfläche <em>PDF einlesen</em> aufklappen, Datei auswählen, Ihren Namen eintragen, <em>Einlesen starten</em>.</li>
+  <li><strong>Oberfläche:</strong> Auf der Seite <em>Ausgangsrechnungen</em> die Schaltfläche <em>PDF einlesen</em> aufklappen, Datei auswählen, <em>Einlesen starten</em>.</li>
 </ol>
 <h3>Was dann passiert</h3>
 <p>Die Anwendung erkennt die Rechnung, liest Rechnungsnummer, Datum, Kunde, Positionen und Summen aus, prüft, ob die Summen aufgehen, erzeugt XRechnung und ZUGFeRD, prüft beide mit den amtlichen Prüfregeln und legt die Ergebnisse ab. In der Oberfläche unter <em>Ausgangsrechnungen</em> sehen Sie jeden Vorgang mit Status:</p>
@@ -129,57 +134,93 @@
 <p>Seite <em>Ausgangsrechnungen → Export</em>:</p>
 <ul>
   <li><strong>CSV:</strong> alle Rechnungen mit Beträgen und Steuern, zum Öffnen in Excel. Immer verfügbar.</li>
-  <li><strong>DATEV-Buchungsstapel:</strong> Datei für den Import beim Steuerberater. Dafür müssen Sie einmalig die Angaben Ihres Steuerberaters eintragen (Beraternummer, Mandantennummer, Kontenrahmen SKR03/SKR04, Erlös- und Debitorenkonten): <em>Export → Einstellungen bearbeiten</em> (Anmeldung mit dem Verwaltungspasswort). Die vorbelegten Konten sind Platzhalter.</li>
+  <li><strong>DATEV-Buchungsstapel:</strong> Datei für den Import beim Steuerberater. Dafür müssen Sie einmalig die Angaben Ihres Steuerberaters eintragen (Beraternummer, Mandantennummer, Kontenrahmen SKR03/SKR04, Erlös- und Debitorenkonten): <em>Export → Einstellungen bearbeiten</em> (nur für Administratoren). Die vorbelegten Konten sind Platzhalter.</li>
   <li><strong>DATEV Belegtransfer:</strong> Wenn Sie DATEV Unternehmen online nutzen und der DATEV-Belegtransfer-Client auf diesem Computer installiert ist, kann jede fertige ZUGFeRD-Rechnung automatisch in dessen Ordner „Rechnungsausgang" gelegt werden. Ordner in den Export-Einstellungen eintragen.</li>
 </ul>
-<p>Jeder Export wird mit Datum, Zeitraum und Benutzer protokolliert.</p>
+<p>Jeder Export wird mit Datum, Zeitraum und dem angemeldeten Benutzer protokolliert. Dateien speichern Sie in der Anwendung über „Speichern unter".</p>
 
 <h2 id="versand">9. Versand per E-Mail (optional)</h2>
 <p>Die Anwendung kann jede fertige Rechnung automatisch an feste Empfänger senden (z. B. an Ihre Buchhaltung oder das Rechnungspostfach eines Kunden). Dazu sind zwei Dinge nötig:</p>
 <ol>
   <li>Server-Angaben in der <em>Verwaltung</em> (Host, Port, Absenderadresse) oder im Assistenten.</li>
-  <li>Zugangsdaten des Postfachs. Diese werden aus Sicherheitsgründen <strong>nicht</strong> in der Oberfläche eingegeben, sondern einmalig von Ihrer IT als Systemumgebungsvariablen <code>SMTP_USERNAME</code> und <code>SMTP_PASSWORD</code> hinterlegt (Abschnitt 14). Danach den Dienst neu starten.</li>
+  <li>Zugangsdaten des Postfachs. Diese werden aus Sicherheitsgründen <strong>nicht</strong> in der Oberfläche eingegeben, sondern einmalig von Ihrer IT als Systemumgebungsvariablen <code>SMTP_USERNAME</code> und <code>SMTP_PASSWORD</code> hinterlegt (Abschnitt 15). Danach den Dienst neu starten.</li>
 </ol>
 <p>Empfänger und Anhänge stehen im Layout-Profil (<code>profiles\standard.yaml</code>, Abschnitt <code>postProcess</code>); Hofmann IT richtet das auf Wunsch ein.</p>
 
-<h2 id="verwaltung">10. Verwaltung und Einstellungen</h2>
-<p>Menüpunkt <em>Verwaltung</em> (Anmeldung mit Benutzername und Passwort aus der Ersteinrichtung). Hier ändern Sie Ordner, die automatische Überwachung, den E-Mail-Server, das Verwaltungspasswort und laden Mandanten und Profile neu, wenn Ihre IT Dateien geändert hat. Änderungen wirken sofort, ohne Neustart. Jede Änderung wird mit Name und Zeitpunkt protokolliert.</p>
-<p><em>Systemstatus</em> zeigt Version, Verzeichnisse und ob alle Prüfkomponenten vorhanden sind.</p>
+<h2 id="verwaltung">10. Verwaltung, Benutzer und Einstellungen</h2>
+<p>Den Menüpunkt <em>Verwaltung</em> sehen nur Administratoren. Änderungen an den Einstellungen wirken sofort, ohne Neustart, und werden mit Name und Zeitpunkt protokolliert.</p>
+<table>
+  <tr><th>Bereich</th><th>Was Sie dort tun</th></tr>
+  <tr><td>Verzeichnisse, Überwachung, Versand</td><td>Ordner, automatische Inbox-Überwachung und E-Mail-Server ändern.</td></tr>
+  <tr><td>Benutzer</td><td>Konten anlegen, Rolle ändern, sperren oder freigeben, Passwort neu vergeben. <strong>Administrator:</strong> alle Funktionen. <strong>Sachbearbeiter:</strong> alle Funktionen außer Verwaltung und Export-Einstellungen. Legen Sie mindestens zwei Administratoren an; der letzte Administrator kann nicht gesperrt oder herabgestuft werden.</td></tr>
+  <tr><td>Netzzugriff</td><td>Festlegen, ob die Oberfläche nur auf diesem Computer oder zusätzlich im Firmennetz erreichbar ist (Abschnitt 11). Wirkt nach einem Neustart des Dienstes.</td></tr>
+  <tr><td>Mandanten und Profile</td><td>Neu laden, wenn Ihre IT Dateien geändert hat.</td></tr>
+</table>
+<p>Fünf falsche Passworteingaben sperren einen Benutzernamen für fünf Minuten. Ein gesperrtes Konto wird sofort abgemeldet.</p>
+<p><em>Systemstatus</em> zeigt Version, Netzzugriff, Verzeichnisse und ob alle Prüfkomponenten vorhanden sind.</p>
 
-<h2 id="sicherung">11. Datensicherung und Wiederherstellung</h2>
+<h2 id="arbeitsplaetze">11. Weitere Arbeitsplätze im Firmennetz</h2>
+<p>Nach der Installation ist die Oberfläche nur auf dem Server selbst erreichbar. Sollen Kolleginnen und Kollegen von ihren Computern aus arbeiten, sind drei Schritte nötig. Die Verbindung ist verschlüsselt (HTTPS).</p>
+<h3>Schritt 1 – auf dem Server: Zugriff aus dem Firmennetz einschalten</h3>
+<ul>
+  <li><strong>Bei der Installation:</strong> die Aufgabe <em>Zugriff aus dem Firmennetz erlauben</em> anhaken. Das Setup erledigt alles Weitere.</li>
+  <li><strong>Nachträglich:</strong> Windows PowerShell <em>als Administrator</em> öffnen und ausführen:<br><code>powershell -ExecutionPolicy Bypass -File "C:\Program Files\PDF-zu-ERechnung\netzbetrieb-einrichten.ps1"</code><br>Danach in der Anwendung <em>Verwaltung → Netzzugriff</em> auf „Dieser Computer und Firmennetz (HTTPS)" stellen, speichern und den Dienst neu starten (Symbol im Infobereich → <em>Dienst neu starten</em>).</li>
+</ul>
+<p>Dabei entsteht ein Zertifikat im Windows-Zertifikatsspeicher des Servers und eine Firewall-Regel für Port 8443, die nur in Domänen- und privaten Netzen gilt. Unter <em>Verwaltung → Netzzugriff</em> stehen danach die <strong>Adresse im Firmennetz</strong> (z. B. <code>https://rechnungsserver:8443</code>) und der <strong>Fingerabdruck</strong> des Zertifikats. Notieren Sie beides für Schritt 3.</p>
+<h3>Schritt 2 – auf dem Server: Benutzer anlegen</h3>
+<p><em>Verwaltung → Benutzer</em>: für jede Person ein eigenes Konto (Abschnitt 10).</p>
+<h3>Schritt 3 – auf jedem Arbeitsplatz: Verwaltung installieren und verbinden</h3>
+<ol>
+  <li>Dasselbe Setup ausführen und als Installationsart <strong>„Arbeitsplatz: nur Verwaltung"</strong> wählen.</li>
+  <li>Die Anwendung fragt beim ersten Start nach der Verbindung: <em>Server im Firmennetz</em> wählen, Servername und Port (8443) eintragen, <em>Verbinden</em>.</li>
+  <li>Die Anwendung zeigt den Fingerabdruck des Servers. <strong>Vergleichen Sie ihn mit der Anzeige auf dem Server</strong> und bestätigen Sie nur bei Übereinstimmung mit <em>Ja</em>. Damit ist sichergestellt, dass Sie mit Ihrem Server verbunden sind.</li>
+  <li>Mit dem eigenen Benutzerkonto anmelden.</li>
+</ol>
+<div class="box warn">Meldet die Anwendung später „Der Server zeigt ein anderes Zertifikat als beim letzten Mal", verbindet sie sich nicht. Das ist nach einer Erneuerung des Zertifikats normal; fragen Sie trotzdem erst Ihren Administrator und bestätigen Sie den neuen Fingerabdruck nur nach Vergleich mit der Anzeige auf dem Server.</div>
+<p>Auf dem Arbeitsplatz werden keine Passwörter gespeichert und keine Rechnungsdaten abgelegt; gemerkt werden nur Servername, Fingerabdruck und Fenstergröße. Die Adresse funktioniert auch im Browser; dort erscheint bei dem vom Setup erzeugten Zertifikat eine Sicherheitswarnung, weil der Browser den Fingerabdruck nicht kennt. Verwenden Sie auf Arbeitsplätzen deshalb die Anwendung.</p>
+<p><strong>Zugriff wieder abschalten:</strong> <em>Verwaltung → Netzzugriff</em> auf „Nur dieser Computer" stellen, speichern, Dienst neu starten.</p>
+
+<h2 id="sicherung">12. Datensicherung und Wiederherstellung</h2>
 <p>Nehmen Sie den Ordner <code>C:\ProgramData\PDF-zu-ERechnung</code> vollständig in Ihre Datensicherung auf. Unverzichtbar sind <code>archive</code>, <code>data</code>, <code>config</code> und <code>profiles</code>.</p>
-<p>Für eine saubere Sicherung den Dienst kurz anhalten: Windows-Taste, „Dienste" eingeben, <em>PDF-zu-E-Rechnung</em> auswählen, <em>Beenden</em>, sichern, <em>Starten</em>. Läuft Ihre Sicherung mit Schattenkopien (VSS), ist das nicht nötig.</p>
+<p>Für eine saubere Sicherung den Dienst kurz anhalten: Symbol im Infobereich → <em>Dienst stoppen</em>, sichern, <em>Dienst starten</em> (oder über die Windows-Diensteverwaltung). Läuft Ihre Sicherung mit Schattenkopien (VSS), ist das nicht nötig.</p>
 <p><strong>Wiederherstellung:</strong> Anwendung installieren, Dienst beenden, den gesicherten Ordner zurückkopieren, Dienst starten. Archiv und Datenbank gehören immer aus derselben Sicherung zusammen.</p>
 
-<h2 id="update">12. Update und Deinstallation</h2>
-<p><strong>Update:</strong> Neues Setup ausführen. Der Dienst wird angehalten, die Programmdateien werden ersetzt, Ihre Daten und Einstellungen bleiben erhalten, der Dienst startet wieder. Notwendige Anpassungen der Datenbank führt die Anwendung selbst durch. Sichern Sie vor dem Update den Datenordner.</p>
+<h2 id="update">13. Update und Deinstallation</h2>
+<p><strong>Update:</strong> Neues Setup ausführen. Der Dienst wird angehalten, die Programmdateien werden ersetzt, Ihre Daten und Einstellungen bleiben erhalten, der Dienst startet wieder. Notwendige Anpassungen der Datenbank führt die Anwendung selbst durch. Sichern Sie vor dem Update den Datenordner. Aktualisieren Sie danach auch die Arbeitsplätze mit demselben Setup.</p>
+<div class="box warn"><strong>Update von Version 1.0.0:</strong> Ab 1.1.0 verlangen alle Seiten eine Anmeldung; das Konto aus der Ersteinrichtung ist der erste Administrator, sein Passwort gilt weiter. Legen Sie danach unter <em>Verwaltung → Benutzer</em> die weiteren Konten an. Außerdem ist die Oberfläche nach dem Update nur noch auf dem Server selbst erreichbar, bis Sie den Zugriff aus dem Firmennetz einschalten (Abschnitt 11).</div>
 <p><strong>Deinstallation:</strong> Windows-Einstellungen → Apps → PDF-zu-E-Rechnung → Deinstallieren. Der Datenordner mit Archiv und Rechnungsausgangsbuch wird dabei <strong>nicht</strong> gelöscht; Sie entscheiden selbst, ob und wann.</p>
 
-<h2 id="probleme">13. Wenn etwas nicht funktioniert</h2>
+<h2 id="probleme">14. Wenn etwas nicht funktioniert</h2>
 <table>
   <tr><th>Beobachtung</th><th>Ursache und Lösung</th></tr>
-  <tr><td>Browser zeigt „Seite nicht erreichbar"</td><td>Dienst läuft nicht. Windows-Taste, „Dienste", <em>PDF-zu-E-Rechnung</em> starten. Startet er nicht, Protokoll unter <code>logs\erechnung.log</code> an den Support senden. Häufig: Port 8080 wird von einem anderen Programm belegt (Abschnitt 14).</td></tr>
+  <tr><td>Anwendung zeigt „Der Dienst ist nicht erreichbar"</td><td>Der Dienst läuft nicht oder startet noch. <em>Dienst starten</em> im Fenster oder im Menü des Symbols im Infobereich wählen (Windows fragt nach Administratorrechten); die Anzeige aktualisiert sich von selbst. Startet er nicht, Protokoll unter <code>logs\erechnung.log</code> an den Support senden. Häufig: Port 8080 wird von einem anderen Programm belegt (Abschnitt 15).</td></tr>
+  <tr><td>Arbeitsplatz: „Der Server ist nicht erreichbar"</td><td>Servername und Port unter <em>Verbindung …</em> prüfen. Auf dem Server: läuft der Dienst, zeigt <em>Systemstatus</em> beim Netzzugriff „Dieser Computer und Firmennetz"? Steht dort ein Grund in Rot (z. B. kein Zertifikat), Schritt 1 aus Abschnitt 11 wiederholen. Befindet sich der Server in einem als „öffentlich" eingestuften Netz, lässt die Firewall-Regel den Zugriff nicht zu.</td></tr>
+  <tr><td>Arbeitsplatz: „Zertifikat des Servers nicht bestätigt" oder „hat sich geändert"</td><td>Fingerabdruck mit der Anzeige auf dem Server vergleichen (<em>Verwaltung → Netzzugriff</em>). Stimmt er, bestätigen; stimmt er nicht, nicht verbinden und den Administrator informieren.</td></tr>
+  <tr><td>Anwendung meldet „Microsoft Edge WebView2 fehlt"</td><td>Die WebView2-Laufzeit (Evergreen) von Microsoft installieren oder Windows aktualisieren, Anwendung neu starten. Bis dahin die Oberfläche im Browser öffnen.</td></tr>
+  <tr><td>Anmeldung: „Zu viele Fehlversuche"</td><td>Fünf Minuten warten oder einen Administrator bitten, das Passwort neu zu vergeben.</td></tr>
   <tr><td>PDF bleibt in <code>inbox</code> liegen</td><td>Datei wird noch geschrieben oder ist keine PDF. Nach einer Minute prüfen; in der Verwaltung kontrollieren, ob „Inbox-Überwachung" aktiv ist.</td></tr>
   <tr><td>Status „Fehlgeschlagen" mit Hinweis auf PDF/A oder veraPDF</td><td>Rechnung ist kein PDF/A. Im Rechnungsprogramm beim PDF-Export „PDF/A" wählen, erneut ablegen.</td></tr>
   <tr><td>Status „Manuelle Prüfung"</td><td>Summen stimmen nicht oder ein Pflichtfeld wurde nicht gefunden. Details auf der Seite <em>Manuelle Prüfung</em>. Bei geändertem Rechnungslayout muss das Profil angepasst werden (Hofmann IT).</td></tr>
-  <tr><td>Verwaltung: Passwort vergessen</td><td>Ihre IT kann ein Notfallpasswort als Systemumgebungsvariable <code>ADMIN_PASSWORD</code> setzen (Dienst neu starten), danach in der Verwaltung ein neues Passwort vergeben und die Variable wieder entfernen.</td></tr>
+  <tr><td>Passwort vergessen</td><td>Ein Administrator vergibt unter <em>Verwaltung → Benutzer</em> ein neues. Hat kein Administrator mehr Zugang: Ihre IT setzt ein Notfallpasswort als Systemumgebungsvariable <code>ADMIN_PASSWORD</code> (Dienst neu starten, Anmeldung als <code>admin</code>), vergibt in der Verwaltung ein neues Passwort und entfernt die Variable wieder.</td></tr>
   <tr><td>Versand schlägt fehl</td><td>Server-Angaben in der Verwaltung prüfen, Zugangsdaten als Umgebungsvariablen gesetzt? Details stehen beim Vorgang unter „Historie".</td></tr>
   <tr><td>DATEV-Import lehnt Datei ab</td><td>Hinweise in der Export-Vorschau beachten; Kontenlänge und Kontenrahmen müssen zum DATEV-Mandat passen; nur ein Wirtschaftsjahr je Datei.</td></tr>
 </table>
 <p>Für den Support bitte angeben: Version (Seitenfuß), Beobachtung, Uhrzeit, und die Dateien aus <code>logs</code>.</p>
 
-<h2 id="technik">14. Technische Hinweise für Ihre IT</h2>
+<h2 id="technik">15. Technische Hinweise für Ihre IT</h2>
 <ul>
-  <li><strong>Komponenten:</strong> Java-Anwendung (Spring Boot) mit eigener, im Paket enthaltener Java-21-Laufzeit; Windows-Dienst über WinSW (MIT-Lizenz); Validierungsressourcen (KoSIT XRechnung 3.0.2, Mustang/veraPDF) lokal. Lizenzen: <code>docs\THIRD-PARTY.md</code>.</li>
-  <li><strong>Pfade:</strong> Programm <code>C:\Program Files\PDF-zu-ERechnung</code> (Jar, <code>runtime\</code>, <code>validator\</code>, Dienstkonfiguration <code>pdf-zu-erechnung.xml</code>), Daten <code>C:\ProgramData\PDF-zu-ERechnung</code> (Arbeitsverzeichnis des Dienstes).</li>
+  <li><strong>Komponenten:</strong> Java-Anwendung (Spring Boot) mit eigener, im Paket enthaltener Java-21-Laufzeit; Windows-Dienst über WinSW (MIT-Lizenz); Verwaltungsanwendung <code>PdfZuERechnung.Verwaltung.exe</code> (.NET Framework 4.8, Microsoft Edge WebView2; zeigt ausschließlich die Seiten des Dienstes); Validierungsressourcen (KoSIT XRechnung 3.0.2, Mustang/veraPDF) lokal. Lizenzen: <code>docs\THIRD-PARTY.md</code>.</li>
+  <li><strong>Pfade:</strong> Programm <code>C:\Program Files\PDF-zu-ERechnung</code> (Jar, <code>runtime\</code>, <code>validator\</code>, <code>verwaltung\</code>, Dienstkonfiguration <code>pdf-zu-erechnung.xml</code>), Daten <code>C:\ProgramData\PDF-zu-ERechnung</code> (Arbeitsverzeichnis des Dienstes). Die Verwaltungsanwendung speichert je Windows-Benutzer <code>%APPDATA%\PDF-zu-ERechnung\verwaltung.ini</code> (Verbindung, Fingerabdruck, Fensterlage; keine Passwörter) und ihr Anzeigeprofil unter <code>%LOCALAPPDATA%\PDF-zu-ERechnung</code>. Eine Arbeitsplatz-Installation enthält nur <code>verwaltung\</code> und <code>docs\</code>.</li>
   <li><strong>Dienst:</strong> Name <code>pdf-zu-erechnung</code>, Konto LocalSystem, Autostart (verzögert), Neustart bei Absturz, 60 s für sauberes Beenden. Befehle als Administrator im Programmordner: <code>pdf-zu-erechnung.exe status|stop|start|restart</code>.</li>
-  <li><strong>Netzwerk:</strong> Oberfläche auf TCP 8080 an allen Adressen. Für Zugriff aus dem Netz Firewall-Regel und idealerweise Reverse Proxy mit Anmeldung; die Anwendung selbst schützt nur den Verwaltungsbereich mit Passwort. Ausgehend nur SMTP, wenn konfiguriert. Port ändern: <code>server.port</code> in <code>config\application.yaml</code>, Dienst neu starten.</li>
+  <li><strong>Netzwerk:</strong> Oberfläche per HTTP auf TCP 8080, gebunden an <code>127.0.0.1</code> (nur dieser Computer). Mit eingeschaltetem Netzzugriff zusätzlich HTTPS (TLS 1.2/1.3) auf TCP 8443 an allen Adressen; Einstellung in <code>config\network.yaml</code> (<code>app.network.mode: local|network</code>, <code>port</code>), wirksam nach Dienst-Neustart. Alle Seiten verlangen eine Anmeldung. Ausgehend nur SMTP, wenn konfiguriert. Lokalen Port ändern: <code>server.port</code> in <code>config\application.yaml</code>, Dienst neu starten, in der Anwendung unter <em>Verbindung …</em> denselben Port eintragen.</li>
+  <li><strong>Zertifikat:</strong> Der Dienst liest Zertifikat und privaten Schlüssel aus dem Windows-Zertifikatsspeicher <em>Lokaler Computer → Eigene Zertifikate</em>; es gibt keine Schlüsseldatei und kein Passwort. Verwendet wird das Zertifikat mit dem Anzeigenamen „PDF-zu-ERechnung" (bei mehreren das am längsten gültige) oder das über <code>app.network.certificate-thumbprint</code> benannte. <code>netzbetrieb-einrichten.ps1</code> erzeugt ein selbstsigniertes Zertifikat (RSA 3072, 5 Jahre, nicht exportierbar) und die Firewall-Regel „PDF-zu-E-Rechnung (HTTPS)" für die Profile Domäne und Privat; <code>-Entfernen</code> löscht die Regel. Ein Zertifikat Ihrer eigenen Zertifizierungsstelle können Sie stattdessen mit diesem Anzeigenamen dort ablegen. Ist das Zertifikat nicht nutzbar, bleibt der Dienst lokal erreichbar und nennt den Grund im Systemstatus; er weicht nie auf unverschlüsselten Netzzugriff aus. Nach einem Zertifikatswechsel bestätigen die Arbeitsplätze den neuen Fingerabdruck.</li>
+  <li><strong>Verteilung auf Arbeitsplätze:</strong> stille Installation mit <code>PDF-zu-ERechnung-1.1.0-Setup.exe /VERYSILENT /TYPE=client</code>; Autostart des Symbols mit <code>/TASKS="autostart"</code>.</li>
   <li><strong>Umgebungsvariablen</strong> (Systemvariablen, gelten für das Dienstkonto nach Neustart des Dienstes): <code>SMTP_USERNAME</code>, <code>SMTP_PASSWORD</code>, optional <code>ADMIN_PASSWORD</code>. Systemsteuerung → System → Erweiterte Systemeinstellungen → Umgebungsvariablen → Systemvariablen.</li>
   <li><strong>Antivirus/Backup-Software:</strong> Den Datenordner in Echtzeit-Scans möglichst ausnehmen oder den Java-Prozess freigeben; einzelne Produkte blockieren lokale Netzwerk-Sockets, was den Dienststart mit „Unable to establish loopback connection" verhindert.</li>
   <li><strong>Mehrere Mandanten, Profile, DATEV-Details:</strong> siehe <code>docs\README.md</code> (Entwickler- und Betreiberdokumentation) und <code>docs\datev-format-referenz.md</code>.</li>
 </ul>
 
 </main>
-<footer>PDF-zu-E-Rechnung 1.0.0 · Hofmann IT · Dieses Handbuch liegt nach der Installation unter Startmenü → PDF-zu-E-Rechnung → Handbuch.</footer>
+<footer>PDF-zu-E-Rechnung 1.1.0 · Hofmann IT · Dieses Handbuch liegt nach der Installation unter Startmenü → PDF-zu-E-Rechnung → Handbuch.</footer>
 </body>
 </html>

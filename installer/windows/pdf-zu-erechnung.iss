@@ -2,9 +2,12 @@
 ; PDF-zu-E-Rechnung – Windows-Installationspaket (Inno Setup 6, ADR 0014)
 ;
 ; Erzeugt durch installer\windows\build-installer.ps1. Ziel: Installation ohne technische
-; Kenntnisse. Enthalten sind Anwendung, eigene Java-Laufzeit (jlink), Windows-Dienst (WinSW),
-; Validierungsressourcen und Handbuch. Nach der Installation startet der Dienst und der Browser
-; öffnet den Einrichtungs-Assistenten.
+; Kenntnisse. Zwei Installationsarten (ADR 0015):
+;   Server        – Dienst (Anwendung, eigene Java-Laufzeit, WinSW, Validierungsressourcen),
+;                   Verwaltungsanwendung und Handbuch; optional Zugriff aus dem Firmennetz
+;   Arbeitsplatz  – nur die Verwaltungsanwendung, die sich mit dem Server verbindet
+; Nach der Installation startet die Verwaltungsanwendung (auf dem Server mit dem
+; Einrichtungs-Assistenten).
 ;
 ; Programmdateien:  C:\Program Files\PDF-zu-ERechnung   (nur lesen)
 ; Daten:            C:\ProgramData\PDF-zu-ERechnung     (Konfiguration, Inbox, Archiv, Datenbank)
@@ -12,7 +15,7 @@
 ; =====================================================================================
 
 #ifndef AppVersion
-  #define AppVersion "1.0.0"
+  #define AppVersion "1.1.0"
 #endif
 #ifndef StageDir
   #define StageDir "..\..\target\installer\stage"
@@ -47,14 +50,22 @@ MinVersion=10.0
 Name: "de"; MessagesFile: "compiler:Languages\German.isl"
 
 [Messages]
-de.WelcomeLabel2=Dieses Programm installiert PDF-zu-E-Rechnung {#AppVersion} auf Ihrem Computer.%n%nDie Anwendung wandelt PDF-Rechnungen in E-Rechnungen (XRechnung, ZUGFeRD) um und prüft empfangene E-Rechnungen. Alle Daten bleiben auf diesem Computer.%n%nNach der Installation öffnet sich der Browser mit dem Einrichtungs-Assistenten.
+de.WelcomeLabel2=Dieses Programm installiert PDF-zu-E-Rechnung {#AppVersion} auf Ihrem Computer.%n%nDie Anwendung wandelt PDF-Rechnungen in E-Rechnungen (XRechnung, ZUGFeRD) um und prüft empfangene E-Rechnungen. Alle Daten bleiben auf dem Computer, auf dem der Dienst läuft.%n%nIm nächsten Schritt wählen Sie: „Server" für den Computer, der die Rechnungen verarbeitet, oder „Arbeitsplatz" für weitere Computer im Firmennetz.
 
 [Types]
-Name: "full"; Description: "Vollständige Installation"
+; Der erste Eintrag ist die Vorgabe und gilt auch beim Update einer Installation 1.0.0
+Name: "server"; Description: "Server: Dienst und Verwaltung (verarbeitet die Rechnungen)"
+Name: "client"; Description: "Arbeitsplatz: nur Verwaltung (verbindet sich mit dem Server)"
 
 [Components]
-Name: "app"; Description: "Anwendung, Java-Laufzeit und Windows-Dienst"; Types: full; Flags: fixed
-Name: "docs"; Description: "Handbuch und Lizenzhinweise"; Types: full
+Name: "app"; Description: "Dienst mit Java-Laufzeit und Validierung"; Types: server; Flags: fixed
+Name: "verwaltung"; Description: "Verwaltungsanwendung (eigenes Fenster, Symbol im Infobereich)"; Types: server client; Flags: fixed
+Name: "docs"; Description: "Handbuch und Lizenzhinweise"; Types: server client; Flags: fixed
+
+[Tasks]
+Name: "desktopicon"; Description: "Verknüpfung auf dem Desktop anlegen"
+Name: "autostart"; Description: "Symbol im Infobereich bei der Windows-Anmeldung starten"; Flags: unchecked
+Name: "netz"; Description: "Zugriff aus dem Firmennetz erlauben (HTTPS, Port 8443): erzeugt ein Zertifikat und eine Firewall-Regel"; Components: app; Flags: unchecked
 
 [Files]
 ; Anwendung und Laufzeit
@@ -65,6 +76,10 @@ Source: "{#StageDir}\app\validator\*"; DestDir: "{app}\validator"; Flags: ignore
 Source: "{#StageDir}\app\pdf-zu-erechnung.exe"; DestDir: "{app}"; Flags: ignoreversion; Components: app
 Source: "{#StageDir}\app\pdf-zu-erechnung.xml.in"; DestDir: "{app}"; Flags: ignoreversion; Components: app
 Source: "{#StageDir}\app\LICENSE-WinSW.txt"; DestDir: "{app}"; Flags: ignoreversion; Components: app
+; Netzzugriff: Zertifikat und Firewall-Regel (wird bei gewählter Aufgabe ausgeführt, sonst später von Hand)
+Source: "{#StageDir}\app\netzbetrieb-einrichten.ps1"; DestDir: "{app}"; Flags: ignoreversion; Components: app
+; Verwaltungsanwendung (WinForms + WebView2-SDK)
+Source: "{#StageDir}\verwaltung\*"; DestDir: "{app}\verwaltung"; Flags: ignoreversion; Components: verwaltung
 ; Dokumentation
 Source: "{#StageDir}\docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: docs
 ; Daten: Konfiguration und Profil nur anlegen, wenn noch nicht vorhanden; nie deinstallieren
@@ -73,35 +88,42 @@ Source: "{#StageDir}\data\profiles\*.yaml"; DestDir: "{commonappdata}\PDF-zu-ERe
 
 [Dirs]
 ; Arbeitsverzeichnisse: Benutzer dürfen Rechnungen ablegen und Ergebnisse abholen
-Name: "{commonappdata}\PDF-zu-ERechnung"; Permissions: users-modify; Flags: uninsneveruninstall
-Name: "{commonappdata}\PDF-zu-ERechnung\inbox"; Permissions: users-modify; Flags: uninsneveruninstall
-Name: "{commonappdata}\PDF-zu-ERechnung\processing"; Flags: uninsneveruninstall
-Name: "{commonappdata}\PDF-zu-ERechnung\output"; Permissions: users-modify; Flags: uninsneveruninstall
-Name: "{commonappdata}\PDF-zu-ERechnung\failed"; Permissions: users-modify; Flags: uninsneveruninstall
-Name: "{commonappdata}\PDF-zu-ERechnung\manual-review"; Permissions: users-modify; Flags: uninsneveruninstall
-Name: "{commonappdata}\PDF-zu-ERechnung\rejected"; Permissions: users-modify; Flags: uninsneveruninstall
-Name: "{commonappdata}\PDF-zu-ERechnung\archive"; Flags: uninsneveruninstall
-Name: "{commonappdata}\PDF-zu-ERechnung\data"; Flags: uninsneveruninstall
-Name: "{commonappdata}\PDF-zu-ERechnung\inbound-validation"; Flags: uninsneveruninstall
-Name: "{commonappdata}\PDF-zu-ERechnung\logs"; Flags: uninsneveruninstall
-Name: "{commonappdata}\PDF-zu-ERechnung\logs\service"; Flags: uninsneveruninstall
+Name: "{commonappdata}\PDF-zu-ERechnung"; Permissions: users-modify; Flags: uninsneveruninstall; Components: app
+Name: "{commonappdata}\PDF-zu-ERechnung\inbox"; Permissions: users-modify; Flags: uninsneveruninstall; Components: app
+Name: "{commonappdata}\PDF-zu-ERechnung\processing"; Flags: uninsneveruninstall; Components: app
+Name: "{commonappdata}\PDF-zu-ERechnung\output"; Permissions: users-modify; Flags: uninsneveruninstall; Components: app
+Name: "{commonappdata}\PDF-zu-ERechnung\failed"; Permissions: users-modify; Flags: uninsneveruninstall; Components: app
+Name: "{commonappdata}\PDF-zu-ERechnung\manual-review"; Permissions: users-modify; Flags: uninsneveruninstall; Components: app
+Name: "{commonappdata}\PDF-zu-ERechnung\rejected"; Permissions: users-modify; Flags: uninsneveruninstall; Components: app
+Name: "{commonappdata}\PDF-zu-ERechnung\archive"; Flags: uninsneveruninstall; Components: app
+Name: "{commonappdata}\PDF-zu-ERechnung\data"; Flags: uninsneveruninstall; Components: app
+Name: "{commonappdata}\PDF-zu-ERechnung\inbound-validation"; Flags: uninsneveruninstall; Components: app
+Name: "{commonappdata}\PDF-zu-ERechnung\logs"; Flags: uninsneveruninstall; Components: app
+Name: "{commonappdata}\PDF-zu-ERechnung\logs\service"; Flags: uninsneveruninstall; Components: app
 
 [Icons]
-Name: "{group}\PDF-zu-E-Rechnung öffnen"; Filename: "http://localhost:8080/"; Comment: "Oberfläche im Browser öffnen"
-Name: "{group}\Rechnungen ablegen (Inbox)"; Filename: "{commonappdata}\PDF-zu-ERechnung\inbox"; Comment: "PDF-Rechnungen hier ablegen"
-Name: "{group}\Ergebnisse (Output)"; Filename: "{commonappdata}\PDF-zu-ERechnung\output"
+Name: "{group}\PDF-zu-E-Rechnung"; Filename: "{app}\verwaltung\PdfZuERechnung.Verwaltung.exe"; Comment: "PDF-zu-E-Rechnung öffnen"; Components: verwaltung
+Name: "{autodesktop}\PDF-zu-E-Rechnung"; Filename: "{app}\verwaltung\PdfZuERechnung.Verwaltung.exe"; Comment: "PDF-zu-E-Rechnung öffnen"; Components: verwaltung; Tasks: desktopicon
+Name: "{commonstartup}\PDF-zu-E-Rechnung"; Filename: "{app}\verwaltung\PdfZuERechnung.Verwaltung.exe"; Parameters: "/tray"; Comment: "Symbol im Infobereich"; Components: verwaltung; Tasks: autostart
+Name: "{group}\PDF-zu-E-Rechnung im Browser öffnen"; Filename: "http://localhost:8080/"; Comment: "Oberfläche im Browser öffnen"; Components: app
+Name: "{group}\Rechnungen ablegen (Inbox)"; Filename: "{commonappdata}\PDF-zu-ERechnung\inbox"; Comment: "PDF-Rechnungen hier ablegen"; Components: app
+Name: "{group}\Ergebnisse (Output)"; Filename: "{commonappdata}\PDF-zu-ERechnung\output"; Components: app
 Name: "{group}\Handbuch"; Filename: "{app}\docs\Handbuch.html"; Components: docs
-Name: "{group}\Datenverzeichnis"; Filename: "{commonappdata}\PDF-zu-ERechnung"
+Name: "{group}\Datenverzeichnis"; Filename: "{commonappdata}\PDF-zu-ERechnung"; Components: app
 Name: "{group}\PDF-zu-E-Rechnung deinstallieren"; Filename: "{uninstallexe}"
 
 [Run]
 ; Dienst registrieren und starten geschieht im [Code]-Teil (ssPostInstall), nachdem die
 ; Dienstkonfiguration aus der Vorlage geschrieben wurde; [Run]-Einträge liefen davor.
-Filename: "http://localhost:8080/"; Description: "Einrichtungs-Assistent im Browser öffnen"; Flags: postinstall shellexec nowait skipifsilent; Check: ServiceAnswered
+; Die Verwaltungsanwendung startet mit den Rechten des angemeldeten Benutzers, nicht mit denen des Setups.
+Filename: "{app}\verwaltung\PdfZuERechnung.Verwaltung.exe"; Description: "PDF-zu-E-Rechnung jetzt öffnen"; Flags: postinstall nowait skipifsilent runasoriginaluser; Components: verwaltung
 
 [UninstallRun]
-Filename: "{app}\pdf-zu-erechnung.exe"; Parameters: "stop"; Flags: runhidden waituntilterminated; RunOnceId: "svcstop"
-Filename: "{app}\pdf-zu-erechnung.exe"; Parameters: "uninstall"; Flags: runhidden waituntilterminated; RunOnceId: "svcuninstall"
+Filename: "{sys}\taskkill.exe"; Parameters: "/IM PdfZuERechnung.Verwaltung.exe /F"; Flags: runhidden waituntilterminated; RunOnceId: "appclose"
+Filename: "{app}\pdf-zu-erechnung.exe"; Parameters: "stop"; Flags: runhidden waituntilterminated; RunOnceId: "svcstop"; Components: app
+Filename: "{app}\pdf-zu-erechnung.exe"; Parameters: "uninstall"; Flags: runhidden waituntilterminated; RunOnceId: "svcuninstall"; Components: app
+; Firewall-Regel des Netzzugriffs entfernen (falls vorhanden); das Zertifikat bleibt im Windows-Zertifikatsspeicher
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\netzbetrieb-einrichten.ps1"" -Entfernen"; Flags: runhidden waituntilterminated; RunOnceId: "fwremove"; Components: app
 
 [Code]
 var
@@ -112,15 +134,30 @@ begin
   Result := ExpandConstant('{commonappdata}\PDF-zu-ERechnung');
 end;
 
-{ Vorhandenen Dienst vor dem Kopieren anhalten und entfernen (Update-Installation). }
+{ Arbeitsplatz-Installation über einen vorhandenen Dienst würde ihn in der alten Version zurücklassen. }
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if (CurPageID = wpSelectComponents) and (not WizardIsComponentSelected('app'))
+     and FileExists(ExpandConstant('{app}\pdf-zu-erechnung.exe')) then
+  begin
+    MsgBox('Auf diesem Computer ist der Dienst PDF-zu-E-Rechnung installiert.' + #13#10 + #13#10 +
+           'Bitte "Server" wählen, damit der Dienst aktualisiert wird. Soll dieser Computer künftig nur Arbeitsplatz sein, ' +
+           'deinstallieren Sie zuerst die vorhandene Installation (die Daten bleiben erhalten).', mbInformation, MB_OK);
+    Result := False;
+  end;
+end;
+
+{ Laufende Verwaltungsanwendung schließen; vorhandenen Dienst vor dem Kopieren anhalten und entfernen (Update-Installation). }
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   Exe: String;
   ResultCode: Integer;
 begin
   Result := '';
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM PdfZuERechnung.Verwaltung.exe /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exe := ExpandConstant('{app}\pdf-zu-erechnung.exe');
-  if FileExists(Exe) then
+  if WizardIsComponentSelected('app') and FileExists(Exe) then
   begin
     Exec(Exe, 'stop', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     Exec(Exe, 'uninstall', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
@@ -171,11 +208,6 @@ begin
   end;
 end;
 
-function ServiceAnswered(): Boolean;
-begin
-  Result := ServiceReady;
-end;
-
 { WinSW-Befehl ausführen; Ausgabe landet zur Diagnose in logs\service\setup-<Befehl>.log }
 function RunWinSW(Command: String): Integer;
 var
@@ -192,12 +224,56 @@ begin
   Log('WinSW ' + Command + ': Exit-Code ' + IntToStr(Result));
 end;
 
+{ Die Verwaltungsanwendung braucht die WebView2-Laufzeit von Microsoft (in Windows 11 enthalten). }
+function WebView2Installed(): Boolean;
+var
+  Version: String;
+begin
+  Result := (RegQueryStringValue(HKLM, 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', Version)
+             or RegQueryStringValue(HKLM, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', Version)
+             or RegQueryStringValue(HKCU, 'Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', Version))
+            and (Version <> '') and (Version <> '0.0.0.0');
+end;
+
+{ Zugriff aus dem Firmennetz (ADR 0015): Zertifikat und Firewall-Regel anlegen, dann den Modus
+  in config\network.yaml eintragen. Schlägt das Skript fehl, bleibt der Dienst nur lokal erreichbar. }
+procedure SetupNetwork();
+var
+  Script, LogFile, Yaml: String;
+  ResultCode: Integer;
+begin
+  WizardForm.StatusLabel.Caption := 'Zugriff aus dem Firmennetz wird eingerichtet ...';
+  Script := ExpandConstant('{app}\netzbetrieb-einrichten.ps1');
+  LogFile := DataDir() + '\logs\service\setup-netzbetrieb.log';
+  if (not Exec(ExpandConstant('{cmd}'), '/C ""' + ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe') +
+          '" -NoProfile -ExecutionPolicy Bypass -File "' + Script + '" -Port 8443 > "' + LogFile + '" 2>&1"',
+          ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then
+  begin
+    MsgBox('Der Zugriff aus dem Firmennetz konnte nicht eingerichtet werden. Die Anwendung ist auf diesem Computer trotzdem nutzbar.' + #13#10 +
+           'Protokoll: ' + LogFile + #13#10 + 'Später nachholen: Handbuch, Abschnitt "Weitere Arbeitsplätze".', mbInformation, MB_OK);
+    Exit;
+  end;
+  Yaml := DataDir() + '\config\network.yaml';
+  if FileExists(Yaml) then
+    CopyFile(Yaml, Yaml + '.bak-setup', False);
+  SaveStringToFile(Yaml,
+    '# Netzzugriff (config/network.yaml) - geschrieben vom Setup; aenderbar unter Verwaltung -> Netzzugriff.' + #13#10 +
+    '# local = nur dieser Computer, network = zusaetzlich HTTPS fuer das Firmennetz. KEINE SECRETS in dieser Datei.' + #13#10 +
+    'app:' + #13#10 + '  network:' + #13#10 + '    mode: network' + #13#10 + '    port: 8443' + #13#10, False);
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Code: Integer;
 begin
-  if CurStep = ssPostInstall then
+  if (CurStep = ssPostInstall) and (not WebView2Installed()) then
+    MsgBox('Auf diesem Computer fehlt die Microsoft Edge WebView2-Laufzeit, mit der die Verwaltungsanwendung die Oberfläche anzeigt.' + #13#10 + #13#10 +
+           'Lösung: Die "WebView2-Laufzeit (Evergreen)" von Microsoft installieren oder Windows aktualisieren. ' +
+           'Bis dahin ist die Oberfläche im Browser erreichbar.', mbInformation, MB_OK);
+  if (CurStep = ssPostInstall) and WizardIsComponentSelected('app') then
   begin
+    if WizardIsTaskSelected('netz') then
+      SetupNetwork();
     WizardForm.StatusLabel.Caption := 'Windows-Dienst wird eingerichtet ...';
     WriteServiceXml();
     Code := RunWinSW('install');
@@ -212,14 +288,14 @@ begin
     ServiceReady := WaitForService();
     if not ServiceReady then
       MsgBox('Der Dienst wurde eingerichtet, antwortet aber noch nicht unter http://localhost:8080.' + #13#10 +
-             'Bitte 1 bis 2 Minuten warten und dann die Verknüpfung "PDF-zu-E-Rechnung öffnen" im Startmenü verwenden.' + #13#10 +
+             'Die Anwendung "PDF-zu-E-Rechnung" zeigt die Oberfläche von selbst an, sobald der Dienst bereit ist (1 bis 2 Minuten).' + #13#10 +
              'Protokolle: ' + DataDir() + '\logs', mbInformation, MB_OK);
   end;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
-  if CurUninstallStep = usPostUninstall then
+  if (CurUninstallStep = usPostUninstall) and DirExists(DataDir()) then
     MsgBox('PDF-zu-E-Rechnung wurde entfernt. Ihre Daten (Konfiguration, Archiv, Datenbank) bleiben unter' + #13#10 +
            DataDir() + #13#10 + 'erhalten und wurden nicht gelöscht.', mbInformation, MB_OK);
 end;
