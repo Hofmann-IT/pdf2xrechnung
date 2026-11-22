@@ -166,7 +166,8 @@ wurde als Freitext eingetragen. Für einen im Netz erreichbaren Dienst ist das n
 - Spring Security aktiviert zusätzlich Schutz-Header (u. a. `X-Frame-Options: DENY`,
   `Cache-Control: no-store`) und eine Web-Firewall, die Pfadwechsel wie `/..` bereits mit 400
   abweist, bevor die Anwendung sie sieht.
-- CLI (`calibrate`, `reprocess`) und die Verarbeitung über den Watcher sind nicht betroffen.
+- CLI (`calibrate`, `reprocess`) und die Verarbeitung über den Watcher sind fachlich nicht
+  betroffen; die Web-Sicherheit wird nur mit Web-Server aufgebaut (`CliContextTest`).
 - Nach dem Update ist die Oberfläche von anderen PCs erst wieder erreichbar, wenn der
   Netzzugriff eingerichtet ist (Windows) bzw. `APP_NETWORK_MODE=open` gesetzt wird (Linux mit
   Reverse Proxy auf einem anderen Rechner). Docker ist durch das Image unverändert erreichbar.

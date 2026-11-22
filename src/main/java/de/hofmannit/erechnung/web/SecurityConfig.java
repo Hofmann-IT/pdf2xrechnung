@@ -14,6 +14,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -49,7 +50,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *       Anfrage ({@link AccountStateFilter}).</li>
  * </ul>
  */
+// Nur mit Web-Server: die CLI-Befehle (calibrate, reprocess) starten ohne ihn und brauchen keine Anmeldung
 @Configuration
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class SecurityConfig {
 
     static final String ROLE_PREFIX = "ROLE_";

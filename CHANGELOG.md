@@ -25,6 +25,11 @@ den Datenordner sichern.
   „Weitere Arbeitsplätze im Firmennetz", Update-Hinweise, Fehlersuche, IT-Hinweise.
 - Version 1.1.0.
 
+### Behoben nach dem ersten Kundentest (2026-11-22)
+- Die Kommandozeilen-Befehle `calibrate` und `reprocess` starteten seit der Anmeldung für alle
+  Seiten nicht mehr (die Web-Sicherheit wurde auch ohne Web-Server aufgebaut). Behoben und mit
+  einem Test abgesichert, der die Anwendung wie die Kommandozeile ohne Web-Server startet.
+
 
 ### Phase A – Anmeldung für alle Funktionen (2026-11-20)
 - V6: Tabelle `user_account` (append-only, PBKDF2-SHA256-Hash) mit den Rollen Administrator
