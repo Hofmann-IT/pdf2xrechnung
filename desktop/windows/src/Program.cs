@@ -17,6 +17,11 @@ namespace HofmannIT.ERechnung.Verwaltung
             bool selfTest = commandLine.SelfTestDirectory.Length > 0;
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            if (commandLine.TemplateTestDirectory.Length > 0)
+            {
+                // Vorlagen-Assistent ohne Fenster (Diagnose, Tests); unabhängig von einer laufenden Instanz
+                return TemplateBatch.Run(commandLine.TemplateTestDirectory);
+            }
 
             bool first;
             using (Mutex mutex = new Mutex(true, InstanceName + (selfTest ? ".Selbsttest" : ""), out first))

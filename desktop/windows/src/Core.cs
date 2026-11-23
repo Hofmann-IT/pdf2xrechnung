@@ -361,12 +361,14 @@ namespace HofmannIT.ERechnung.Verwaltung
         }
     }
 
-    /// <summary>Befehlszeile: /tray, /einstellungen &lt;Datei&gt;, /selbsttest &lt;Ordner&gt; (Diagnose).</summary>
+    /// <summary>Befehlszeile: /tray, /einstellungen &lt;Datei&gt;, /selbsttest &lt;Ordner&gt;, /vorlagentest &lt;Ordner&gt; (Diagnose).</summary>
     public sealed class CommandLine
     {
         public bool StartInTray;
         public string SettingsPath = "";
         public string SelfTestDirectory = "";
+        /// <summary>Vorlagen-Assistent ohne Fenster: alle Word-/Excel-Dateien dieses Ordners auswerten (Diagnose, Tests).</summary>
+        public string TemplateTestDirectory = "";
         public readonly List<string> Unknown = new List<string>();
 
         public static CommandLine Parse(string[] args)
@@ -386,6 +388,10 @@ namespace HofmannIT.ERechnung.Verwaltung
                 else if (a == "/selbsttest" && i + 1 < args.Length)
                 {
                     c.SelfTestDirectory = args[++i];
+                }
+                else if (a == "/vorlagentest" && i + 1 < args.Length)
+                {
+                    c.TemplateTestDirectory = args[++i];
                 }
                 else
                 {

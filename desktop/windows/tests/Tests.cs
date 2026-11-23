@@ -1,4 +1,4 @@
-// Tests der Kernlogik (Core.cs, ServiceControl.cs) ohne Fenster. Übersetzt und ausgeführt von
+// Tests der Kernlogik (Core.cs, ServiceControl.cs, TemplateModel.cs) ohne Fenster. Übersetzt und ausgeführt von
 // build-desktop.ps1; ein fehlgeschlagener Test bricht den Build ab (Exitcode 1).
 using System;
 using System.Collections.Generic;
@@ -32,6 +32,11 @@ internal static class Tests
         FingerprintTests();
         ServicePaths();
         CommandLines();
+        TemplateValues();
+        TemplateExcelLayout();
+        TemplateWordLayout();
+        TemplateRefusals();
+        TemplateLayoutVariants();
         Console.WriteLine(count + " Prüfungen, " + failures + " fehlgeschlagen");
         return failures == 0 ? 0 : 1;
     }
@@ -183,5 +188,302 @@ internal static class Tests
         Equal(@"C:\y", d.SelfTestDirectory, "Ordner des Diagnoselaufs");
         Equal(1, d.Unknown.Count, "Unbekannte Angaben werden gesammelt");
         Check(!CommandLine.Parse(new string[0]).StartInTray, "Ohne Angaben normales Fenster");
+        Equal(@"C:\z", CommandLine.Parse(new string[] { "/vorlagentest", @"C:\z" }).TemplateTestDirectory, "Ordner des Vorlagentests");
+    }
+
+    // ---- Vorlagen-Assistent: Erkennung an nachgebauten Fremd-Layouts (erfundene Daten) --------
+
+    private static void TemplateValues()
+    {
+        decimal v;
+        Check(Values.TryNumber("1.560,00", out v) && v == 1560.00m, "Betrag mit Tausenderpunkt");
+        Check(Values.TryNumber("512,31 €", out v) && v == 512.31m, "Betrag mit Euro-Zeichen");
+        Check(Values.TryNumber("EUR 12,5", out v) && v == 12.5m, "Betrag mit EUR davor");
+        Check(Values.TryNumber("2", out v) && v == 2m, "Ganze Zahl");
+        Check(!Values.TryNumber("inkl.", out v), "Text ist keine Zahl");
+        Check(!Values.TryNumber("1,560.00", out v), "Englische Schreibweise wird nicht geraten");
+        Check(Values.TryAmount("6.883,11", out v) && v == 6883.11m, "Geldbetrag");
+        Check(!Values.TryAmount("19", out v), "Geldbetrag braucht zwei Nachkommastellen");
+        Check(Values.LastAmount("Endbetrag EUR 6.883,11", out v) && v == 6883.11m, "Letzter Betrag einer Zeile");
+        Check(Values.LastAmount("+ 19 % MwSt 97,34 €", out v) && v == 97.34m, "Betrag hinter Prozentangabe");
+        Check(!Values.LastAmount("zahlbar in 14 Tagen", out v), "Zeile ohne Betrag");
+        Equal("1.560,00", Values.Amount(1560m), "Betrag formatieren");
+        DateTime d;
+        Check(Values.TryDate("26.02.2026", out d) && Values.Date(d) == "26.02.2026", "Datum TT.MM.JJJJ");
+        Check(Values.TryDate("3.3.26", out d) && Values.Date(d) == "03.03.2026", "Datum kurz");
+        Check(Values.TryDate("den 11. Februar 2026", out d) && Values.Date(d) == "11.02.2026", "Datum mit Monatsname");
+        Check(!Values.TryDate("02/26", out d), "Monat/Jahr ist kein Datum");
+        Check(!Values.TryDate("31.02.2026", out d), "Unmögliches Datum");
+        Equal("Stk.", Values.Unit("Stck."), "Einheit Stück");
+        Equal("Std.", Values.Unit("Stunden"), "Einheit Stunden");
+        Equal("m²", Values.Unit("m²"), "Unbekannte Einheit bleibt");
+    }
+
+    private static SourceLine Line(params object[] columnAndText)
+    {
+        SourceLine line = new SourceLine();
+        for (int i = 0; i + 1 < columnAndText.Length; i += 2)
+        {
+            int column = (int)columnAndText[i];
+            line.Add(column, (string)columnAndText[i + 1], "S" + column);
+        }
+        return line;
+    }
+
+    private static string Field(Analysis a, InvoiceField f)
+    {
+        return a.Get(f).Value;
+    }
+
+    private static void TemplateExcelLayout()
+    {
+        // Excel-Blatt: Briefkopf in Zellen rechts, "RECHNUNG <Nr>", "Datum:", Spalten Pos. | Stück | Bezeichnung | EP | GP
+        SourceDocument doc = new SourceDocument();
+        doc.FileName = "fremd.xls";
+        doc.Excel = true;
+        doc.Sheet = "Rechnung";
+        doc.Lines.Add(Line(6, "Muster Bau GmbH"));
+        doc.Lines.Add(Line(6, "Werkstr. 9"));
+        doc.Lines.Add(Line(6, "80999 München"));
+        doc.Lines.Add(Line(6, "Telefon 089/123456"));
+        doc.Lines.Add(Line(2, "Muster Bau GmbH, Werkstr. 9, 80999 München"));
+        doc.Lines.Add(Line(2, "Herr"));
+        doc.Lines.Add(Line(2, "Max Beispiel"));
+        doc.Lines.Add(Line(2, "Hauptstr. 5"));
+        doc.Lines.Add(Line(2, "80331 München"));
+        doc.Lines.Add(Line(1, "RECHNUNG 5001", 6, "Datum:", 7, "03.03.2026"));
+        doc.Lines.Add(Line(1, "Leistungszeitpunkt 02/26", 6, "Kd.-Nr.:"));
+        doc.Lines.Add(Line(1, "Bauvorhaben: Wohnung 2. OG"));
+        doc.Lines.Add(Line(1, "Pos.", 2, "Stück", 3, "Bezeichnung", 6, "EP", 7, "GP"));
+        doc.Lines.Add(Line(1, "Pos. 1", 2, "1", 3, "Reparatur einer Zimmertür", 6, "512,31 €", 7, "512,31 €"));
+        doc.Lines.Add(Line(3, "Größe ca. 500 x 1400 mm"));
+        doc.Lines.Add(Line(2, "2 Stck.", 3, "An-/Abfahrtskosten", 6, "inkl."));
+        doc.Lines.Add(Line(1, "Pos. 2", 2, "3", 3, "Türgriff", 6, "10,00 €", 7, "30,00 €"));
+        doc.Lines.Add(Line(6, "Summe netto", 7, "542,31 €"));
+        doc.Lines.Add(Line(6, "+ 19 % MwSt", 7, "103,04 €"));
+        doc.Lines.Add(Line(6, "Gesamtbetrag EUR", 7, "645,35 €"));
+        doc.Lines.Add(Line(1, "Zahlbar innerhalb von 14 Tagen ohne Abzug."));
+        doc.Kept.Add("Bild „Logo“");
+
+        Analysis a = TemplateAnalyzer.Analyze(doc);
+        Equal(0, a.Blockers.Count, "Excel-Layout: kein Ausschlussgrund");
+        Equal("5001", Field(a, InvoiceField.InvoiceNumber), "Excel-Layout: Rechnungsnummer aus „RECHNUNG 5001“");
+        Equal("RECHNUNG", a.Get(InvoiceField.InvoiceNumber).SourceLabel, "Excel-Layout: bisherige Beschriftung der Rechnungsnummer");
+        Equal("03.03.2026", Field(a, InvoiceField.InvoiceDate), "Excel-Layout: Datum aus der Nachbarzelle von „Datum:“");
+        Equal(MatchStatus.Uncertain, a.Get(InvoiceField.ServiceDate).Status, "Excel-Layout: „02/26“ ist kein Leistungsdatum");
+        Equal(MatchStatus.Missing, a.Get(InvoiceField.CustomerNumber).Status, "Excel-Layout: leere Kunden-Nr. fehlt");
+        Equal("Herr Max Beispiel", Field(a, InvoiceField.BuyerName), "Excel-Layout: Anrede und Name in einer Zeile");
+        Equal(MatchStatus.Uncertain, a.Get(InvoiceField.BuyerName).Status, "Excel-Layout: zusammengezogener Name ist zu prüfen");
+        Equal("Hauptstr. 5", Field(a, InvoiceField.BuyerStreet), "Excel-Layout: Straße");
+        Equal("80331 München", Field(a, InvoiceField.BuyerCity), "Excel-Layout: Ort des Kunden, nicht des Briefkopfs");
+        Equal(MatchStatus.Missing, a.Get(InvoiceField.BuyerEmail).Status, "Excel-Layout: E-Mail des Kunden fehlt");
+        Equal(2, a.Items.Count, "Excel-Layout: zwei Positionen");
+        Equal("1", a.Items[0].Number, "Excel-Layout: „Pos. 1“ wird zur Zahl");
+        Equal("1,00", a.Items[0].Quantity, "Excel-Layout: Menge");
+        Equal("Stk.", a.Items[0].Unit, "Excel-Layout: Einheit aus der Spaltenüberschrift „Stück“");
+        Equal("512,31", a.Items[0].UnitPrice, "Excel-Layout: Einzelpreis ohne Euro-Zeichen");
+        Equal("512,31", a.Items[0].Total, "Excel-Layout: Gesamt ohne Euro-Zeichen");
+        Equal("19 %", a.Items[0].VatRate, "Excel-Layout: Steuersatz aus dem Summenblock (genau ein Satz)");
+        Equal(3, a.Items[0].Description.Count, "Excel-Layout: Bezeichnung mit Folgezeile und Unterpunkt");
+        Equal("inkl. 2 Stck. An-/Abfahrtskosten", a.Items[0].Description[2], "Excel-Layout: Unterpunkt ohne Preis als Text");
+        Equal(1, a.Items[0].Notes.Count, "Excel-Layout: Unterpunkt wird als Hinweis gemeldet");
+        Equal("30,00", a.Items[1].Total, "Excel-Layout: zweite Position");
+        Equal("542,31", Field(a, InvoiceField.NetTotal), "Excel-Layout: Netto");
+        Equal("103,04", Field(a, InvoiceField.VatAmount), "Excel-Layout: Umsatzsteuer");
+        Equal("645,35", Field(a, InvoiceField.GrossTotal), "Excel-Layout: Gesamtbetrag");
+        Equal(MatchStatus.Uncertain, a.Get(InvoiceField.PayableAmount).Status, "Excel-Layout: Zahlbetrag ist nur ein Vorschlag");
+        Equal("645,35", Field(a, InvoiceField.PayableAmount), "Excel-Layout: Vorschlag Zahlbetrag");
+        Equal(MatchStatus.Found, a.Get(InvoiceField.PaymentTerms).Status, "Excel-Layout: Zahlungsbedingungen");
+        Equal(MatchStatus.Missing, a.Get(InvoiceField.DueDate).Status, "Excel-Layout: kein Fälligkeitsdatum");
+        Equal(0, a.Warnings.Count, "Excel-Layout: keine Hinweise (Summen stimmen)");
+        Equal(2, a.MissingRequired, "Excel-Layout: zwei Pflichtangaben fehlen (Kunden-Nr., E-Mail)");
+        Check(a.Convertible, "Excel-Layout: umbaubar");
+        string report = AnalysisReport.Text(doc, a);
+        Check(report.Contains("Positionen: 2") && report.Contains("FEHLT (Pflicht)") && report.Contains("Bild „Logo“"), "Excel-Layout: Bericht nennt Positionen, Fehlendes und Unverändertes");
+
+        // eine Position geht verloren: Die Summenprüfung meldet es
+        doc.Lines.RemoveAt(16);
+        Analysis b = TemplateAnalyzer.Analyze(doc);
+        Equal(1, b.Items.Count, "Excel-Layout ohne zweite Position");
+        Check(b.Warnings.Count == 1 && b.Warnings[0].Contains("passt nicht zum Nettobetrag"), "Abweichung zwischen Positionen und Netto wird gemeldet");
+    }
+
+    private static void TemplateWordLayout()
+    {
+        // Word: Absätze und Tabelle "Pos.-Nr. | Stück | Bezeichnung | EP | GP", Position "001", Bezeichnung in Folgezeilen
+        SourceDocument doc = new SourceDocument();
+        doc.FileName = "fremd.doc";
+        SourceLine head = Line(1, "Briefkopf Muster Fensterbau");
+        head.Container = SourceLine.Header;
+        doc.Lines.Add(head);
+        SourceLine box = Line(1, "Muster Fensterbau GmbH, Telefon 0841/1234, rechnung@muster-fensterbau.example");
+        box.Container = "Textfeld 3";
+        doc.Lines.Add(box);
+        doc.Lines.Add(Line(1, "Beispiel Handel SE & Co. KG"));
+        doc.Lines.Add(Line(1, "Industriestr. 2"));
+        doc.Lines.Add(Line(1, "86150 Augsburg"));
+        doc.Lines.Add(Line(1, "RECHNUNG", 2, "7002"));
+        doc.Lines.Add(Line(1, "Datum: 26. Februar 2026"));
+        doc.Lines.Add(Line(1, "Kunden-Nr.: 10002"));
+        doc.Lines.Add(Line(1, "Projekt Nr.: 231123"));
+        SourceLine header = Line(1, "Pos.-Nr.", 2, "Stück", 3, "Bezeichnung", 4, "EP", 5, "GP");
+        header.InTable = true;
+        doc.Lines.Add(header);
+        SourceLine row = Line(1, "001", 2, "1", 4, "5.784,13 €", 5, "5.784,13 €");
+        row.InTable = true;
+        doc.Lines.Add(row);
+        doc.Lines.Add(Line(3, "2-teiliges Fensterelement aus Aluminium"));
+        doc.Lines.Add(Line(3, "Elementmaß 1740 mm x 1350 mm"));
+        doc.Lines.Add(Line(4, "Gesamtsumme", 5, "5.784,13 €"));
+        doc.Lines.Add(Line(4, "MwSt. 19 %", 5, "1.098,98 €"));
+        doc.Lines.Add(Line(4, "Endbetrag", 5, "6.883,11 €"));
+        doc.Lines.Add(Line(1, "Zahlbar bis zum 12.03.2026 ohne Abzug."));
+        doc.Lines.Add(Line(1, "Mit freundlichen Grüßen"));
+
+        Analysis a = TemplateAnalyzer.Analyze(doc);
+        Equal(0, a.Blockers.Count, "Word-Layout: kein Ausschlussgrund");
+        Equal("7002", Field(a, InvoiceField.InvoiceNumber), "Word-Layout: Rechnungsnummer hinter Tabulator");
+        Equal("26.02.2026", Field(a, InvoiceField.InvoiceDate), "Word-Layout: Datum mit Monatsname");
+        Equal("10002", Field(a, InvoiceField.CustomerNumber), "Word-Layout: Kunden-Nr.");
+        Equal("Beispiel Handel SE & Co. KG", Field(a, InvoiceField.BuyerName), "Word-Layout: Name");
+        Equal(MatchStatus.Found, a.Get(InvoiceField.BuyerName).Status, "Word-Layout: Name ist sicher");
+        Equal("86150 Augsburg", Field(a, InvoiceField.BuyerCity), "Word-Layout: Ort");
+        Equal(MatchStatus.Missing, a.Get(InvoiceField.BuyerEmail).Status, "Word-Layout: E-Mail aus dem Briefkopf ist nicht die des Kunden");
+        Equal(1, a.Items.Count, "Word-Layout: eine Position");
+        Equal("1", a.Items[0].Number, "Word-Layout: „001“ wird zu 1");
+        Equal(2, a.Items[0].Description.Count, "Word-Layout: Bezeichnung aus den Folgezeilen");
+        Equal("2-teiliges Fensterelement aus Aluminium", a.Items[0].Description[0], "Word-Layout: erste Zeile der Bezeichnung");
+        Equal("5.784,13", a.Items[0].UnitPrice, "Word-Layout: Einzelpreis");
+        Check(a.Items[0].Complete, "Word-Layout: Position vollständig");
+        Equal("5.784,13", Field(a, InvoiceField.NetTotal), "Word-Layout: „Gesamtsumme“ ist der Nettobetrag");
+        Equal("Gesamtsumme", a.Get(InvoiceField.NetTotal).SourceLabel, "Word-Layout: bisherige Beschriftung Netto");
+        Equal("1.098,98", Field(a, InvoiceField.VatAmount), "Word-Layout: Umsatzsteuer");
+        Equal("6.883,11", Field(a, InvoiceField.GrossTotal), "Word-Layout: „Endbetrag“ ist der Gesamtbetrag");
+        Equal("12.03.2026", Field(a, InvoiceField.DueDate), "Word-Layout: Fälligkeit aus „Zahlbar bis zum“");
+        Equal(0, a.Warnings.Count, "Word-Layout: keine Hinweise");
+        Equal(1, a.MissingRequired, "Word-Layout: nur die E-Mail fehlt");
+    }
+
+    private static void TemplateRefusals()
+    {
+        SourceDocument doc = new SourceDocument();
+        doc.FileName = "abschlag.xls";
+        doc.Excel = true;
+        doc.Lines.Add(Line(1, "2. Abschlagsrechnung Nr. 4862"));
+        doc.Lines.Add(Line(1, "Pos.", 2, "Bezeichnung", 3, "Menge", 4, "LS. %", 5, "EP", 6, "GP"));
+        doc.Lines.Add(Line(1, "1", 2, "Fassade", 3, "1", 4, "50", 5, "1.000,00", 6, "500,00"));
+        doc.Lines.Add(Line(5, "Summe netto", 6, "500,00"));
+        doc.Lines.Add(Line(5, "abzgl. 1. Abschlag", 6, "200,00"));
+        doc.Lines.Add(Line(1, "Steuerschuldnerschaft des Leistungsempfängers nach § 13b UStG"));
+        Analysis a = TemplateAnalyzer.Analyze(doc);
+        Equal(4, a.Blockers.Count, "Abschlagsrechnung nach § 13b: vier Ausschlussgründe (Abschlag, § 13b, LS. %, Abzug im Summenblock)");
+        Check(!a.Convertible, "Abschlagsrechnung ist nicht umbaubar");
+        Check(AnalysisReport.Summary(a).StartsWith("nicht automatisch umbaubar"), "Zusammenfassung nennt die Ablehnung");
+
+        SourceDocument skonto = new SourceDocument();
+        skonto.Lines.Add(Line(1, "Rechnung Nr. 12"));
+        skonto.Lines.Add(Line(1, "Pos.", 2, "Bezeichnung", 3, "Menge", 4, "Einzelpreis", 5, "Gesamt"));
+        skonto.Lines.Add(Line(1, "1", 2, "Wartung", 3, "1", 4, "100,00", 5, "100,00"));
+        skonto.Lines.Add(Line(4, "Netto", 5, "100,00"));
+        skonto.Lines.Add(Line(4, "abzüglich 2 % Skonto", 5, "2,00"));
+        Analysis s = TemplateAnalyzer.Analyze(skonto);
+        Equal(1, s.Blockers.Count, "Skonto im Summenblock wird abgelehnt");
+        Equal("12", s.Get(InvoiceField.InvoiceNumber).Value, "„Rechnung Nr. 12“");
+
+        SourceDocument terms = new SourceDocument();
+        terms.Lines.Add(Line(1, "Rechnungsnummer: 2026-0001"));
+        terms.Lines.Add(Line(1, "Pos.", 2, "Bezeichnung", 3, "Menge", 4, "Einzelpreis", 5, "Gesamt"));
+        terms.Lines.Add(Line(1, "1", 2, "Wartung", 3, "1", 4, "100,00", 5, "100,00"));
+        terms.Lines.Add(Line(4, "Netto", 5, "100,00"));
+        terms.Lines.Add(Line(1, "Zahlbar innerhalb von 8 Tagen mit 2 % Skonto, 30 Tage netto."));
+        Analysis t = TemplateAnalyzer.Analyze(terms);
+        Equal(0, t.Blockers.Count, "Skonto in den Zahlungsbedingungen ist kein Ausschlussgrund");
+        Equal("2026-0001", t.Get(InvoiceField.InvoiceNumber).Value, "Standardbeschriftung wird erkannt");
+
+        SourceDocument nothing = new SourceDocument();
+        nothing.Lines.Add(Line(1, "Sehr geehrte Damen und Herren,"));
+        Analysis n = TemplateAnalyzer.Analyze(nothing);
+        Check(!n.Convertible && n.Warnings.Count == 1, "Dokument ohne Positionstabelle ist nicht umbaubar");
+
+        SourceDocument rates = new SourceDocument();
+        rates.Lines.Add(Line(1, "Pos.", 2, "Bezeichnung", 3, "Menge", 4, "Einzelpreis", 5, "Gesamt"));
+        rates.Lines.Add(Line(1, "1", 2, "Buch", 3, "1", 4, "10,00", 5, "10,00"));
+        rates.Lines.Add(Line(1, "2", 2, "Stift", 3, "1", 4, "10,00", 5, "10,00"));
+        rates.Lines.Add(Line(4, "Summe netto", 5, "20,00"));
+        rates.Lines.Add(Line(4, "MwSt 7 %", 5, "0,70"));
+        rates.Lines.Add(Line(4, "MwSt 19 %", 5, "1,90"));
+        rates.Lines.Add(Line(4, "Rechnungsbetrag", 5, "22,60"));
+        Analysis r = TemplateAnalyzer.Analyze(rates);
+        Equal(2, r.VatRates.Count, "Zwei Steuersätze erkannt");
+        Equal("", r.Items[0].VatRate, "Bei zwei Steuersätzen wird der Satz je Position nicht geraten");
+        Equal("2,60", r.Get(InvoiceField.VatAmount).Value, "Umsatzsteuer gesamt aus beiden Zeilen");
+    }
+
+    private static void TemplateLayoutVariants()
+    {
+        // Muster aus echten Rechnungen (Daten erfunden): Beschriftungen als Kopfzeile mit den Werten darunter,
+        // Einheit in einer zweiten Zelle unter "Menge", Nettosumme ohne Beschriftung, Euro-Zeichen in eigener Zelle
+        SourceDocument doc = new SourceDocument();
+        doc.Excel = true;
+        doc.Lines.Add(Line(2, "Frau"));
+        doc.Lines.Add(Line(2, "Erika Muster"));
+        doc.Lines.Add(Line(2, "Ringweg 3"));
+        doc.Lines.Add(Line(2, "90402 Nürnberg"));
+        doc.Lines.Add(Line(2, "RECHNUNG", 5, "8001"));
+        doc.Lines.Add(Line(2, "Auftrags-Nr.:", 5, "Kunden-Nr.:", 7, "Telefon-Nr.:", 9, "Datum:"));
+        doc.Lines.Add(Line(7, "Mobil 0170/000000", 9, "05.05.2026"));
+        doc.Lines.Add(Line(2, "Pos.", 3, "Menge", 5, "Bezeichnung", 8, "E.Preis", 9, "Ges.Preis"));
+        doc.Lines.Add(Line(2, "Pos. 1", 3, "1,00", 4, "Stck.", 5, "Glasscheibe", 8, "200,00", 9, "200,00 €"));
+        doc.Lines.Add(Line(3, "2,00", 4, "Stck.", 5, "Anfahrt"));
+        doc.Lines.Add(Line(8, "0,00", 9, "0,00 €"));   // vorbereitete Leerzeile mit Formeln
+        doc.Lines.Add(Line(9, "200,00 €"));
+        doc.Lines.Add(Line(7, "+19 % MWST", 9, "38,00 €"));
+        doc.Lines.Add(Line(7, "Gesamtbetrag", 8, "EUR", 9, "238,00"));
+        doc.Lines.Add(Line(2, "Leistungszeitpunkt 05/26"));
+        Analysis a = TemplateAnalyzer.Analyze(doc);
+        Equal("8001", Field(a, InvoiceField.InvoiceNumber), "Variante: Rechnungsnummer in der übernächsten Zelle");
+        Equal("05.05.2026", Field(a, InvoiceField.InvoiceDate), "Variante: Datum steht unter der Beschriftung");
+        Equal(MatchStatus.Missing, a.Get(InvoiceField.CustomerNumber).Status, "Variante: Die Nachbar-Beschriftung ist kein Wert der Kunden-Nr.");
+        Equal("Frau Erika Muster", Field(a, InvoiceField.BuyerName), "Variante: Name");
+        Equal(1, a.Items.Count, "Variante: Die Nettosumme ohne Beschriftung ist keine Position");
+        Equal("Stk.", a.Items[0].Unit, "Variante: Einheit aus der zweiten Zelle unter „Menge“");
+        Equal("200,00", a.Items[0].Total, "Variante: Spalte „Ges.Preis“");
+        Equal("inkl. 2 Stck. Anfahrt", a.Items[0].Description[1], "Variante: Unterpunkt mit Menge und Einheit");
+        Equal("200,00", Field(a, InvoiceField.NetTotal), "Variante: Betrag ohne Beschriftung als Nettosumme");
+        Equal(MatchStatus.Uncertain, a.Get(InvoiceField.NetTotal).Status, "Variante: angenommene Nettosumme ist zu prüfen");
+        Equal("238,00", Field(a, InvoiceField.GrossTotal), "Variante: „EUR“ zwischen Beschriftung und Betrag");
+        Equal(MatchStatus.Uncertain, a.Get(InvoiceField.ServiceDate).Status, "Variante: Leistungszeitpunkt unter den Summen wird gefunden");
+        Equal(0, a.Warnings.Count, "Variante: Summen stimmen");
+
+        // Word: Anschrift in einer Tabellenzelle mit mehreren Absätzen, Datenzeile mit mehr Zellen als die Kopfzeile,
+        // Bezeichnung als eine mehrzeilige Zelle in der Folgezeile
+        SourceDocument word = new SourceDocument();
+        SourceLine address = Line(1, "Beispiel Markt GmbH\nMarktplatz 1\n\n97070 Würzburg");
+        address.InTable = true;
+        word.Lines.Add(address);
+        word.Lines.Add(Line(1, "Projekt Nr.:", 2, "Ihr Telefon:", 9, "Datum:"));
+        word.Lines.Add(Line(1, "4711", 9, "07.07.2026"));
+        word.Lines.Add(Line(1, "RECHNUNG   9002"));
+        word.Lines.Add(Line(1, "Pos.-Nr.", 2, "Stück", 3, "Bezeichnung", 4, "EP", 5, "GP"));
+        word.Lines.Add(Line(1, "001", 2, "1", 4, "1.000,00", 5, "€", 6, "1.000,00", 7, "€"));
+        word.Lines.Add(Line(2, "Fensterelement aus Aluminium\nElementmaß 1000 mm x 1200 mm\n1 Stück Fenster DK links\nGlas: klar"));
+        word.Lines.Add(Line(1, "Gesamtsumme", 4, "1.000,00", 5, "€"));
+        word.Lines.Add(Line(1, "zuzüglich: 19,0% Mehrwertsteuer", 4, "190,00", 5, "€"));
+        word.Lines.Add(Line(1, "Endbetrag", 4, "1.190,00", 5, "€"));
+        Analysis w = TemplateAnalyzer.Analyze(word);
+        Equal("9002", Field(w, InvoiceField.InvoiceNumber), "Word-Variante: „RECHNUNG   9002“");
+        Equal("07.07.2026", Field(w, InvoiceField.InvoiceDate), "Word-Variante: Datum unter der Beschriftung");
+        Equal("Beispiel Markt GmbH", Field(w, InvoiceField.BuyerName), "Word-Variante: Name aus mehrzeiliger Zelle");
+        Equal("Marktplatz 1", Field(w, InvoiceField.BuyerStreet), "Word-Variante: Straße aus mehrzeiliger Zelle");
+        Equal("97070 Würzburg", Field(w, InvoiceField.BuyerCity), "Word-Variante: Ort aus mehrzeiliger Zelle");
+        Equal(1, w.Items.Count, "Word-Variante: eine Position");
+        Equal("1.000,00", w.Items[0].UnitPrice, "Word-Variante: Einzelpreis");
+        Equal("1.000,00", w.Items[0].Total, "Word-Variante: Gesamt steht hinter der Zelle mit dem Euro-Zeichen");
+        Equal(4, w.Items[0].Description.Count, "Word-Variante: vier Zeilen Bezeichnung");
+        Equal("1 Stück Fenster DK links", w.Items[0].Description[2], "Word-Variante: Text, der mit einer Zahl beginnt, bleibt unverändert");
+        Equal(0, w.Items[0].Notes.Count, "Word-Variante: kein Unterpunkt erfunden");
+        Equal("19 %", w.Items[0].VatRate, "Word-Variante: „19,0%“ wird zu 19 %");
+        Equal("1.190,00", Field(w, InvoiceField.GrossTotal), "Word-Variante: Endbetrag");
+        Equal(0, w.Warnings.Count, "Word-Variante: Summen stimmen");
     }
 }

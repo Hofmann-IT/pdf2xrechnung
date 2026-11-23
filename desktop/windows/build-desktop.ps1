@@ -138,7 +138,7 @@ if (-not $SkipTests) {
     $testExe = Join-Path $obj "Tests.exe"
     & $csc /nologo /utf8output /codepage:65001 /warnaserror /target:exe /platform:x64 "/out:$testExe" `
         /r:System.dll /r:System.Core.dll /r:System.ServiceProcess.dll `
-        (Join-Path $src "Core.cs") (Join-Path $src "ServiceControl.cs") (Join-Path $PSScriptRoot "tests\Tests.cs")
+        (Join-Path $src "Core.cs") (Join-Path $src "ServiceControl.cs") (Join-Path $src "TemplateModel.cs") (Join-Path $PSScriptRoot "tests\Tests.cs")
     if ($LASTEXITCODE -ne 0) { throw "Tests konnten nicht übersetzt werden" }
     & $testExe
     if ($LASTEXITCODE -ne 0) { throw "Tests der Verwaltungsanwendung fehlgeschlagen" }
@@ -148,7 +148,7 @@ Step "Anwendung übersetzen"
 $exe = Join-Path $out "PdfZuERechnung.Verwaltung.exe"
 & $csc /nologo /utf8output /codepage:65001 /warnaserror /optimize+ /debug- /target:winexe /platform:x64 "/out:$exe" `
     "/win32icon:$ico" "/win32manifest:$(Join-Path $PSScriptRoot 'app.manifest')" `
-    /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.ServiceProcess.dll `
+    /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.ServiceProcess.dll /r:Microsoft.CSharp.dll `
     "/r:$core" "/r:$winforms" `
     (Join-Path $src "*.cs") $assemblyInfo
 if ($LASTEXITCODE -ne 0) { throw "Übersetzung fehlgeschlagen" }

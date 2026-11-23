@@ -33,6 +33,7 @@ namespace HofmannIT.ERechnung.Verwaltung
         private readonly ToolStripButton backButton = new ToolStripButton("◀ Zurück");
         private readonly ToolStripButton homeButton = new ToolStripButton("Start");
         private readonly ToolStripButton reloadButton = new ToolStripButton("Neu laden");
+        private readonly ToolStripButton templateButton = new ToolStripButton("Vorlage importieren …");
         private readonly ToolStripButton connectButton = new ToolStripButton("Verbindung …");
         private readonly ToolStripLabel statusLabel = new ToolStripLabel("");
 
@@ -66,6 +67,7 @@ namespace HofmannIT.ERechnung.Verwaltung
         private bool ticking;
         private bool serviceActionRunning;
         private bool certificateRejected;
+        private bool templateOpen;
         private DateTime lastDownload = DateTime.MinValue;
         private string lastSaveDirectory = "";
 
@@ -123,11 +125,13 @@ namespace HofmannIT.ERechnung.Verwaltung
             backButton.Click += delegate { if (webReady && web.CoreWebView2.CanGoBack) { web.CoreWebView2.GoBack(); } };
             homeButton.Click += delegate { Reconnect(); };
             reloadButton.Click += delegate { if (webReady && messageKind == MessageKind.None) { web.CoreWebView2.Reload(); } else { Reconnect(); } };
+            templateButton.ToolTipText = "Bestehende Rechnung aus Word oder Excel prüfen und an die Standardvorlage anpassen";
+            templateButton.Click += delegate { ImportTemplate(); };
             connectButton.Alignment = ToolStripItemAlignment.Right;
             connectButton.Click += delegate { ChangeConnection(); };
             statusLabel.Alignment = ToolStripItemAlignment.Right;
             statusLabel.ForeColor = SystemColors.GrayText;
-            bar.Items.AddRange(new ToolStripItem[] { backButton, homeButton, reloadButton, connectButton, new ToolStripSeparator { Alignment = ToolStripItemAlignment.Right }, statusLabel });
+            bar.Items.AddRange(new ToolStripItem[] { backButton, homeButton, reloadButton, new ToolStripSeparator(), templateButton, connectButton, new ToolStripSeparator { Alignment = ToolStripItemAlignment.Right }, statusLabel });
         }
 
         private void BuildMessagePanel()
@@ -179,10 +183,12 @@ namespace HofmannIT.ERechnung.Verwaltung
             trayManual.Click += delegate { OpenPath(ManualPath()); };
             ToolStripMenuItem connection = new ToolStripMenuItem("Verbindung …");
             connection.Click += delegate { ShowFromTray(); ChangeConnection(); };
+            ToolStripMenuItem template = new ToolStripMenuItem("Vorlage importieren …");
+            template.Click += delegate { ShowFromTray(); ImportTemplate(); };
             ToolStripMenuItem exit = new ToolStripMenuItem("Beenden");
             exit.Click += delegate { ExitApplication(); };
             menu.Items.AddRange(new ToolStripItem[] { open, trayStatus, new ToolStripSeparator(), trayStart, trayStop, trayRestart,
-                new ToolStripSeparator(), trayLogs, trayManual, connection, new ToolStripSeparator(), exit });
+                new ToolStripSeparator(), template, trayLogs, trayManual, connection, new ToolStripSeparator(), exit });
             menu.Opening += delegate
             {
                 trayLogs.Visible = Directory.Exists(LogDirectory());
@@ -409,6 +415,27 @@ namespace HofmannIT.ERechnung.Verwaltung
             {
                 RefreshStatus();
                 Reconnect();
+            }
+        }
+
+        /// <summary>Vorlagen-Assistent (ADR 0016): arbeitet mit dem lokal installierten Word/Excel, unabhängig vom Dienst.</summary>
+        private void ImportTemplate()
+        {
+            if (selfTest || templateOpen)
+            {
+                return;
+            }
+            templateOpen = true;
+            try
+            {
+                using (TemplateWizard wizard = new TemplateWizard())
+                {
+                    wizard.ShowDialog(this);
+                }
+            }
+            finally
+            {
+                templateOpen = false;
             }
         }
 

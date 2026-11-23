@@ -3,6 +3,21 @@
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach SemVer.
 Die Versionsnummer steht im `pom.xml` und wird im Seitenfuß, im Systemstatus und je Verarbeitungslauf im Ledger angezeigt.
 
+## [Unveröffentlicht] – 1.2.0 in Arbeit (Vorlagen-Assistent, ADR 0016)
+
+### Phase 1 – Import und Analyse (2026-11-23)
+- Verwaltungsanwendung: neuer Befehl **„Vorlage importieren …"** (Leiste und Menü im
+  Infobereich). Der Assistent liest eine bestehende Rechnung aus Word (`.docx`, `.doc`) oder Excel
+  (`.xlsx`, `.xls`) über das lokal installierte Office – schreibgeschützt, ohne Makros
+  auszuführen – und zeigt, welche Angaben er erkennt, was fehlt und was unverändert bleibt.
+  Werte und Positionen lassen sich korrigieren; der Bericht kann gespeichert werden.
+- Abgelehnt mit Begründung werden Abschlags-/Teil-/Schlussrechnungen, § 13b UStG und Abzüge
+  (Rabatt, Skonto) im Summenblock.
+- **Noch keine Konvertierung** – sie folgt in Phase 2 (Excel) und 3 (Word).
+- Befehlszeile `/vorlagentest <Ordner>` (Diagnose), Tests `desktop/windows/tests/vorlagen-e2e.ps1`.
+- Der Dienst ist unverändert; `build-desktop.ps1` verweist zusätzlich auf `Microsoft.CSharp.dll`
+  (Teil von .NET Framework 4.8).
+
 ## [1.1.1] – 2026-11-23 (Korrekturen nach dem ersten Kundentest, Rechnungsvorlagen)
 
 Keine Schemaänderung, keine geänderte Konfiguration. Das zuerst ausgelieferte Setup 1.1.0
