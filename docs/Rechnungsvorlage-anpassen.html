@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Rechnungsvorlage anpassen – Schritt für Schritt</title>
+<!-- Quelle der PDF src/main/resources/static/vorlagen/Rechnungsvorlage-anpassen.pdf (Erzeugung: siehe README, Abschnitt 7) -->
+<style>
+  @page { size: A4; margin: 16mm 16mm 16mm 18mm; }
+  :root { --navy:#0B3A63; --cyan:#06C7D9; --text:#102A43; --muted:#526A7A; --line:#C9D6E0; --warn:#B45309; --soft:#EEF4F8; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Arial, sans-serif; color: var(--text); margin: 0; font-size: 10.2pt; line-height: 1.42; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  h1 { color: var(--navy); font-size: 21pt; margin: 0 0 2mm; }
+  .sub { color: var(--muted); margin: 0 0 5mm; font-size: 11pt; }
+  h2 { color: var(--navy); font-size: 13.5pt; border-bottom: 2px solid var(--cyan); padding-bottom: 1mm; margin: 7mm 0 3mm; break-after: avoid; }
+  h3 { color: var(--navy); font-size: 11pt; margin: 4mm 0 1.5mm; break-after: avoid; }
+  p { margin: 0 0 2.5mm; }
+  ol, ul { margin: 0 0 3mm; padding-left: 6mm; }
+  li { margin-bottom: 1.2mm; }
+  code { font-family: Consolas, monospace; background: var(--soft); border-radius: 3px; padding: 0 1mm; font-size: 9.6pt; white-space: nowrap; }
+  .box { margin-right: 1px; border: 1px solid var(--line); border-left: 4px solid var(--cyan); border-radius: 4px; padding: 2.5mm 4mm; margin: 3mm 0; background: #fff; break-inside: avoid; }
+  .box.warn { border-left-color: var(--warn); }
+  table { border-collapse: collapse; width: calc(100% - 1px); margin: 2mm 0 4mm; font-size: 9.6pt; }
+  th, td { border: 1px solid var(--line); padding: 1.3mm 2mm; text-align: left; vertical-align: top; }
+  th { background: var(--soft); }
+  tr { break-inside: avoid; }
+  .step { display: grid; grid-template-columns: 9mm 1fr; gap: 0 3mm; margin: 0 0 3mm; break-inside: avoid; }
+  .step .n { width: 8mm; height: 8mm; border-radius: 50%; background: var(--navy); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 10pt; }
+  .step .n.o { background: var(--warn); }
+  .step .t { padding-top: .6mm; }
+  .step .t strong:first-child { color: var(--navy); }
+  .check { list-style: none; padding-left: 0; }
+  .check li::before { content: "☐"; display: inline-block; width: 6mm; font-size: 12pt; }
+  .newpage { break-before: page; }
+  /* Musterseite */
+  .sheet { position: relative; width: 148mm; height: 150mm; border: 1px solid #94A3B8; margin: 3mm auto 2mm; background: #fff; font-family: Arial, sans-serif; font-size: 7.4pt; line-height: 1.5; box-shadow: 1mm 1mm 0 #E2E8F0; }
+  .sheet div { position: absolute; }
+  .mark { border: 1px dashed var(--navy); border-radius: 2px; }
+  .b { width: 5.2mm; height: 5.2mm; border-radius: 50%; background: var(--warn); color: #fff; font-weight: 700; font-size: 8pt; display: flex; align-items: center; justify-content: center; font-family: "Segoe UI", Arial, sans-serif; }
+  .ib { display: inline-flex; width: 4.8mm; height: 4.8mm; border-radius: 50%; background: var(--warn); color: #fff; font-weight: 700; font-size: 8pt; align-items: center; justify-content: center; vertical-align: 0.3mm; }
+  .r { text-align: right; }
+  .small { font-size: 9pt; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<h1>Rechnungsvorlage anpassen</h1>
+<p class="sub">Schritt für Schritt: So werden Ihre Rechnungen aus Word oder Excel automatisch zu E-Rechnungen (Profil „standard").</p>
+
+<div class="box"><strong>Worum es geht:</strong> PDF-zu-E-Rechnung liest Ihre PDF-Rechnung und sucht dabei nach <strong>festen Beschriftungen</strong> (z. B. „Rechnungsnummer:") und an <strong>festen Stellen</strong> der Seite (Anschriftenfeld, Tabellenspalten). Stimmt beides, läuft die Rechnung ohne Zutun durch. Fehlt etwas, landet sie in der <em>manuellen Prüfung</em>. Diese Anleitung zeigt, was Sie an Ihrer Vorlage ändern müssen.</div>
+
+<h2>1. Welchen Weg Sie wählen</h2>
+<table>
+  <tr><th style="width:38%">Weg</th><th>Wann er passt</th><th style="width:22%">Aufwand</th></tr>
+  <tr><td><strong>A – Mitgelieferte Vorlage übernehmen</strong> und Ihren Briefkopf einsetzen (empfohlen)</td><td>Fast immer. Abstände und Spalten stimmen bereits; Sie ergänzen nur Logo, Absender und Fußzeile.</td><td>ca. 30 Minuten</td></tr>
+  <tr><td><strong>B – Ihre eigene Vorlage umbauen</strong></td><td>Wenn Ihre Vorlage Funktionen enthält, die Sie behalten müssen (Makros, Verknüpfungen, Serienbrief).</td><td>1–2 Stunden, genaues Arbeiten nötig</td></tr>
+  <tr><td><strong>C – Eigenes Profil</strong> durch Hofmann IT</td><td>Wenn das Layout nicht geändert werden kann oder soll (z. B. Rechnungen aus einer Fachsoftware).</td><td>Beauftragung</td></tr>
+</table>
+
+<h2>2. Vorbereitung</h2>
+<div class="step"><div class="n">1</div><div class="t"><strong>Vorlagen herunterladen.</strong> In der Anwendung <em>Profile</em> öffnen, im Abschnitt „Rechnungsvorlage zum Profil standard" die <strong>Word-Vorlage (.docx)</strong> oder die <strong>Excel-Vorlage (.xlsx)</strong> speichern.</div></div>
+<div class="step"><div class="n">2</div><div class="t"><strong>Sicherungskopie anlegen.</strong> Ihre bisherige Rechnungsvorlage kopieren und die Kopie umbenennen (z. B. „Rechnung_alt"). Gearbeitet wird nur an einer neuen Datei.</div></div>
+<div class="step"><div class="n">3</div><div class="t"><strong>Eine echte Rechnung bereitlegen</strong> (Ausdruck oder PDF), damit Sie am Ende mit echten Werten testen können.</div></div>
+
+<h2 class="newpage">3. So muss die fertige Rechnung aufgebaut sein</h2>
+<div class="sheet">
+  <div style="left:12mm; top:10mm; color:#64748B">[ Ihr Logo / Briefkopf ]</div>
+  <div style="left:12mm; top:30mm; font-size:6pt">Ihre Firma · Straße 1 · 12345 Ort</div>
+  <div class="mark" style="left:17mm; top:35.5mm; width:58mm; height:19mm"></div>
+  <div style="left:19mm; top:36mm">Muster GmbH<br>Beispielstraße 12<br>54321 Kundenstadt<br>E-Mail: rechnung@muster-gmbh.de</div>
+  <div class="b" style="left:9.5mm; top:36mm">A</div>
+  <div class="mark" style="left:79mm; top:35.5mm; width:62mm; height:19mm"></div>
+  <div style="left:81mm; top:36mm">Rechnungsnummer:<br>Rechnungsdatum:<br>Leistungsdatum:<br>Kunden-Nr.:</div>
+  <div style="left:112mm; top:36mm">2026-0001<br>24.09.2026<br>24.09.2026<br>10001</div>
+  <div class="b" style="left:141.5mm; top:36mm">B</div>
+  <div style="left:12mm; top:60mm; font-size:10pt; font-weight:700">Rechnung</div>
+  <div class="b" style="left:33mm; top:60mm">C</div>
+  <div class="mark" style="left:11mm; top:69mm; width:130mm; height:5.2mm; background:#FEF3C7"></div>
+  <div style="left:12mm; top:69.6mm; font-weight:700">Pos.</div><div style="left:21mm; top:69.6mm; font-weight:700">Bezeichnung</div>
+  <div class="r" style="left:74mm; top:69.6mm; width:15mm; font-weight:700">Menge</div><div style="left:91mm; top:69.6mm; font-weight:700">Einheit</div>
+  <div class="r" style="left:99mm; top:69.6mm; width:17mm; font-weight:700">Einzelpreis</div><div class="r" style="left:116mm; top:69.6mm; width:9mm; font-weight:700">USt</div><div class="r" style="left:125mm; top:69.6mm; width:15mm; font-weight:700">Gesamt</div>
+  <div class="b" style="left:141.5mm; top:69mm">D</div>
+  <div style="left:12mm; top:75.5mm">1<br>2<br><br>3</div>
+  <div style="left:21mm; top:75.5mm">Beratung Netzwerktechnik<br>LWL-Kabel Single Mode<br>Trommel à 600 m, inkl. Lieferung<br>Anfahrt pauschal</div>
+  <div class="r" style="left:74mm; top:75.5mm; width:15mm">8,00<br>600,00<br><br>1,00</div>
+  <div style="left:91mm; top:75.5mm">Std.<br>m<br><br>Stk.</div>
+  <div class="r" style="left:99mm; top:75.5mm; width:17mm">95,00<br>1,11<br><br>134,00</div>
+  <div class="r" style="left:116mm; top:75.5mm; width:9mm">19 %<br>19 %<br><br>19 %</div>
+  <div class="r" style="left:125mm; top:75.5mm; width:15mm">760,00<br>666,00<br><br>134,00</div>
+  <div class="b" style="left:4.5mm; top:79mm">E</div>
+  <div class="mark" style="left:89mm; top:97mm; width:52mm; height:29mm"></div>
+  <div style="left:91mm; top:98mm">Summe netto:<br>Netto 19 %:<br>USt 19 %:<br>Gesamt netto:<br>USt gesamt:<br><b>Gesamtbetrag:</b><br><b>Zahlbetrag:</b></div>
+  <div class="r" style="left:122mm; top:98mm; width:18mm">1.560,00<br>1.560,00<br>296,40<br>1.560,00<br>296,40<br><b>1.856,40</b><br><b>1.856,40</b></div>
+  <div class="b" style="left:141.5mm; top:98mm">F</div>
+  <div style="left:12mm; top:131mm">Zahlungsbedingungen: Zahlbar innerhalb von 14 Tagen ohne Abzug, zahlbar bis 08.10.2026</div>
+  <div class="b" style="left:4.5mm; top:130.5mm">G</div>
+  <div style="left:12mm; top:141mm; font-size:6pt; color:#64748B">[ Fußzeile: Ihre Firmenangaben, Bank, Umsatzsteuer-ID ]</div>
+  <div class="b" style="left:4.5mm; top:140mm">H</div>
+</div>
+<p class="small" style="text-align:center">Die Buchstaben A bis H zeigen, wo die Schritte A bis H aus Abschnitt 5 („Eigene Vorlage umbauen") ansetzen. Die Zahlen 1, 2, 3 … in den anderen Abschnitten sind davon unabhängig.</p>
+
+<h2>4. Weg A: Mitgelieferte Vorlage mit Ihrem Briefkopf</h2>
+<h3>Word</h3>
+<div class="step"><div class="n">1</div><div class="t"><strong>Vorlage öffnen</strong> (<code>Rechnungsvorlage.docx</code>) und sofort unter neuem Namen speichern.</div></div>
+<div class="step"><div class="n">2</div><div class="t"><strong>Logo und Briefkopf einsetzen:</strong> <em>Einfügen → Bilder</em>, das Bild anklicken, <em>Layoutoptionen → „Vor den Text"</em> wählen und in den freien Bereich oben auf der Seite ziehen. So verschiebt das Bild keinen Text. <strong>Keine Zeilen über dem Anschriftenfeld einfügen und keine hohe Kopfzeile anlegen</strong> – sonst rutscht die Anschrift nach unten und wird nicht mehr gefunden.</div></div>
+<div class="step"><div class="n">3</div><div class="t"><strong>Absenderzeile ersetzen:</strong> die kleine Zeile „Hofmann IT · Musterstraße 1 · 12345 Musterstadt" mit Ihren Angaben überschreiben (einzeilig lassen).</div></div>
+<div class="step"><div class="n">4</div><div class="t"><strong>Firmenangaben am Seitenende anpassen:</strong> die beiden kleinen Zeilen unter „Vielen Dank für Ihren Auftrag." mit Ihren Angaben überschreiben (oder löschen und Ihre eigene Fußzeile verwenden). Vor Ihrer eigenen E-Mail-Adresse <strong>nicht</strong> „E-Mail" schreiben (z. B. „Mail" oder nur die Adresse) und statt „USt-IdNr." das Wort „Umsatzsteuer-ID" verwenden – sonst könnten Ihre Angaben als Kundendaten gelesen werden.</div></div>
+<div class="step"><div class="n">5</div><div class="t"><strong>Beispielwerte ersetzen,</strong> Beschriftungen stehen lassen. Nicht benötigte Zeilen („Ihre Bestellung:", „Leitweg-ID:", „USt-IdNr. des Kunden:") samt Beschriftung löschen.</div></div>
+<div class="step"><div class="n">6</div><div class="t"><strong>Mehr Positionen:</strong> Cursor in die letzte Tabellenzeile, <em>Tabulator</em>-Taste am Zeilenende oder Rechtsklick → <em>Einfügen → Zeilen darunter</em>. Spaltenbreiten nicht verschieben.</div></div>
+<div class="step"><div class="n">7</div><div class="t"><strong>Als Vorlage sichern</strong> und weiter mit Abschnitt 6 (PDF/A) und 7 (Test).</div></div>
+
+<h3>Excel</h3>
+<div class="step"><div class="n">1</div><div class="t"><strong>Vorlage öffnen</strong> (<code>Rechnungsvorlage.xlsx</code>, Blatt „Rechnung") und unter neuem Namen speichern. Das Blatt „Hinweise" enthält die Kurzfassung dieser Anleitung.</div></div>
+<div class="step"><div class="n">2</div><div class="t"><strong>Logo und Briefkopf in die Zeilen 1 bis 7 setzen</strong> (<em>Einfügen → Bilder</em>, Bild über die Zellen legen). <strong>Zeilenhöhen 1 bis 14 und alle Spaltenbreiten nicht ändern,</strong> keine Zeilen oberhalb von Zeile 15 einfügen oder löschen.</div></div>
+<div class="step"><div class="n">3</div><div class="t"><strong>Absenderzeile</strong> in Zelle A7 mit Ihren Angaben überschreiben.</div></div>
+<div class="step"><div class="n">4</div><div class="t"><strong>Beispielwerte ersetzen.</strong> Anschrift in B9 bis B13, Rechnungsangaben rechts daneben in Spalte G. „Gesamt" je Position und alle Summen rechnet Excel selbst.</div></div>
+<div class="step"><div class="n">5</div><div class="t"><strong>Mehr Positionen:</strong> eine Positionszeile <em>innerhalb</em> der Tabelle markieren (nicht die letzte), Rechtsklick → <em>Zellen einfügen → Ganze Zeile</em>, dann die Formel aus Spalte H in die neue Zeile kopieren. So erfasst die Summenformel die neue Zeile.</div></div>
+<div class="step"><div class="n">6</div><div class="t"><strong>Anderer Steuersatz:</strong> in den Zeilen „Netto 19 %:" und „USt 19 %:" Beschriftung und Formel anpassen (z. B. „Netto 7 %:", „USt 7 %:").</div></div>
+
+<h2 class="newpage">5. Weg B: Eigene Vorlage umbauen – acht Schritte (A bis H)</h2>
+<p>Arbeiten Sie die Schritte der Reihe nach ab. Die orangefarbenen Buchstaben A bis H finden Sie in der Musterseite (Abschnitt 3) an der jeweiligen Stelle wieder. Öffnen Sie die mitgelieferte Vorlage daneben und übernehmen Sie Abstände und Spaltenbreiten von dort.</p>
+
+<div class="step"><div class="n o">A</div><div class="t"><strong>Anschriftenfeld an die richtige Stelle bringen.</strong>
+  <ul>
+    <li>Die <strong>erste Zeile</strong> (Firma oder Name) beginnt <strong>5,3 cm unter dem oberen Blattrand</strong> und zwischen 2,5 cm und 10,9 cm vom linken Blattrand.</li>
+    <li>Zeilenabstand <strong>genau 14 pt</strong> (0,49 cm). Word: Absatz → Zeilenabstand „Genau", 14 pt, Abstand vor/nach 0. Excel: Zeilenhöhe 14.</li>
+    <li>Reihenfolge: Zeile 1 Firma/Name · Zeile 2 Straße · Zeile 3 PLZ und Ort. <strong>Keine eigene Zeile für die Anrede</strong> („Herr", „Firma") – sie gehört mit in Zeile 1.</li>
+    <li>Darunter eine neue Zeile <code>E-Mail: kunde@beispiel.de</code>. Die E-Mail-Adresse des Kunden ist <strong>Pflicht</strong> (die E-Rechnung verlangt eine elektronische Adresse des Käufers).</li>
+    <li>Die Absenderzeile über der Anschrift muss <em>oberhalb</em> von 5,3 cm enden.</li>
+  </ul></div></div>
+
+<div class="step"><div class="n o">B</div><div class="t"><strong>Rechnungsangaben mit den richtigen Beschriftungen versehen.</strong> Jede Angabe in eine eigene Zeile, Beschriftung links, Wert rechts daneben in derselben Zeile, auf Seite 1:
+  <table>
+    <tr><th>So muss es heißen</th><th>Wert</th><th>Häufig bisher</th></tr>
+    <tr><td><code>Rechnungsnummer:</code></td><td>Pflicht</td><td>„Rechnung Nr.", „RECHNUNG 1234", „Re.-Nr."</td></tr>
+    <tr><td><code>Rechnungsdatum:</code></td><td>Pflicht, als TT.MM.JJJJ</td><td>„Datum:", „3. März 2026"</td></tr>
+    <tr><td><code>Leistungsdatum:</code></td><td>empfohlen, als TT.MM.JJJJ</td><td>„Leistungszeitpunkt 02/26"</td></tr>
+    <tr><td><code>Kunden-Nr.:</code></td><td>Pflicht, darf nicht leer sein</td><td>„Kd.-Nr.", leer gelassen</td></tr>
+    <tr><td><code>Ihre Bestellung:</code></td><td>nur wenn vorhanden</td><td>„Bestell-Nr."</td></tr>
+    <tr><td><code>Leitweg-ID:</code></td><td>nur bei Behörden, dann Pflicht</td><td>–</td></tr>
+  </table>
+  In Excel die Wert-Zellen als <em>Text</em> formatieren, damit Datum und Nummer genau so gedruckt werden, wie Sie sie eintippen.</div></div>
+
+<div class="step"><div class="n o">C</div><div class="t"><strong>Überschrift prüfen.</strong> Auf Seite 1 muss das Wort <code>Rechnung</code> stehen (bei Gutschriften <code>Gutschrift</code>). Die Wörter „Angebot", „Auftragsbestätigung", „Lieferschein" und „Mahnung" auf Seite 1 vermeiden – sie können dazu führen, dass das Dokument nicht als Rechnung erkannt wird.</div></div>
+
+<div class="step"><div class="n o">D</div><div class="t"><strong>Tabellenkopf umstellen.</strong> Die Kopfzeile lautet genau <code>Pos. Bezeichnung Menge Einheit Einzelpreis USt Gesamt</code> – in dieser Reihenfolge, in einer Zeile. Die Spalten liegen an festen Stellen (gemessen vom linken Blattrand):
+  <table>
+    <tr><th>Spalte</th><th>von – bis</th><th>Ausrichtung</th><th>Inhalt</th></tr>
+    <tr><td>Pos.</td><td>2,0 – 3,0 cm</td><td>links</td><td>nur die Zahl: 1, 2, 3 … (nicht „Pos. 1")</td></tr>
+    <tr><td>Bezeichnung</td><td>3,2 – 10,9 cm</td><td>links</td><td>Text, mehrere Zeilen erlaubt</td></tr>
+    <tr><td>Menge</td><td>11,1 – 12,7 cm</td><td>rechts</td><td>Zahl mit Komma, z. B. 1,00</td></tr>
+    <tr><td>Einheit</td><td>12,8 – 14,0 cm</td><td>links</td><td>Stk., Std., m, km, Tag, Pauschal</td></tr>
+    <tr><td>Einzelpreis</td><td>14,1 – 16,2 cm</td><td>rechts</td><td>Nettopreis, z. B. 95,00 – ohne „€"</td></tr>
+    <tr><td>USt</td><td>16,3 – 17,6 cm</td><td>rechts</td><td>Steuersatz, z. B. 19 %</td></tr>
+    <tr><td>Gesamt</td><td>17,6 – 20,1 cm</td><td>rechts</td><td>Menge × Einzelpreis – ohne „€"</td></tr>
+  </table>
+  Am einfachsten: die Positionstabelle aus der mitgelieferten Vorlage kopieren und in Ihre Vorlage einsetzen (linker Seitenrand 2,0 cm).</div></div>
+
+<div class="step"><div class="n o">E</div><div class="t"><strong>Positionen richtig schreiben.</strong>
+  <ul>
+    <li>Jede Position beginnt mit ihrer Nummer in der Spalte „Pos.".</li>
+    <li>Weitere Textzeilen zur selben Position: Spalte „Pos." <strong>leer lassen</strong>, nur in „Bezeichnung" schreiben.</li>
+    <li>Unterpunkte ohne eigenen Preis („inkl. Anfahrt", „inkl. Entsorgung") gehören als Text in die Bezeichnung – nicht als eigene Zeile mit Menge.</li>
+    <li>Alle Beträge mit <strong>zwei Nachkommastellen und Komma</strong> (1.560,00), ohne Euro-Zeichen.</li>
+  </ul></div></div>
+
+<div class="step"><div class="n o">F</div><div class="t"><strong>Summenblock ergänzen.</strong> Unter der Tabelle stehen diese Zeilen, Beschriftung mit Doppelpunkt, Betrag rechts daneben, nichts dazwischen (kein „EUR"):
+  <table>
+    <tr><th>Beschriftung</th><th>Inhalt</th><th>Status</th></tr>
+    <tr><td><code>Summe netto:</code></td><td>Summe aller Positionen</td><td>Pflicht</td></tr>
+    <tr><td><code>Netto 19 %:</code> und <code>USt 19 %:</code></td><td>Steuerbasis und Steuerbetrag je Steuersatz</td><td>empfohlen; bei mehreren Steuersätzen je Satz ein Zeilenpaar</td></tr>
+    <tr><td><code>Gesamt netto:</code></td><td>Nettobetrag der Rechnung</td><td>Pflicht</td></tr>
+    <tr><td><code>USt gesamt:</code></td><td>gesamte Umsatzsteuer</td><td>Pflicht</td></tr>
+    <tr><td><code>Gesamtbetrag:</code></td><td>Bruttobetrag</td><td>Pflicht</td></tr>
+    <tr><td><code>Zahlbetrag:</code></td><td>zu zahlender Betrag</td><td>Pflicht</td></tr>
+  </table>
+  Die Beträge müssen rechnerisch zusammenpassen (Menge × Preis = Gesamt; Summe der Positionen = Summe netto = Gesamt netto; Netto + USt = Gesamtbetrag). Abweichungen über 1 Cent führen zur manuellen Prüfung.</div></div>
+
+<div class="step"><div class="n o">G</div><div class="t"><strong>Zahlungsbedingungen einheitlich schreiben.</strong> Eine Zeile, die mit <code>Zahlungsbedingungen:</code> beginnt und das Fälligkeitsdatum als <code>zahlbar bis TT.MM.JJJJ</code> enthält, zum Beispiel: „Zahlungsbedingungen: Zahlbar innerhalb von 14 Tagen ohne Abzug, zahlbar bis 08.10.2026". Möglichst nicht umbrechen lassen.</div></div>
+
+<div class="step"><div class="n o">H</div><div class="t"><strong>Fußzeile und Briefkopf prüfen.</strong> Ihre eigenen Firmenangaben (Anschrift, Bank, Steuernummer) kommen aus der Einrichtung der Anwendung und müssen nicht gelesen werden. In Kopf- und Fußzeile deshalb <strong>nicht</strong> „E-Mail" vor Ihre eigene Adresse schreiben und statt „USt-IdNr." das Wort „Umsatzsteuer-ID" verwenden.</div></div>
+
+<h3>Mehrseitige Rechnungen</h3>
+<div class="box warn"><strong>Der Tabellenkopf muss auf jeder Folgeseite wiederholt werden.</strong> Sonst werden die Positionen ab Seite 2 nicht gelesen, die Summen passen nicht und die Rechnung landet in der manuellen Prüfung.
+  <ul style="margin-top:1.5mm; margin-bottom:0">
+    <li><strong>Word:</strong> Kopfzeile der Positionstabelle markieren → Rechtsklick → <em>Tabelleneigenschaften → Zeile → „Gleiche Kopfzeile auf jeder Seite wiederholen"</em> anhaken.</li>
+    <li><strong>Excel:</strong> <em>Seitenlayout → Drucktitel → Wiederholungszeilen oben</em> → die Zeile mit dem Tabellenkopf wählen.</li>
+    <li>Rechnungsnummer, Datum, Kunden-Nr., Anschrift und E-Mail stehen immer auf <strong>Seite 1</strong>; der Summenblock darf auf der letzten Seite stehen.</li>
+  </ul>
+  In den mitgelieferten Vorlagen ist das bereits eingestellt.</div>
+
+<h2>6. Als PDF/A speichern</h2>
+<div class="step"><div class="n">1</div><div class="t"><em>Datei → Speichern unter</em> (oder <em>Exportieren</em>) → Dateityp <strong>PDF</strong>.</div></div>
+<div class="step"><div class="n">2</div><div class="t">Schaltfläche <strong>Optionen</strong> → „<strong>ISO 19005-1-kompatibel (PDF/A)</strong>" anhaken → OK → Speichern. In Excel dabei nur das Blatt mit der Rechnung speichern („Aktive Blätter").</div></div>
+<div class="step"><div class="n">3</div><div class="t">Nicht geeignet: eingescannte Rechnungen und der Druck über einen „PDF-Drucker", der nur ein Bild erzeugt. Ohne PDF/A entsteht keine ZUGFeRD-Rechnung und der Vorgang wird als „Fehlgeschlagen" markiert.</div></div>
+
+<h2>7. Testen, bevor es ernst wird</h2>
+<div class="step"><div class="n">1</div><div class="t">In der Anwendung <strong>Profile → Profil testen</strong> öffnen, die eben gespeicherte PDF auswählen, Ihren Mandanten wählen, <em>Testen</em>. Dabei wird nichts erzeugt oder gespeichert.</div></div>
+<div class="step"><div class="n">2</div><div class="t">Das Ergebnis muss zeigen: <strong>alle Pflichtfelder „gefunden"</strong>, die <strong>richtige Anzahl Positionen</strong> und „<strong>Plausibilität: bestanden</strong>".</div></div>
+<div class="step"><div class="n">3</div><div class="t">Steht bei einem Feld „Fehler" oder „fehlt": in der Tabelle unten nachsehen, Vorlage korrigieren, neu als PDF/A speichern, erneut testen.</div></div>
+<div class="step"><div class="n">4</div><div class="t">Zusätzlich einmal eine <strong>lange Rechnung</strong> (zwei Seiten) testen.</div></div>
+
+<h3>Häufige Meldungen und ihre Ursache</h3>
+<table>
+  <tr><th style="width:36%">Im Test oder in der manuellen Prüfung</th><th>Ursache und Abhilfe</th></tr>
+  <tr><td>BT-1 Rechnungsnummer nicht gefunden</td><td>Beschriftung heißt nicht genau „Rechnungsnummer:" oder der Wert steht nicht in derselben Zeile rechts daneben (Schritt B).</td></tr>
+  <tr><td>BT-10 Käuferreferenz nicht gefunden</td><td>„Kunden-Nr.:" fehlt oder ist leer (Schritt B).</td></tr>
+  <tr><td>BT-44 Name des Käufers nicht gefunden oder falsch</td><td>Anschriftenfeld steht zu hoch oder zu tief, oder Zeile 1 enthält nur die Anrede (Schritt A).</td></tr>
+  <tr><td>BT-49 E-Mail des Käufers nicht gefunden</td><td>Zeile „E-Mail: …" im Anschriftenfeld fehlt (Schritt A).</td></tr>
+  <tr><td>BT-106 / BT-109 / BT-110 / BT-112 / BT-115 nicht gefunden</td><td>Zeile im Summenblock fehlt, heißt anders oder zwischen Beschriftung und Betrag steht „EUR" oder „€" (Schritt F).</td></tr>
+  <tr><td>Keine oder zu wenige Positionen</td><td>Kopfzeile der Tabelle weicht ab, Spalten verschoben, Positionsnummer nicht als reine Zahl, oder der Tabellenkopf fehlt auf Folgeseiten (Schritte D und E, „Mehrseitige Rechnungen").</td></tr>
+  <tr><td>Plausibilität nicht bestanden</td><td>Beträge passen rechnerisch nicht zusammen oder Positionen wurden nicht vollständig gelesen (Schritte E und F).</td></tr>
+  <tr><td>Kein PDF/A</td><td>Beim Speichern die Option „ISO 19005-1-kompatibel (PDF/A)" anhaken (Abschnitt 6).</td></tr>
+</table>
+
+<h2>8. Checkliste zum Abhaken</h2>
+<ul class="check">
+  <li>Anschrift beginnt 5,3 cm von oben, Zeilen: Name · Straße · PLZ Ort · „E-Mail: …"</li>
+  <li>„Rechnungsnummer:", „Rechnungsdatum:", „Kunden-Nr.:" vorhanden und ausgefüllt, Datum als TT.MM.JJJJ</li>
+  <li>Wort „Rechnung" auf Seite 1</li>
+  <li>Tabellenkopf „Pos. Bezeichnung Menge Einheit Einzelpreis USt Gesamt", Spalten an den vorgegebenen Stellen</li>
+  <li>Tabellenkopf wird auf Folgeseiten wiederholt</li>
+  <li>Positionsnummer als reine Zahl, Beträge mit Komma und zwei Nachkommastellen, ohne „€"</li>
+  <li>Summenblock: Summe netto, Gesamt netto, USt gesamt, Gesamtbetrag, Zahlbetrag</li>
+  <li>„Zahlungsbedingungen: … zahlbar bis TT.MM.JJJJ"</li>
+  <li>Fußzeile ohne „E-Mail" und ohne „USt-IdNr." vor den eigenen Angaben</li>
+  <li>Als PDF/A gespeichert, „Profil testen" zeigt „Plausibilität: bestanden" – auch bei einer zweiseitigen Rechnung</li>
+</ul>
+
+<div class="box"><strong>Nicht von der Standardvorlage abgedeckt</strong> und vorab mit Hofmann IT zu klären: Abschlags- und Schlussrechnungen, Rechnungen mit Rabatt- oder Skontozeilen im Summenblock, Bauleistungen nach § 13b UStG und alle Layouts, die sich nicht ändern lassen. Alle Einzelheiten zu den Feldern: „Rechnungsvorlage – Pflichtangaben und Aufbau" in der Anwendung unter <em>Profile</em>.</div>
+
+</body>
+</html>

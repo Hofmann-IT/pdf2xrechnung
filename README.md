@@ -429,14 +429,22 @@ DATEV-Einstellungen je Mandant (Abschnitt 12), die dieselbe Anmeldung verlangen.
 ### Rechnungsvorlage für das Standardprofil
 
 Kunden, die Rechnungen mit Word, Excel oder anderen Programmen schreiben, erhalten im
-Einrichtungs-Assistenten und unter **Profile** eine Word-Vorlage (`/vorlagen/Rechnungsvorlage.docx`)
-und die Beschreibung aller Pflichtangaben (`/vorlagen/Rechnungsvorlage-Felder.html`). Die
-Vorlage ist auf das Profil `standard` abgestimmt: Beschriftungen („Rechnungsnummer:",
+Einrichtungs-Assistenten und unter **Profile** eine Word-Vorlage (`/vorlagen/Rechnungsvorlage.docx`),
+eine Excel-Vorlage (`/vorlagen/Rechnungsvorlage.xlsx`), die Anleitung „Rechnungsvorlage anpassen"
+(`/vorlagen/Rechnungsvorlage-anpassen.pdf`) und die Beschreibung aller Pflichtangaben
+(`/vorlagen/Rechnungsvorlage-Felder.html`). Die
+Vorlagen sind auf das Profil `standard` abgestimmt: Beschriftungen („Rechnungsnummer:",
 „Kunden-Nr.:", „E-Mail:", „Summe netto:" usw.), Anschriftenfeld ab 146 pt von oben mit
-14 pt Zeilenabstand und die Tabellenspalten an den Koordinaten des Profils. Beide Dateien liegen
-unter `src/main/resources/static/vorlagen/`; die `.docx` ist reines WordprocessingML ohne
-Makros (erzeugt aus XML, siehe CHANGELOG). Nach einer Änderung an Profil oder Vorlage beide
-gemeinsam anpassen und mit dem Profil-Test gegen eine aus der Vorlage exportierte PDF/A prüfen.
+14 pt Zeilenabstand und die Tabellenspalten an den Koordinaten des Profils. Der Kopf der
+Positionstabelle wiederholt sich auf Folgeseiten (Word: `w:tblHeader`, Excel: Drucktitel) –
+ohne das liest das Profil auf Folgeseiten keine Positionen (`headerRepeatsOnContinuationPages`);
+`InvoiceTemplateFilesTest` sichert das ab. Die Dateien liegen unter
+`src/main/resources/static/vorlagen/`; die `.docx` ist reines WordprocessingML ohne Makros
+(erzeugt aus XML, siehe CHANGELOG), die `.xlsx` wurde mit Excel erzeugt (ohne Makros). Die
+Anleitung entsteht aus `docs/Rechnungsvorlage-anpassen.html` (Edge:
+`msedge --headless --no-pdf-header-footer --print-to-pdf=…`). Nach einer Änderung an Profil oder
+Vorlage alles gemeinsam anpassen und mit dem Profil-Test gegen aus den Vorlagen exportierte
+PDF/A prüfen, ein- und mehrseitig.
 
 Ein Profil (`profiles/<name>.yaml`) beschreibt, wie Rechnungen eines Layouts erkannt und auf
 EN-16931-Felder abgebildet werden. `profiles/standard.yaml` ist vollständig kommentiert und

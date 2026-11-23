@@ -31,7 +31,7 @@
 <body>
 <header>
   <h1>PDF-zu-E-Rechnung</h1>
-  <p>Installations- und Betriebshandbuch · Version 1.1.0 · Hofmann IT</p>
+  <p>Installations- und Betriebshandbuch · Version 1.1.1 · Hofmann IT</p>
 </header>
 <main>
 
@@ -69,12 +69,12 @@
   <li>Die PDFs müssen Text enthalten (keine eingescannten Bilder).</li>
 </ul>
 <p>Java oder andere Software müssen Sie <strong>nicht</strong> installieren; alles Nötige ist im Installationspaket enthalten. Die Anzeige nutzt zwei Bestandteile von Windows (Microsoft Edge WebView2-Laufzeit und .NET Framework 4.8). Beide sind in Windows 11 enthalten und auf aktuellem Windows 10 in der Regel vorhanden; fehlt WebView2, weist das Setup darauf hin und nennt die Lösung.</p>
-<div class="box tip"><strong>Rechnungen aus Word, Excel oder anderen Programmen:</strong> Die Anwendung erkennt Rechnungen anhand fester Beschriftungen und Spalten. Im Einrichtungs-Assistenten und unter <em>Profile</em> finden Sie eine <strong>Word-Vorlage</strong> und eine Beschreibung aller Pflichtangaben („Rechnungsvorlage – Pflichtangaben und Aufbau"). Erstellen Sie Ihre Rechnungen aus dieser Vorlage und speichern Sie sie als PDF/A, dann laufen sie ohne weitere Einrichtung durch. Haben Sie bereits ein eigenes Layout, kalibriert Hofmann IT dafür ein Profil anhand von zwei bis drei Beispielrechnungen.</div>
+<div class="box tip"><strong>Rechnungen aus Word, Excel oder anderen Programmen:</strong> Die Anwendung erkennt Rechnungen anhand fester Beschriftungen und Spalten. Im Einrichtungs-Assistenten und unter <em>Profile</em> finden Sie eine <strong>Word-Vorlage</strong>, eine <strong>Excel-Vorlage</strong>, die Anleitung <strong>„Rechnungsvorlage anpassen"</strong> (PDF, Schritt für Schritt) und eine Beschreibung aller Pflichtangaben („Rechnungsvorlage – Pflichtangaben und Aufbau"). Erstellen Sie Ihre Rechnungen aus einer dieser Vorlagen und speichern Sie sie als PDF/A, dann laufen sie ohne weitere Einrichtung durch – auch mehrseitig, solange der Tabellenkopf auf jeder Seite wiederholt wird (in den Vorlagen eingestellt). Haben Sie bereits ein eigenes Layout, kalibriert Hofmann IT dafür ein Profil anhand von zwei bis drei Beispielrechnungen.</div>
 
 <h2 id="installation">3. Installation in fünf Schritten</h2>
 <p>Diese Schritte gelten für den Computer, der die Rechnungen verarbeitet (den „Server" – das kann auch Ihr normaler Arbeitsplatz-PC sein). Weitere Computer im Firmennetz richten Sie danach nach Abschnitt 11 ein.</p>
 <ol>
-  <li>Doppelklick auf <code>PDF-zu-ERechnung-1.1.0-Setup.exe</code>. Bestätigen Sie die Windows-Nachfrage „Möchten Sie zulassen, dass durch diese App Änderungen an Ihrem Gerät vorgenommen werden?" mit <em>Ja</em>.</li>
+  <li>Doppelklick auf <code>PDF-zu-ERechnung-1.1.1-Setup.exe</code>. Bestätigen Sie die Windows-Nachfrage „Möchten Sie zulassen, dass durch diese App Änderungen an Ihrem Gerät vorgenommen werden?" mit <em>Ja</em>.</li>
   <li>Auf <em>Weiter</em> klicken und den vorgeschlagenen Installationsordner übernehmen. Als Installationsart <strong>„Server: Dienst und Verwaltung"</strong> wählen.</li>
   <li>Zusätzliche Aufgaben nach Bedarf anhaken: Verknüpfung auf dem Desktop, Symbol im Infobereich bei der Windows-Anmeldung, und – nur wenn weitere Computer zugreifen sollen – <em>Zugriff aus dem Firmennetz erlauben</em> (lässt sich später nachholen, Abschnitt 11).</li>
   <li>Auf <em>Installieren</em> klicken. Die Anwendung wird als Windows-Dienst eingerichtet und startet automatisch, auch nach jedem Neustart des Computers.</li>
@@ -214,13 +214,13 @@
   <li><strong>Dienst:</strong> Name <code>pdf-zu-erechnung</code>, Konto LocalSystem, Autostart (verzögert), Neustart bei Absturz, 60 s für sauberes Beenden. Befehle als Administrator im Programmordner: <code>pdf-zu-erechnung.exe status|stop|start|restart</code>.</li>
   <li><strong>Netzwerk:</strong> Oberfläche per HTTP auf TCP 8080, gebunden an <code>127.0.0.1</code> (nur dieser Computer). Mit eingeschaltetem Netzzugriff zusätzlich HTTPS (TLS 1.2/1.3) auf TCP 8443 an allen Adressen; Einstellung in <code>config\network.yaml</code> (<code>app.network.mode: local|network</code>, <code>port</code>), wirksam nach Dienst-Neustart. Alle Seiten verlangen eine Anmeldung. Ausgehend nur SMTP, wenn konfiguriert. Lokalen Port ändern: <code>server.port</code> in <code>config\application.yaml</code>, Dienst neu starten, in der Anwendung unter <em>Verbindung …</em> denselben Port eintragen.</li>
   <li><strong>Zertifikat:</strong> Der Dienst liest Zertifikat und privaten Schlüssel aus dem Windows-Zertifikatsspeicher <em>Lokaler Computer → Eigene Zertifikate</em>; es gibt keine Schlüsseldatei und kein Passwort. Verwendet wird das Zertifikat mit dem Anzeigenamen „PDF-zu-ERechnung" (bei mehreren das am längsten gültige) oder das über <code>app.network.certificate-thumbprint</code> benannte. <code>netzbetrieb-einrichten.ps1</code> erzeugt ein selbstsigniertes Zertifikat (RSA 3072, 5 Jahre, nicht exportierbar) und die Firewall-Regel „PDF-zu-E-Rechnung (HTTPS)" für die Profile Domäne und Privat; <code>-Entfernen</code> löscht die Regel. Ein Zertifikat Ihrer eigenen Zertifizierungsstelle können Sie stattdessen mit diesem Anzeigenamen dort ablegen. Ist das Zertifikat nicht nutzbar, bleibt der Dienst lokal erreichbar und nennt den Grund im Systemstatus; er weicht nie auf unverschlüsselten Netzzugriff aus. Nach einem Zertifikatswechsel bestätigen die Arbeitsplätze den neuen Fingerabdruck.</li>
-  <li><strong>Verteilung auf Arbeitsplätze:</strong> stille Installation mit <code>PDF-zu-ERechnung-1.1.0-Setup.exe /VERYSILENT /TYPE=client</code>; Autostart des Symbols mit <code>/TASKS="autostart"</code>.</li>
+  <li><strong>Verteilung auf Arbeitsplätze:</strong> stille Installation mit <code>PDF-zu-ERechnung-1.1.1-Setup.exe /VERYSILENT /TYPE=client</code>; Autostart des Symbols mit <code>/TASKS="autostart"</code>.</li>
   <li><strong>Umgebungsvariablen</strong> (Systemvariablen, gelten für das Dienstkonto nach Neustart des Dienstes): <code>SMTP_USERNAME</code>, <code>SMTP_PASSWORD</code>, optional <code>ADMIN_PASSWORD</code>. Systemsteuerung → System → Erweiterte Systemeinstellungen → Umgebungsvariablen → Systemvariablen.</li>
   <li><strong>Antivirus/Backup-Software:</strong> Den Datenordner in Echtzeit-Scans möglichst ausnehmen oder den Java-Prozess freigeben; einzelne Produkte blockieren lokale Netzwerk-Sockets, was den Dienststart mit „Unable to establish loopback connection" verhindert.</li>
   <li><strong>Mehrere Mandanten, Profile, DATEV-Details:</strong> siehe <code>docs\README.md</code> (Entwickler- und Betreiberdokumentation) und <code>docs\datev-format-referenz.md</code>.</li>
 </ul>
 
 </main>
-<footer>PDF-zu-E-Rechnung 1.1.0 · Hofmann IT · Dieses Handbuch liegt nach der Installation unter Startmenü → PDF-zu-E-Rechnung → Handbuch.</footer>
+<footer>PDF-zu-E-Rechnung 1.1.1 · Hofmann IT · Dieses Handbuch liegt nach der Installation unter Startmenü → PDF-zu-E-Rechnung → Handbuch.</footer>
 </body>
 </html>

@@ -122,6 +122,12 @@ class SetupWizardTest {
         MvcResult docx = mvc.perform(get("/vorlagen/Rechnungsvorlage.docx")).andExpect(status().isOk()).andReturn();
         assertThat(docx.getResponse().getContentType()).contains("officedocument.wordprocessingml");
         assertThat(docx.getResponse().getContentAsByteArray()).startsWith(new byte[] {0x50, 0x4B});
+        MvcResult xlsx = mvc.perform(get("/vorlagen/Rechnungsvorlage.xlsx")).andExpect(status().isOk()).andReturn();
+        assertThat(xlsx.getResponse().getContentType()).contains("officedocument.spreadsheetml");
+        assertThat(xlsx.getResponse().getContentAsByteArray()).startsWith(new byte[] {0x50, 0x4B});
+        MvcResult guide = mvc.perform(get("/vorlagen/Rechnungsvorlage-anpassen.pdf")).andExpect(status().isOk()).andReturn();
+        assertThat(guide.getResponse().getContentType()).contains("application/pdf");
+        assertThat(body(mvc.perform(get("/einrichtung")).andReturn())).contains("/vorlagen/Rechnungsvorlage.xlsx", "/vorlagen/Rechnungsvorlage-anpassen.pdf");
         String fields = body(mvc.perform(get("/vorlagen/Rechnungsvorlage-Felder.html")).andExpect(status().isOk()).andReturn());
         assertThat(fields).contains("Pflichtangaben").contains("PDF/A").contains("Rechnungsnummer:").contains("E-Mail:");
         assertThat(body(mvc.perform(get("/einrichtung")).andReturn())).contains("/vorlagen/Rechnungsvorlage.docx");

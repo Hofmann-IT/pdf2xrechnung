@@ -3,6 +3,35 @@
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach SemVer.
 Die Versionsnummer steht im `pom.xml` und wird im Seitenfuß, im Systemstatus und je Verarbeitungslauf im Ledger angezeigt.
 
+## [1.1.1] – 2026-11-23 (Korrekturen nach dem ersten Kundentest, Rechnungsvorlagen)
+
+Keine Schemaänderung, keine geänderte Konfiguration. Das zuerst ausgelieferte Setup 1.1.0
+(20.11.2026) enthält diese Punkte nicht. Läuft der Dienst unter einem eigenen Benutzerkonto
+(Zugriff auf Netzlaufwerke), nach dem Update die Dienstanmeldung prüfen.
+
+### Behoben nach dem ersten Kundentest (2026-11-22)
+- Die Kommandozeilen-Befehle `calibrate` und `reprocess` starteten seit der Anmeldung für alle
+  Seiten nicht mehr (die Web-Sicherheit wurde auch ohne Web-Server aufgebaut). Behoben und mit
+  einem Test abgesichert, der die Anwendung wie die Kommandozeile ohne Web-Server startet.
+
+### Rechnungsvorlagen: mehrseitige Rechnungen, Excel-Vorlage, Anleitung (2026-11-23)
+- Behoben: In `Rechnungsvorlage.docx` wiederholt sich der Kopf der Positionstabelle jetzt auf
+  jeder Folgeseite (`w:tblHeader`); Tabellenzeilen werden nicht mehr über den Seitenwechsel
+  getrennt. Bisher las das Profil `standard` bei mehrseitigen Rechnungen aus der Vorlage die
+  Positionen ab Seite 2 nicht, die Rechnung blieb in der manuellen Prüfung.
+- Neu: `Rechnungsvorlage.xlsx` (Blätter „Rechnung" und „Hinweise", ohne Makros; Spalten und
+  Zeilenhöhen an den Koordinaten des Profils `standard`, Summen als Formeln, Drucktitel für
+  den Tabellenkopf). Mit Excel erzeugt; Autor, Druckereinstellungen und Speicherpfad entfernt.
+- Neu: Anleitung `Rechnungsvorlage-anpassen.pdf` (Schritt für Schritt: mitgelieferte Vorlage
+  mit eigenem Briefkopf oder eigene Vorlage umbauen, PDF/A, Test, häufige Meldungen,
+  Checkliste); Quelle `docs/Rechnungsvorlage-anpassen.html`.
+- Einrichtungs-Assistent und Seite „Profile" bieten alle drei Dateien an;
+  `Rechnungsvorlage-Felder.html` beschreibt die Kopfzeilenwiederholung.
+- Geprüft: beide Vorlagen als PDF exportiert, ein- und mehrseitig (45 Positionen), mit
+  `calibrate` gegen `profiles/standard.yaml`: alle Positionen gelesen, Plausibilität bestanden.
+  Neuer Test `InvoiceTemplateFilesTest` sichert Kopfzeilenwiederholung und Drucktitel ab.
+- Version 1.1.1.
+
 ## [1.1.0] – 2026-11-20 (Dienst + Windows-Verwaltungsanwendung, ADR 0015)
 
 **Beim Update von 1.0.0 beachten:** Alle Benutzer müssen sich anmelden (das Konto aus der
@@ -24,12 +53,6 @@ den Datenordner sichern.
 - Handbuch überarbeitet: Anwendung und Infobereich, Anmeldung und Benutzer, neuer Abschnitt
   „Weitere Arbeitsplätze im Firmennetz", Update-Hinweise, Fehlersuche, IT-Hinweise.
 - Version 1.1.0.
-
-### Behoben nach dem ersten Kundentest (2026-11-22)
-- Die Kommandozeilen-Befehle `calibrate` und `reprocess` starteten seit der Anmeldung für alle
-  Seiten nicht mehr (die Web-Sicherheit wurde auch ohne Web-Server aufgebaut). Behoben und mit
-  einem Test abgesichert, der die Anwendung wie die Kommandozeile ohne Web-Server startet.
-
 
 ### Phase A – Anmeldung für alle Funktionen (2026-11-20)
 - V6: Tabelle `user_account` (append-only, PBKDF2-SHA256-Hash) mit den Rollen Administrator

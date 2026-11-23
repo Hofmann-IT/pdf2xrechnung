@@ -15,7 +15,7 @@
 ; =====================================================================================
 
 #ifndef AppVersion
-  #define AppVersion "1.1.0"
+  #define AppVersion "1.1.1"
 #endif
 #ifndef StageDir
   #define StageDir "..\..\target\installer\stage"
