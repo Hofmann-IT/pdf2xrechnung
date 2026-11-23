@@ -5,6 +5,18 @@ Die Versionsnummer steht im `pom.xml` und wird im Seitenfuß, im Systemstatus un
 
 ## [Unveröffentlicht] – 1.2.0 in Arbeit (Vorlagen-Assistent, ADR 0016)
 
+### Phase 3 – Umbau von Word-Dateien (2026-11-23)
+- „Umbauen …" funktioniert jetzt auch für Word (`.docx`, `.doc`): Ersetzt wird nur der Rechnungsteil;
+  Kopf- und Fußzeilen, Seitenränder, Logo, Textfelder und alles vor und nach dem Rechnungsteil bleiben
+  unverändert. Ergebnis wie bei Excel: umgebaute Datei, markierte Fassung mit Legende, Test-PDF (PDF/A).
+- Bilder und Textfelder, die im Rechnungsteil verankert sind (häufig der ganze Briefkopf), bleiben
+  erhalten; ginge trotzdem eines verloren, bricht der Umbau ab und speichert nichts.
+- Das Anschriftenfeld ist ein Textfeld an fester Stelle der Seite; Positionstabelle und Summenblock
+  stammen aus der mitgelieferten Word-Vorlage und liegen an den Koordinaten des Profils `standard`.
+- In Word wird nicht gerechnet: Beträge werden übernommen und müssen je Rechnung von Hand stimmen.
+- Einschränkung: Bilder, die im Rechnungsteil im Text stehen (z. B. eine Skizze in der
+  Positionsbeschreibung), werden nicht übernommen; das wird gemeldet.
+
 ### Phase 2 – Umbau von Excel-Dateien (2026-11-23)
 - Schaltfläche **„Umbauen …"** im Assistenten: Aus einer Excel-Rechnung (`.xlsx`, `.xls`) entstehen neben
   dem Original die umgebaute Datei, eine farbig markierte Fassung mit Kommentaren und ein Test-PDF.
@@ -16,7 +28,7 @@ Die Versionsnummer steht im `pom.xml` und wird im Seitenfuß, im Systemstatus un
   Werte werden übernommen. Zusatzzeilen (z. B. „Bauvorhaben: …") und Schlusstexte bleiben erhalten.
 - Die neu berechneten Summen werden mit der bisherigen Rechnung verglichen; Abweichungen werden gemeldet.
 - Einschränkungen: Der Rechnungsteil wird in Arial 10 gesetzt; das Test-PDF ist kein PDF/A (Excel bietet
-  dafür keine Automatisierung). Word-Dateien folgen in Phase 3.
+  dafür keine Automatisierung).
 
 ### Phase 1 – Import und Analyse (2026-11-23)
 - Verwaltungsanwendung: neuer Befehl **„Vorlage importieren …"** (Leiste und Menü im

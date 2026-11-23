@@ -223,11 +223,7 @@ namespace HofmannIT.ERechnung.Verwaltung
             FieldMatch due = a.Get(InvoiceField.DueDate);
             if (terms.Status != MatchStatus.Missing && terms.Value.Length > 0)
             {
-                string text = terms.Value;
-                if (due.Status != MatchStatus.Missing && !Regex.IsMatch(text, @"(zahlbar bis|fällig am|fälligkeit):?\s*\d{2}\.\d{2}\.\d{4}", RegexOptions.IgnoreCase))
-                {
-                    text = text.TrimEnd('.', ' ') + ", zahlbar bis " + due.Value;
-                }
+                string text = PaymentText(a);
                 Text(p, "B" + row, "Zahlungsbedingungen:", Mark.Green, "Empfohlen: Zeile „Zahlungsbedingungen:“ mit „zahlbar bis TT.MM.JJJJ“ (ergibt das Fälligkeitsdatum).");
                 CellOp t = Text(p, "C" + row + ":H" + (row + 1), text, Mark.Green, "");
                 t.Merge = true;
@@ -249,6 +245,21 @@ namespace HofmannIT.ERechnung.Verwaltung
             foreach (string closing in a.ClosingLines) { row = FreeLine(p, row, closing); }
             p.LastRow = row;
             return p;
+        }
+
+        /// <summary>
+        /// Zahlungsbedingungen der Rechnung; ein erkanntes Fälligkeitsdatum wird als „zahlbar bis TT.MM.JJJJ“ angehängt,
+        /// wenn der Text es nicht schon in dieser Form enthält (so liest das Profil das Fälligkeitsdatum).
+        /// </summary>
+        public static string PaymentText(Analysis a)
+        {
+            string text = a.Get(InvoiceField.PaymentTerms).Value;
+            FieldMatch due = a.Get(InvoiceField.DueDate);
+            if (due.Status != MatchStatus.Missing && !Regex.IsMatch(text, @"(zahlbar bis|fällig am|fälligkeit):?\s*\d{2}\.\d{2}\.\d{4}", RegexOptions.IgnoreCase))
+            {
+                text = text.TrimEnd('.', ' ') + ", zahlbar bis " + due.Value;
+            }
+            return text;
         }
 
         private static CellOp Text(ExcelPlan p, string range, string text, Mark mark, string note)
@@ -382,6 +393,187 @@ namespace HofmannIT.ERechnung.Verwaltung
             CellOp v = Amount(p, "H" + row, false, 0m, mark, "");
             v.Formula = formula;
             return v;
+        }
+    }
+
+    /// <summary>Ein Text des neuen Word-Dokuments mit Markierung.</summary>
+    public sealed class PlanText
+    {
+        public string Label = "";
+        public string Value = "";
+        public Mark Mark = Mark.None;
+        public string Note = "";
+
+        public PlanText(string label, string value, Mark mark, string note)
+        {
+            Label = label;
+            Value = value == null ? "" : value;
+            Mark = mark;
+            Note = note;
+        }
+
+        /// <summary>Beschriftung und Wert in einer Zeile, wie das Profil sie liest.</summary>
+        public string Line { get { return Label.Length == 0 ? Value : (Value.Length == 0 ? Label : Label + " " + Value); } }
+    }
+
+    /// <summary>
+    /// Bauplan des Rechnungsteils für Word. Anders als in Excel wird nicht gerechnet: Beträge werden so
+    /// übernommen, wie sie auf der bisherigen Rechnung stehen.
+    /// </summary>
+    public sealed class WordPlan
+    {
+        /// <summary>Anschriftenfeld: Name, Straße, PLZ Ort, E-Mail – erste Zeile 146 pt unter dem Blattrand, Zeilenabstand 14 pt.</summary>
+        public readonly List<PlanText> Address = new List<PlanText>();
+        public readonly List<PlanText> Info = new List<PlanText>();
+        public readonly List<string> Extras = new List<string>();
+        public string HeaderNote = "";
+        /// <summary>Je Position sieben Zellen: Pos., Bezeichnung (Zeilen mit \n), Menge, Einheit, Einzelpreis, USt, Gesamt.</summary>
+        public readonly List<PlanText[]> Items = new List<PlanText[]>();
+        public readonly List<PlanText> Totals = new List<PlanText>();
+        public PlanText Payment;
+        public readonly List<string> Closing = new List<string>();
+        public readonly List<string> Notes = new List<string>();
+    }
+
+    public static class WordLayout
+    {
+        public static WordPlan Build(Analysis a)
+        {
+            WordPlan p = new WordPlan();
+            FieldMatch name = a.Get(InvoiceField.BuyerName);
+            p.Address.Add(new PlanText("", name.Value, name.Status == MatchStatus.Missing ? Mark.Red : (name.Note.Length > 0 ? Mark.Yellow : Mark.None),
+                name.Status == MatchStatus.Missing ? "Pflicht: Name oder Firma des Kunden in der ersten Zeile des Anschriftenfelds."
+                : (name.Note.Length > 0 ? "Geändert: " + name.Note + ". Der Name steht in der ersten Zeile des Anschriftenfelds." : "")));
+            p.Address.Add(new PlanText("", a.Get(InvoiceField.BuyerStreet).Value, Mark.None, ""));
+            p.Address.Add(new PlanText("", a.Get(InvoiceField.BuyerCity).Value, Mark.None, ""));
+            FieldMatch mail = a.Get(InvoiceField.BuyerEmail);
+            bool mailMissing = mail.Status == MatchStatus.Missing;
+            p.Address.Add(new PlanText("E-Mail:", mailMissing ? "" : mail.Value, mailMissing || mail.Place.Length == 0 ? Mark.Red : Mark.None,
+                mailMissing ? "NEU, Pflicht: E-Mail-Adresse des Kunden hinter „E-Mail:“ eintragen."
+                : (mail.Place.Length == 0 ? "NEU, Pflicht: E-Mail-Adresse des Kunden (stand bisher nicht auf der Rechnung)." : "")));
+            if (mailMissing) { p.Notes.Add("Die E-Mail-Adresse des Kunden fehlt (rot im Anschriftenfeld). Ohne sie bleibt die Rechnung in der manuellen Prüfung."); }
+
+            Info(p, a.Get(InvoiceField.InvoiceNumber), true);
+            Info(p, a.Get(InvoiceField.InvoiceDate), true);
+            FieldMatch service = a.Get(InvoiceField.ServiceDate);
+            DateTime ignored;
+            if (service.Status != MatchStatus.Missing && Values.TryDate(service.Value, out ignored))
+            {
+                Info(p, service, false);
+            }
+            else
+            {
+                p.Notes.Add("Kein Leistungsdatum als Datum (TT.MM.JJJJ) auf der Rechnung" + (service.Value.Length > 0 ? " („" + service.Value + "“ bleibt als Text stehen)" : "")
+                    + ". Empfohlen: eine Zeile „Leistungsdatum:“ unter dem Rechnungsdatum ergänzen.");
+            }
+            Info(p, a.Get(InvoiceField.CustomerNumber), true);
+            if (a.Get(InvoiceField.OrderReference).Status != MatchStatus.Missing) { Info(p, a.Get(InvoiceField.OrderReference), false); }
+            p.Extras.AddRange(a.ExtraLines);
+
+            p.HeaderNote = "Geändert: Kopfzeile und Spaltenfolge Pos. | Bezeichnung | Menge | Einheit | Einzelpreis | USt | Gesamt"
+                + (a.TableHeader.Length > 0 ? " (bisher: " + a.TableHeader + ")." : ".");
+            foreach (InvoiceItem item in a.Items) { p.Items.Add(Item(p, item)); }
+
+            FieldMatch net = a.Get(InvoiceField.NetTotal);
+            FieldMatch vat = a.Get(InvoiceField.VatAmount);
+            FieldMatch gross = a.Get(InvoiceField.GrossTotal);
+            FieldMatch payable = a.Get(InvoiceField.PayableAmount);
+            bool netMissing = net.Status == MatchStatus.Missing;
+            p.Totals.Add(new PlanText("Summe netto:", net.Value, netMissing ? Mark.Red : Mark.Yellow, netMissing ? "NEU, Pflicht: Zeile „Summe netto:“."
+                : "Geändert: Beschriftung „Summe netto:“" + (net.SourceLabel.Length > 0 ? " (bisher „" + net.SourceLabel + "“)" : " (bisher ohne Beschriftung)") + "."));
+            if (a.VatRates.Count == 1)
+            {
+                p.Totals.Add(new PlanText("Netto " + a.VatRates[0] + ":", net.Value, Mark.Green, "Empfohlen: Steuerbasis je Steuersatz."));
+                p.Totals.Add(new PlanText("USt " + a.VatRates[0] + ":", vat.Value, Mark.Green, "Empfohlen: Steuerbetrag je Steuersatz."));
+            }
+            p.Totals.Add(new PlanText("Gesamt netto:", net.Value, Mark.Red, "NEU, Pflicht: Zeile „Gesamt netto:“."));
+            bool vatMissing = vat.Status == MatchStatus.Missing;
+            p.Totals.Add(new PlanText("USt gesamt:", vat.Value, vatMissing || a.VatRates.Count > 1 ? Mark.Red : Mark.Yellow,
+                vatMissing ? "Pflicht: Umsatzsteuer der Rechnung."
+                : (a.VatRates.Count > 1 ? "Mehrere Steuersätze: bitte je Satz die Zeilen „Netto x %:“ und „USt x %:“ ergänzen."
+                : "Geändert: Beschriftung „USt gesamt:“" + (vat.SourceLabel.Length > 0 ? " (bisher „" + vat.SourceLabel + "“)." : "."))));
+            if (a.VatRates.Count > 1) { p.Notes.Add("Mehrere Steuersätze: Bitte die Zeilen „Netto x %:“ und „USt x %:“ je Steuersatz von Hand ergänzen."); }
+            if (a.VatRates.Count == 0) { p.Notes.Add("Der Steuersatz war nicht erkennbar: die Spalte „USt“ der Positionen bitte von Hand ausfüllen (rot)."); }
+            bool grossMissing = gross.Status == MatchStatus.Missing;
+            p.Totals.Add(new PlanText("Gesamtbetrag:", gross.Value, grossMissing ? Mark.Red : Mark.Yellow, grossMissing ? "NEU, Pflicht: Zeile „Gesamtbetrag:“."
+                : "Geändert: Beschriftung „Gesamtbetrag:“ mit Doppelpunkt, Betrag ohne „EUR“ dazwischen" + (gross.SourceLabel.Length > 0 ? " (bisher „" + gross.SourceLabel + "“)." : ".")));
+            bool payableOnInvoice = payable.Status == MatchStatus.Found && payable.Place.Length > 0;
+            p.Totals.Add(new PlanText("Zahlbetrag:", payable.Value, payableOnInvoice ? Mark.Yellow : Mark.Red,
+                payableOnInvoice ? "Geändert: Beschriftung „Zahlbetrag:“." : "NEU, Pflicht: Zeile „Zahlbetrag:“ (gleich dem Gesamtbetrag, solange nichts abgezogen wird)."));
+            foreach (PlanText t in p.Totals)
+            {
+                if (t.Value.Length == 0) { p.Notes.Add("„" + t.Label + "“ hat keinen Betrag (rot). Bitte von Hand eintragen."); }
+            }
+            p.Notes.Add("In Word wird nicht gerechnet: Die Beträge im Summenblock sind fester Text und müssen bei jeder Rechnung von Hand stimmen.");
+
+            FieldMatch terms = a.Get(InvoiceField.PaymentTerms);
+            if (terms.Status != MatchStatus.Missing && terms.Value.Length > 0)
+            {
+                p.Payment = new PlanText("Zahlungsbedingungen:", ExcelLayout.PaymentText(a), Mark.Green,
+                    "Empfohlen: Zeile „Zahlungsbedingungen:“ mit „zahlbar bis TT.MM.JJJJ“ (ergibt das Fälligkeitsdatum).");
+                if (a.Get(InvoiceField.DueDate).Status == MatchStatus.Missing)
+                {
+                    p.Notes.Add("In den Zahlungsbedingungen steht kein Fälligkeitsdatum. Empfohlen: „…, zahlbar bis TT.MM.JJJJ“ ergänzen.");
+                }
+            }
+            else
+            {
+                p.Notes.Add("Auf der Rechnung stehen keine Zahlungsbedingungen. Empfohlen: unter dem Summenblock eine Zeile „Zahlungsbedingungen: …, zahlbar bis TT.MM.JJJJ“ ergänzen.");
+            }
+            for (int i = 0; i < a.ClosingInsideRegion && i < a.ClosingLines.Count; i++) { p.Closing.Add(a.ClosingLines[i]); }
+            return p;
+        }
+
+        private static void Info(WordPlan p, FieldMatch m, bool required)
+        {
+            string target = m.TargetLabel;
+            bool missing = m.Status == MatchStatus.Missing || m.Value.Length == 0;
+            bool relabelled = m.SourceLabel.Length > 0 && !string.Equals(target.TrimEnd(':'), m.SourceLabel.TrimEnd(':', ' '), StringComparison.OrdinalIgnoreCase);
+            bool added = !missing && m.Place.Length == 0;
+            Mark mark = missing || added ? (required ? Mark.Red : Mark.Green) : (relabelled || m.Status == MatchStatus.Uncertain ? Mark.Yellow : Mark.None);
+            string note = missing ? "Pflicht: „" + target + "“ muss ausgefüllt sein (stand bisher nicht auf der Rechnung)."
+                : (added ? "NEU" + (required ? ", Pflicht" : "") + ": „" + target + "“ (stand bisher nicht auf der Rechnung)."
+                : (relabelled ? "Geändert: eigene Zeile mit der Beschriftung „" + target + "“ (bisher „" + m.SourceLabel + "“)." : ""));
+            p.Info.Add(new PlanText(target, missing ? "" : m.Value, mark, note));
+            if (missing && required)
+            {
+                p.Notes.Add("„" + target + "“ fehlt (rot). Ohne diese Angabe bleibt die Rechnung in der manuellen Prüfung.");
+            }
+        }
+
+        private static PlanText[] Item(WordPlan p, InvoiceItem item)
+        {
+            decimal quantity, price, total;
+            bool hasQuantity = Values.TryNumber(item.Quantity, out quantity);
+            bool hasPrice = Values.TryNumber(item.UnitPrice, out price);
+            bool hasTotal = Values.TryNumber(item.Total, out total);
+            PlanText[] cells = new PlanText[7];
+            cells[0] = new PlanText("", item.Number, Mark.Yellow, item.Notes.Exists(delegate(string n) { return n.StartsWith("Positionsnummer", StringComparison.Ordinal); })
+                ? "NEU: Positionsnummer ergänzt (stand nicht auf der Rechnung)." : "Geändert: nur die Zahl in der Spalte „Pos.“.");
+            bool subItems = item.Notes.Exists(delegate(string n) { return n.StartsWith("Unterpunkt", StringComparison.Ordinal); });
+            cells[1] = new PlanText("", string.Join("\n", item.Description.ToArray()), item.Description.Count == 0 ? Mark.Red : (subItems ? Mark.Yellow : Mark.None),
+                item.Description.Count == 0 ? "Pflicht: Bezeichnung der Position."
+                : (subItems ? "Geändert: Unterpunkte ohne eigenen Preis stehen als Text in der Bezeichnung." : ""));
+            cells[2] = new PlanText("", hasQuantity ? Values.Amount(quantity) : "", hasQuantity ? Mark.Yellow : Mark.Red,
+                hasQuantity ? "Geändert: Menge rechts der Bezeichnung." : "Pflicht: Menge der Position.");
+            cells[3] = new PlanText("", item.Unit, Mark.Yellow, "Einheit als Kurzform: Stk., Std., m, km, Tag, Pauschal.");
+            cells[4] = new PlanText("", hasPrice ? Values.Amount(price) : "", hasPrice ? Mark.Yellow : Mark.Red,
+                hasPrice ? "Geändert: Einzelpreis ohne Euro-Zeichen." : "Pflicht: Einzelpreis (netto) der Position.");
+            cells[5] = new PlanText("", item.VatRate, item.VatRate.Length > 0 ? Mark.Yellow : Mark.Red,
+                item.VatRate.Length > 0 ? "NEU: Spalte „USt“ mit dem Steuersatz der Position." : "Steuersatz der Position eintragen, z. B. 19 %.");
+            cells[6] = new PlanText("", hasTotal ? Values.Amount(total) : "", hasTotal ? Mark.Yellow : Mark.Red,
+                hasTotal ? "Geändert: Gesamt = Menge × Einzelpreis, ohne Euro-Zeichen." : "Pflicht: Betrag der Position.");
+            if (hasQuantity && hasPrice && hasTotal && Math.Abs(Math.Round(quantity * price, 2, MidpointRounding.AwayFromZero) - total) > 0.005m)
+            {
+                cells[6].Mark = Mark.Red;
+                cells[6].Note = "Menge × Einzelpreis ergibt nicht diesen Betrag. Bitte Menge und Einzelpreis prüfen.";
+                p.Notes.Add("Position " + item.Number + ": Menge × Einzelpreis ergibt nicht den Betrag " + item.Total + " (rot).");
+            }
+            if (!hasQuantity || !hasPrice || !hasTotal)
+            {
+                p.Notes.Add("Position " + item.Number + ": Menge, Einzelpreis oder Betrag fehlt (rot).");
+            }
+            return cells;
         }
     }
 

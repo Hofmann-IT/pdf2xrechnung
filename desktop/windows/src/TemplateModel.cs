@@ -35,6 +35,9 @@ namespace HofmannIT.ERechnung.Verwaltung
         /// <summary>Leer für Textkörper bzw. Tabellenblatt; sonst Kopfzeile, Fußzeile oder Name eines Textfelds.</summary>
         public string Container = "";
         public bool InTable;
+        /// <summary>Zeichenpositionen im Word-Dokument (Anfang und Ende der Zeile); -1 bei Excel.</summary>
+        public int Start = -1;
+        public int End = -1;
 
         public SourceLine Add(int column, string text, string place)
         {
@@ -186,6 +189,14 @@ namespace HofmannIT.ERechnung.Verwaltung
         public readonly List<string> ExtraLines = new List<string>();
         /// <summary>Nicht zugeordnete Zeilen unter dem Summenblock (Grußformel, Hinweise).</summary>
         public readonly List<string> ClosingLines = new List<string>();
+        /// <summary>
+        /// Word: Zeichenpositionen des Rechnungsteils (von der ersten erkannten Angabe bis zur letzten Summen- oder
+        /// Zahlungszeile). Nur dieser Bereich wird ersetzt; was davor und danach steht, bleibt unangetastet.
+        /// </summary>
+        public int RegionStart = -1;
+        public int RegionEnd = -1;
+        /// <summary>So viele der ersten Schlusszeilen liegen innerhalb des Rechnungsteils und werden neu gesetzt.</summary>
+        public int ClosingInsideRegion;
         public string TableHeader = "";
         public string TableHeaderPlace = "";
 
@@ -416,6 +427,8 @@ namespace HofmannIT.ERechnung.Verwaltung
                 SourceLine line = new SourceLine();
                 line.Container = source.Container;
                 line.InTable = source.InTable;
+                line.Start = source.Start;
+                line.End = source.End;
                 line.Add(source.Cells[0].Column, part, source.Cells[0].Place);
                 if (line.Cells.Count > 0) { result.Add(line); }
             }
@@ -445,11 +458,26 @@ namespace HofmannIT.ERechnung.Verwaltung
             {
                 foreach (SourceCell c in body[i].Cells) { a.LetterheadCells.Add(c); }
             }
+            // letzte Zeile, die zu Positionen, Summen oder Zahlungsbedingungen gehört
+            int last = -1;
+            for (int i = body.Count - 1; i >= first && last < 0; i--)
+            {
+                foreach (SourceCell c in body[i].Cells) { if (a.Used.Contains(c)) { last = i; } }
+            }
             for (int i = first; i < limit; i++) { Remaining(a, body, i, a.ExtraLines); }
             if (header < 0) { return; }
             // Text zwischen Tabellenkopf und erster Position
             for (int i = header + 1; i < end; i++) { Remaining(a, body, i, a.ExtraLines); }
-            for (int i = end; i < body.Count; i++) { Remaining(a, body, i, a.ClosingLines); }
+            for (int i = end; i < body.Count; i++)
+            {
+                Remaining(a, body, i, a.ClosingLines);
+                if (i <= last) { a.ClosingInsideRegion = a.ClosingLines.Count; }
+            }
+            if (last >= first && first < body.Count)
+            {
+                a.RegionStart = body[first].Start;
+                for (int i = first; i <= last; i++) { a.RegionEnd = Math.Max(a.RegionEnd, body[i].End); }
+            }
         }
 
         private static void Remaining(Analysis a, List<SourceLine> body, int index, List<string> target)

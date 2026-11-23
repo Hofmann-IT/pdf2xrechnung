@@ -2,7 +2,7 @@
 
 - Status: Akzeptiert (2026-11-23); Freigaben F1–F5 vom Auftraggeber mit dem Plan „Vorlagen-Assistent
   (Version 1.2.0)" erteilt. Umsetzung in vier Phasen; dieser ADR wird je Phase fortgeschrieben.
-  **Stand: Phase 1 (Import und Analyse) und Phase 2 (Umbau von Excel-Dateien) umgesetzt; Word folgt in Phase 3.**
+  **Stand: Phasen 1 bis 3 umgesetzt (Analyse, Umbau von Excel- und Word-Dateien); offen ist Phase 4 (automatischer Test, Handbuch, Version 1.2.0).**
 - Betrifft: `desktop/windows/` (Verwaltungsanwendung). Der Dienst (Java), das Profil `standard`,
   die Datenbank und der Installer bleiben unverändert.
 
@@ -91,8 +91,39 @@ Profils `standard` bringt, ohne Logo, Bilder, Briefkopf und Fußzeile zu veränd
   Kommentare, Legende außerhalb des Druckbereichs) und `<Name>_E-Rechnung_Test.pdf`.
 - Excel bietet für den PDF-Export per Automatisierung keinen Schalter für PDF/A: Das Test-PDF dient nur
   der Profilprüfung; für Rechnungen bleibt der Weg Speichern unter → PDF → Optionen → PDF/A.
-- Im Dialog: Schaltfläche „Umbauen …" mit Rückfrage und Ergebnisliste. Für Word-Dateien ist sie bis
-  Phase 3 nicht aktiv.
+- Im Dialog: Schaltfläche „Umbauen …" mit Rückfrage und Ergebnisliste.
+
+### Phase 3 – Umbau von Word-Dateien (`.docx`, `.doc`)
+
+- Das Original wird schreibgeschützt geöffnet und sofort unter dem neuen Namen als `.docx` gespeichert;
+  gearbeitet wird nur in dieser Kopie. Schlägt der Umbau fehl, werden die angefangenen Dateien entfernt.
+- Ersetzt wird **nur der Rechnungsteil**: von der ersten erkannten Angabe bis zur letzten Summen- oder
+  Zahlungszeile (`Analysis.RegionStart`/`RegionEnd`, Zeichenpositionen aus dem Lesen). Kopf- und Fußzeilen,
+  Seitenränder, Abschnitte und alles davor (Briefkopf) und danach (Schlusstexte) bleiben unangetastet.
+  Tabellen, die nur teilweise zum Rechnungsteil gehören, werden an dessen Grenzen geteilt.
+- **Verankerte Bilder und Textfelder:** In Word ist der Anker einer Form ein unsichtbares Zeichen im Text.
+  Liegt er im Rechnungsteil (häufig: Logo und Briefkopf hängen am ersten Absatz der Anschrift), wird der
+  Absatz bzw. die Tabellenzeile nicht gelöscht, sondern nur der Text zwischen und hinter den Ankerzeichen;
+  der Rest schrumpft auf 1 pt. Zur Sicherheit wird die Zahl der Formen vor und nach dem Umbau verglichen –
+  fehlt eine, bricht der Umbau ab und speichert nichts. Formen, die an einem Absatz statt an der Seite
+  ausgerichtet sind, bekommen nach dem Umbau ihre vorherige Lage auf der Seite zurück.
+- **Anschriftenfeld** als Textfeld an fester Stelle der Seite (56,7 pt von links, 146 pt von oben,
+  Zeilenabstand genau 14 pt, Umbruch „oben und unten"): Die Lage hängt damit nicht vom Textfluss, von den
+  Seitenrändern oder der Kopfzeile des Kunden ab. Beginnt der Textkörper oberhalb, wird der Ankerabsatz in
+  die Höhe des Felds gerückt, sodass Word alles Folgende darunter setzt.
+- Überschrift, Angaben zur Rechnung (je eine Zeile „Beschriftung: Wert"), Zusatzzeilen, dann die
+  **Positionstabelle und der Summenblock aus der mitgelieferten `Rechnungsvorlage.docx`** (in die EXE
+  eingebettet, Übertragung per `FormattedText` ohne Zwischenablage). Die Tabellen werden so eingerückt, dass
+  ihr Text an derselben Stelle der Seite steht wie in der Standardvorlage (gemessen, nicht gerechnet);
+  Absätze erhalten den Einzug 56,7 pt minus linker Seitenrand.
+- Schrift: Standardschrift des Dokuments (höchstens 11 pt); Positionen in der Schriftgröße, in der der
+  Rechnungsteil bisher überwiegend gesetzt war (8 bis 11 pt), damit die Rechnung nicht länger wird.
+- In Word wird nicht gerechnet (F2): Beträge werden übernommen; „Gesamt netto" erhält den Nettobetrag,
+  „Zahlbetrag" den Vorschlag aus der Analyse; fehlende Beträge bleiben leer und rot.
+- Bilder, die im Rechnungsteil im Text stehen (z. B. eine Skizze in der Positionsbeschreibung), sind in der
+  neuen Datei nicht enthalten; das wird gemeldet.
+- Das Test-PDF aus Word ist PDF/A (`UseISO19005_1`). Die markierte Fassung erhält Schattierungen und eine
+  Legende auf einer eigenen Seite am Ende.
 
 ## Tests
 
@@ -100,8 +131,8 @@ Profils `standard` bringt, ohne Logo, Bilder, Briefkopf und Fußzeile zu veränd
   Ausschlussfälle, Zahlen- und Datumsformate.
 - `tests/vorlagen-e2e.ps1` (braucht Office, nicht Teil von `mvn verify`): erzeugt Fremd-Layouts als
   `.xlsx`, `.xls`, `.docx`, `.doc`, wertet sie über `/vorlagentest` aus und prüft die Berichte. Die
-  Excel-Dateien werden umgebaut; ihr Test-PDF muss mit `calibrate` gegen `profiles/standard.yaml` bestehen
-  (richtige Anschrift, Nummer, Positionen; einseitig und zweiseitig mit 45 Positionen).
+  Excel- und Word-Dateien werden umgebaut; ihr Test-PDF muss mit `calibrate` gegen `profiles/standard.yaml`
+  bestehen (richtige Anschrift, Nummer, Positionen, Beträge; Excel zusätzlich zweiseitig mit 45 Positionen).
 - Kundendateien werden nur lokal geprüft und nicht ins Repository übernommen.
 
 ## Konsequenzen und Grenzen

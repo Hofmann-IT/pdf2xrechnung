@@ -296,12 +296,11 @@ namespace HofmannIT.ERechnung.Verwaltung
 
         private void UpdateHints(SourceDocument doc, Analysis a)
         {
-            convert.Enabled = a.Convertible && doc.Excel && !busy;
+            convert.Enabled = a.Convertible && !busy;
             summary.Text = "Ergebnis: " + AnalysisReport.Summary(a);
             summary.ForeColor = a.Convertible ? SystemColors.ControlText : Color.FromArgb(156, 0, 6);
             StringBuilder b = new StringBuilder();
             foreach (string s in a.Blockers) { b.AppendLine("NICHT UMBAUBAR: " + s); }
-            if (a.Convertible && !doc.Excel) { b.AppendLine("• Der Umbau von Word-Dateien ist in dieser Fassung noch nicht enthalten (folgt). Die Analyse und der Bericht stehen bereits zur Verfügung."); }
             foreach (string s in a.Warnings) { b.AppendLine("• " + s); }
             foreach (InvoiceItem item in a.Items)
             {
@@ -383,14 +382,16 @@ namespace HofmannIT.ERechnung.Verwaltung
         /// <summary>Baut die Excel-Datei mit den angezeigten (ggf. korrigierten) Werten um; neue Dateien neben dem Original.</summary>
         private async void Convert()
         {
-            if (busy || document == null || analysis == null || !analysis.Convertible || !document.Excel) { return; }
+            if (busy || document == null || analysis == null || !analysis.Convertible) { return; }
             fields.EndEdit();
             items.EndEdit();
             string path = file.Text;
             string directory = Path.GetDirectoryName(path);
+            bool excel = document.Excel;
+            string extension = excel ? ".xlsx" : ".docx";
             string question = "Aus „" + document.FileName + "“ werden im selben Ordner drei neue Dateien erstellt:\r\n\r\n"
-                + "  • die umgebaute Rechnung (…_E-Rechnung.xlsx)\r\n"
-                + "  • dieselbe Datei mit farbigen Markierungen der Änderungen (…_E-Rechnung_markiert.xlsx)\r\n"
+                + "  • die umgebaute Rechnung (…_E-Rechnung" + extension + ")\r\n"
+                + "  • dieselbe Datei mit farbigen Markierungen der Änderungen (…_E-Rechnung_markiert" + extension + ")\r\n"
                 + "  • ein Test-PDF (…_E-Rechnung_Test.pdf)\r\n\r\n"
                 + "Ihre bisherige Datei bleibt unverändert, vorhandene Dateien werden nicht überschrieben."
                 + (analysis.MissingRequired > 0 ? "\r\n\r\n" + analysis.MissingRequired + " Pflichtangabe(n) fehlen noch. Sie werden als rot markierte leere Felder angelegt." : "")
@@ -403,14 +404,18 @@ namespace HofmannIT.ERechnung.Verwaltung
             convert.Enabled = false;
             UseWaitCursor = true;
             string before = summary.Text;
-            summary.Text = "Excel baut die Datei um …";
+            summary.Text = (excel ? "Excel" : "Word") + " baut die Datei um …";
             ConversionResult result = null;
             string error = null;
             try
             {
                 Analysis a = analysis;
                 string sheetName = document.Sheet;
-                result = await Task.Run(delegate { return TemplateConverter.ConvertExcel(path, sheetName, a, directory, ConvertTimeoutMillis); });
+                result = await Task.Run(delegate
+                {
+                    return excel ? TemplateConverter.ConvertExcel(path, sheetName, a, directory, ConvertTimeoutMillis)
+                        : WordConverter.Convert(path, a, directory, ConvertTimeoutMillis);
+                });
             }
             catch (OfficeException e)
             {
@@ -532,7 +537,7 @@ namespace HofmannIT.ERechnung.Verwaltung
                     File.WriteAllText(Path.Combine(output, name + ".zeilen.txt"), AnalysisReport.Lines(doc), new UTF8Encoding(true));
                     overview.AppendLine(name + ": " + AnalysisReport.Summary(a));
                     TemplateWizard.SavePreview(doc, a, Path.Combine(output, name + ".dialog.png"));
-                    if (doc.Excel && a.Convertible)
+                    if (a.Convertible)
                     {
                         // Angaben, die im Assistenten der Benutzer einträgt: Datei <Name>.werte.txt mit Zeilen Feld=Wert
                         string valuesFile = path + ".werte.txt";
@@ -545,7 +550,8 @@ namespace HofmannIT.ERechnung.Verwaltung
                                 if (eq > 0 && Enum.TryParse(line.Substring(0, eq).Trim(), out field)) { a.Get(field).Enter(line.Substring(eq + 1)); }
                             }
                         }
-                        ConversionResult result = TemplateConverter.ConvertExcel(path, doc.Sheet, a, output, 300000);
+                        ConversionResult result = doc.Excel ? TemplateConverter.ConvertExcel(path, doc.Sheet, a, output, 300000)
+                            : WordConverter.Convert(path, a, output, 300000);
                         StringBuilder notes = new StringBuilder();
                         notes.AppendLine(Path.GetFileName(result.Workbook));
                         notes.AppendLine(Path.GetFileName(result.Marked));

@@ -112,6 +112,9 @@ if (-not $KeepFixtures) {
         [string] $p = Join-Path $Work "fremd-word-alt.doc"
         $d.SaveAs2($p, 0)
         $d.Close($false)
+        foreach ($n in "fremd-word.docx", "fremd-word-alt.doc") {
+            [System.IO.File]::WriteAllText((Join-Path $Work "$n.werte.txt"), "BuyerEmail=kunde@beispiel.example`r`n", (New-Object System.Text.UTF8Encoding($false)))
+        }
     } finally { $w.Quit(); [void][Runtime.InteropServices.Marshal]::ReleaseComObject($w) }
 }
 
@@ -143,9 +146,10 @@ Expect "fremd-excel-lang.xlsx" @("Positionen: 45", "1.436,31", "272,90", "1.709,
 $jar = Join-Path $root "target\pdf-zu-erechnung.jar"
 if (-not (Test-Path $jar)) { throw "Dienst nicht gebaut: $jar fehlt (mvn -q package)" }
 if (-not (Test-Path "$JavaHome\bin\java.exe")) { throw "JDK nicht gefunden unter $JavaHome" }
-function ExpectConverted([string] $file, [int] $positions, [int] $pages) {
+function ExpectConverted([string] $file, [int] $positions, [int] $pages, [string] $extension = ".xlsx",
+                         [string[]] $tokens = @("10001", "kunde@beispiel.example", "Herr Max Beispiel", "Hauptstr. 5", "5001")) {
     $stem = [System.IO.Path]::GetFileNameWithoutExtension($file) + "_E-Rechnung"
-    foreach ($n in "$stem.xlsx", "${stem}_markiert.xlsx", "${stem}_Test.pdf") {
+    foreach ($n in "$stem$extension", "${stem}_markiert$extension", "${stem}_Test.pdf") {
         if (-not (Test-Path (Join-Path $out $n))) { Write-Host "FEHLGESCHLAGEN: $file – $n wurde nicht erzeugt"; $script:failures++; return }
     }
     $notes = Get-Content (Join-Path $out "$file.umbau.txt") -Raw -Encoding UTF8
@@ -157,7 +161,7 @@ function ExpectConverted([string] $file, [int] $positions, [int] $pages) {
         $code = $LASTEXITCODE
     } finally { Pop-Location }
     $text = if (Test-Path $report) { Get-Content $report -Raw -Encoding UTF8 } else { "" }
-    foreach ($t in "Seiten: $pages", "Positionen: $positions", "bestanden", "10001", "kunde@beispiel.example", "Herr Max Beispiel", "Hauptstr. 5", "5001") {
+    foreach ($t in @("Seiten: $pages", "Positionen: $positions", "bestanden") + $tokens) {
         if (-not $text.Contains($t)) { Write-Host "FEHLGESCHLAGEN: $file (umgebaut) – Profilprüfung, erwartet: $t"; $script:failures++ }
     }
     if ($code -ne 0 -or $text.Contains("NICHT bestanden")) { Write-Host "FEHLGESCHLAGEN: $file (umgebaut) – Profilprüfung nicht bestanden (Bericht: $report)"; $script:failures++ }
@@ -165,6 +169,10 @@ function ExpectConverted([string] $file, [int] $positions, [int] $pages) {
 ExpectConverted "fremd-excel.xlsx" 2 1
 ExpectConverted "fremd-excel-alt.xls" 2 1
 ExpectConverted "fremd-excel-lang.xlsx" 45 2
+# ---------- Umbau (Word): Briefkopf bleibt, Rechnungsteil im Standardaufbau, Test-PDF besteht das Profil
+$wordTokens = "10002", "kunde@beispiel.example", "Beispiel Handel SE & Co. KG", "Industriestr. 2", "7002", "5784.13", "6883.11"
+ExpectConverted "fremd-word.docx" 1 1 ".docx" $wordTokens
+ExpectConverted "fremd-word-alt.doc" 1 1 ".docx" $wordTokens
 Get-Content (Join-Path $out "uebersicht.txt") -Encoding UTF8
 if ($proc.ExitCode -ne 0) { Write-Host "FEHLGESCHLAGEN: /vorlagentest endete mit $($proc.ExitCode)"; $failures++ }
 if ($failures -gt 0) { throw "$failures Prüfung(en) des Vorlagen-Assistenten fehlgeschlagen (Berichte: $out)" }

@@ -150,6 +150,7 @@ $exe = Join-Path $out "PdfZuERechnung.Verwaltung.exe"
     "/win32icon:$ico" "/win32manifest:$(Join-Path $PSScriptRoot 'app.manifest')" `
     /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.ServiceProcess.dll /r:Microsoft.CSharp.dll `
     "/r:$core" "/r:$winforms" `
+    "/resource:$(Join-Path $root 'src\main\resources\static\vorlagen\Rechnungsvorlage.docx'),Rechnungsvorlage.docx" `
     (Join-Path $src "*.cs") $assemblyInfo
 if ($LASTEXITCODE -ne 0) { throw "Übersetzung fehlgeschlagen" }
 

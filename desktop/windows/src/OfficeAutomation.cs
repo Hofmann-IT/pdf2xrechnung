@@ -293,12 +293,14 @@ namespace HofmannIT.ERechnung.Verwaltung
                             o.Start = (int)cell.Range.Start;
                             o.Line = new SourceLine();
                             o.Line.InTable = true;
+                            o.Line.Start = o.Start;
                             rows[row] = o;
                             items.Add(o);
                         }
                         // Absätze innerhalb einer Zelle bleiben in der Zelle (mehrzeilige Bezeichnung)
                         string text = Clean(((string)cell.Range.Text).Replace("\r", "\n"));
                         o.Line.Add(column, text, "Tabelle " + tableNumber + ", Zeile " + row);
+                        o.Line.End = Math.Max(o.Line.End, (int)cell.Range.End);
                     }
                 }
 
@@ -316,6 +318,8 @@ namespace HofmannIT.ERechnung.Verwaltung
                     Ordered o = new Ordered();
                     o.Start = (int)range.Start;
                     o.Line = new SourceLine();
+                    o.Line.Start = o.Start;
+                    o.Line.End = (int)range.End;
                     for (int i = 0; i < parts.Length; i++)
                     {
                         o.Line.Add(i + 1, Clean(parts[i]), "Absatz " + number);

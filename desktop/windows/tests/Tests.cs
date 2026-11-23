@@ -511,7 +511,15 @@ internal static class Tests
         doc.Lines.Add(Line(7, "Gesamtbetrag", 8, "EUR", 9, "238,00"));
         doc.Lines.Add(Line(2, "Mit freundlichen Grüßen"));
         doc.Lines.Add(Line(2, "Leistungszeitpunkt 05/26"));
+        for (int i = 0; i < doc.Lines.Count; i++)
+        {
+            doc.Lines[i].Start = i * 10;
+            doc.Lines[i].End = i * 10 + 9;
+        }
         Analysis a = TemplateAnalyzer.Analyze(doc);
+        Equal(20, a.RegionStart, "Plan: Der Rechnungsteil beginnt mit der ersten Zeile der Anschrift (Briefkopf davor bleibt)");
+        Equal(159, a.RegionEnd, "Plan: Der Rechnungsteil endet mit der letzten Summenzeile (Schlusstexte danach bleiben)");
+        Equal(0, a.ClosingInsideRegion, "Plan: Schlusstexte hinter dem Rechnungsteil werden in Word nicht neu gesetzt");
         Equal(2, a.LetterheadCells.Count, "Plan: Zellen über der Anschrift sind Briefkopf");
         Equal(2, a.ExtraLines.Count, "Plan: zwei Zusatzzeilen über der Tabelle (leere Beschriftung „Auftrags-Nr.:“ entfällt)");
         Equal("Telefon-Nr.: Mobil 0170/000000", a.ExtraLines[0], "Plan: Beschriftung mit dem Wert darunter");
@@ -565,6 +573,31 @@ internal static class Tests
         Equal("Mit freundlichen Grüßen", p.Find("B37:H37").Text, "Plan: Schlusstext unter dem Summenblock");
         Equal(39, p.LastRow, "Plan: letzte Zeile");
         Check(p.Notes.Count == 2 && p.Notes[0].Contains("Leistungsdatum") && p.Notes[1].Contains("Zahlungsbedingungen"), "Plan: Hinweise auf Leistungsdatum und Zahlungsbedingungen");
+
+        // dieselbe Rechnung als Bauplan für Word: Beträge werden übernommen, nichts wird gerechnet
+        WordPlan word = WordLayout.Build(a);
+        Equal(4, word.Address.Count, "Word-Plan: vier Zeilen im Anschriftenfeld");
+        Equal("Frau Erika Muster", word.Address[0].Line, "Word-Plan: Name in der ersten Zeile");
+        Equal("90402 Nürnberg", word.Address[2].Line, "Word-Plan: Ort in der dritten Zeile");
+        Equal("E-Mail: kunde@beispiel.example", word.Address[3].Line, "Word-Plan: E-Mail-Zeile");
+        Equal(Mark.Red, word.Address[3].Mark, "Word-Plan: neu eingetragene E-Mail ist rot");
+        Equal(3, word.Info.Count, "Word-Plan: drei Angaben zur Rechnung");
+        Equal("Rechnungsnummer: 8001-A", word.Info[0].Line, "Word-Plan: Beschriftung und Wert in einer Zeile");
+        Equal("Kunden-Nr.: 10001", word.Info[2].Line, "Word-Plan: Kunden-Nr.");
+        Equal(2, word.Extras.Count, "Word-Plan: Zusatzzeilen");
+        Equal(1, word.Items.Count, "Word-Plan: eine Position");
+        Equal("Glasscheibe\ninkl. 2 Stck. Anfahrt", word.Items[0][1].Value, "Word-Plan: mehrzeilige Bezeichnung in einer Zelle");
+        Equal("1,00", word.Items[0][2].Value, "Word-Plan: Menge");
+        Equal("200,00", word.Items[0][6].Value, "Word-Plan: Betrag der Position wird übernommen");
+        Equal(7, word.Totals.Count, "Word-Plan: sieben Summenzeilen bei einem Steuersatz");
+        Equal("Summe netto:", word.Totals[0].Label, "Word-Plan: erste Summenzeile");
+        Equal("200,00", word.Totals[0].Value, "Word-Plan: Nettobetrag der bisherigen Rechnung");
+        Equal("USt 19 %:", word.Totals[2].Label, "Word-Plan: Steuerbetrag je Satz");
+        Equal("38,00", word.Totals[2].Value, "Word-Plan: Umsatzsteuer der bisherigen Rechnung");
+        Equal("238,00", word.Totals[6].Value, "Word-Plan: Zahlbetrag als Vorschlag gleich dem Gesamtbetrag");
+        Equal(Mark.Red, word.Totals[6].Mark, "Word-Plan: neue Pflichtzeile Zahlbetrag ist rot");
+        Check(word.Payment == null && word.Closing.Count == 0, "Word-Plan: keine Zahlungsbedingungen, Schlusstexte bleiben im Dokument");
+        Check(word.Notes.Exists(delegate(string n) { return n.Contains("nicht gerechnet"); }), "Word-Plan: Hinweis, dass Word nicht rechnet");
 
         // zwei Steuersätze: nichts wird geraten
         SourceDocument rates = new SourceDocument();
