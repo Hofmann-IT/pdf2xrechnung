@@ -59,19 +59,18 @@ namespace HofmannIT.ERechnung.Verwaltung
                     + "Der Vorlagen-Assistent braucht das Programm, mit dem die Rechnung geschrieben wurde.");
             }
             string full = Path.GetFullPath(path);
-            return Run(excel, timeoutMillis, delegate(object app)
+            return Run<SourceDocument>(excel, timeoutMillis, "Die Datei konnte nicht gelesen werden: ", delegate(object app)
             {
                 return excel ? ReadExcel(app, full, sheet == null ? "" : sheet) : ReadWord(app, full);
             });
         }
 
-        private delegate SourceDocument Work(object application);
-
-        private static SourceDocument Run(bool excel, int timeoutMillis, Work work)
+        /// <summary>Führt Arbeit mit einem eigenen, unsichtbaren Word oder Excel in einem STA-Thread mit Zeitlimit aus.</summary>
+        internal static T Run<T>(bool excel, int timeoutMillis, string failurePrefix, Func<object, T> work)
         {
             string processName = excel ? "EXCEL" : "WINWORD";
             HashSet<int> before = ProcessIds(processName);
-            SourceDocument result = null;
+            T result = default(T);
             Exception failure = null;
             int ownProcess = 0;
             Thread thread = new Thread(delegate()
@@ -117,7 +116,7 @@ namespace HofmannIT.ERechnung.Verwaltung
             {
                 OfficeException known = failure as OfficeException;
                 if (known != null) { throw known; }
-                throw new OfficeException("Die Datei konnte nicht gelesen werden: " + failure.Message, failure);
+                throw new OfficeException(failurePrefix + failure.Message, failure);
             }
             return result;
         }

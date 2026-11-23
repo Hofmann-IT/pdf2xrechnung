@@ -92,6 +92,19 @@ namespace HofmannIT.ERechnung.Verwaltung
         public string Place = "";
         public string Note = "";
 
+        /// <summary>
+        /// Wert, den der Benutzer im Assistenten einträgt. War die Angabe nicht gefunden worden, bleibt die
+        /// Fundstelle leer – daran erkennt der Umbau, dass sie auf der bisherigen Rechnung fehlte.
+        /// </summary>
+        public void Enter(string value)
+        {
+            string v = value == null ? "" : value.Trim();
+            if (Status == MatchStatus.Missing) { Place = ""; SourceLabel = ""; }
+            Value = v;
+            Status = v.Length > 0 ? MatchStatus.Found : MatchStatus.Missing;
+            Note = v.Length > 0 ? "von Ihnen eingetragen" : "";
+        }
+
         public bool Required
         {
             get
@@ -165,6 +178,14 @@ namespace HofmannIT.ERechnung.Verwaltung
         public readonly List<string> Blockers = new List<string>();
         public readonly List<string> Warnings = new List<string>();
         public readonly List<string> VatRates = new List<string>();
+        /// <summary>Textstücke, die einer Angabe, einer Position oder einer Summe zugeordnet wurden.</summary>
+        public readonly HashSet<SourceCell> Used = new HashSet<SourceCell>();
+        /// <summary>Textstücke oberhalb der ersten erkannten Angabe: Briefkopf, bleibt an seinem Platz.</summary>
+        public readonly List<SourceCell> LetterheadCells = new List<SourceCell>();
+        /// <summary>Nicht zugeordnete Zeilen zwischen Anschrift und Positionstabelle (z. B. „Bauvorhaben: …“).</summary>
+        public readonly List<string> ExtraLines = new List<string>();
+        /// <summary>Nicht zugeordnete Zeilen unter dem Summenblock (Grußformel, Hinweise).</summary>
+        public readonly List<string> ClosingLines = new List<string>();
         public string TableHeader = "";
         public string TableHeaderPlace = "";
 
@@ -364,6 +385,7 @@ namespace HofmannIT.ERechnung.Verwaltung
             ReadTotals(a, body, end);
             FindPayment(a, searchable);
             CrossCheck(a);
+            CollectRemaining(a, body, header, end);
             if (doc.HasMacros)
             {
                 a.Warnings.Add("Die Datei enthält Makros. Sie gehen in der neuen Datei verloren (gespeichert wird ohne Makros).");
@@ -398,6 +420,79 @@ namespace HofmannIT.ERechnung.Verwaltung
                 if (line.Cells.Count > 0) { result.Add(line); }
             }
             return result;
+        }
+
+        private static void Use(Analysis a, SourceLine line)
+        {
+            foreach (SourceCell c in line.Cells) { a.Used.Add(c); }
+        }
+
+        /// <summary>
+        /// Ordnet ein, was keiner Angabe zugeordnet wurde: oberhalb der ersten erkannten Angabe ist es Briefkopf,
+        /// zwischen Anschrift und Tabelle eine Zusatzzeile, unter dem Summenblock ein Schlusstext.
+        /// </summary>
+        private static void CollectRemaining(Analysis a, List<SourceLine> body, int header, int end)
+        {
+            int limit = header < 0 ? body.Count : header;
+            int first = limit;
+            for (int i = 0; i < limit; i++)
+            {
+                bool used = false;
+                foreach (SourceCell c in body[i].Cells) { if (a.Used.Contains(c)) { used = true; } }
+                if (used) { first = i; break; }
+            }
+            for (int i = 0; i < first; i++)
+            {
+                foreach (SourceCell c in body[i].Cells) { a.LetterheadCells.Add(c); }
+            }
+            for (int i = first; i < limit; i++) { Remaining(a, body, i, a.ExtraLines); }
+            if (header < 0) { return; }
+            // Text zwischen Tabellenkopf und erster Position
+            for (int i = header + 1; i < end; i++) { Remaining(a, body, i, a.ExtraLines); }
+            for (int i = end; i < body.Count; i++) { Remaining(a, body, i, a.ClosingLines); }
+        }
+
+        private static void Remaining(Analysis a, List<SourceLine> body, int index, List<string> target)
+        {
+            SourceLine line = body[index];
+            List<string> plain = new List<string>();
+            for (int k = 0; k < line.Cells.Count; k++)
+            {
+                SourceCell c = line.Cells[k];
+                if (a.Used.Contains(c)) { continue; }
+                a.Used.Add(c);
+                if (c.Text.EndsWith(":", StringComparison.Ordinal))
+                {
+                    // Beschriftung: Wert daneben oder darunter; ohne Wert entfällt sie
+                    SourceCell value = null;
+                    if (k + 1 < line.Cells.Count && !a.Used.Contains(line.Cells[k + 1]) && !line.Cells[k + 1].Text.EndsWith(":", StringComparison.Ordinal))
+                    {
+                        value = line.Cells[k + 1];
+                    }
+                    else if (index + 1 < body.Count)
+                    {
+                        foreach (SourceCell below in body[index + 1].Cells)
+                        {
+                            if (below.Column == c.Column && !a.Used.Contains(below) && !below.Text.EndsWith(":", StringComparison.Ordinal)) { value = below; }
+                        }
+                    }
+                    if (value != null)
+                    {
+                        a.Used.Add(value);
+                        target.Add(c.Text + " " + value.Text.Replace("\n", " "));
+                    }
+                    continue;
+                }
+                decimal number;
+                if (Regex.IsMatch(c.Text, @"^(rechnung|gutschrift)$", I)) { continue; }   // Überschrift setzt der Umbau selbst
+                if (Values.TryNumber(c.Text, out number))
+                {
+                    a.Warnings.Add("„" + c.Text + "“ (" + c.Place + ") ist eine Zahl ohne Beschriftung und wird nicht übernommen.");
+                    continue;
+                }
+                plain.Add(c.Text.Replace("\n", " "));
+            }
+            if (plain.Count > 0) { target.Add(string.Join(" ", plain.ToArray())); }
         }
 
         private static void FindBlockers(Analysis a, List<SourceLine> lines)
@@ -472,11 +567,14 @@ namespace HofmannIT.ERechnung.Verwaltung
         /// sonst – wenn dort wieder eine Beschriftung steht oder nichts – in der Zeile darunter in derselben
         /// Spalte (Beschriftungen als Kopfzeile, Werte darunter).
         /// </summary>
-        private static bool ValueAfter(List<SourceLine> lines, int index, Regex label, out string value, out string labelText, out string place)
+        private static bool ValueAfter(List<SourceLine> lines, int index, Regex label, out string value, out string labelText, out string place,
+            out SourceCell labelCell, out SourceCell valueCell)
         {
             value = "";
             labelText = "";
             place = "";
+            labelCell = null;
+            valueCell = null;
             SourceLine line = lines[index];
             for (int i = 0; i < line.Cells.Count; i++)
             {
@@ -485,10 +583,12 @@ namespace HofmannIT.ERechnung.Verwaltung
                 string rest = m.Groups[m.Groups.Count - 1].Value.Trim();
                 labelText = m.Groups[1].Value.Trim();
                 place = line.Cells[i].Place;
+                labelCell = line.Cells[i];
                 if (rest.Length == 0 && i + 1 < line.Cells.Count && !line.Cells[i + 1].Text.EndsWith(":", StringComparison.Ordinal))
                 {
                     rest = line.Cells[i + 1].Text;
                     place = line.Cells[i + 1].Place;
+                    valueCell = line.Cells[i + 1];
                 }
                 else if (rest.Length == 0 && index + 1 < lines.Count && lines[index + 1].Container == line.Container)
                 {
@@ -498,6 +598,7 @@ namespace HofmannIT.ERechnung.Verwaltung
                         {
                             rest = below.Text;
                             place = below.Place;
+                            valueCell = below;
                         }
                     }
                 }
@@ -513,7 +614,10 @@ namespace HofmannIT.ERechnung.Verwaltung
             for (int i = 0; i < lines.Count && i < limit; i++)
             {
                 string value, labelText, place;
-                if (!ValueAfter(lines, i, label, out value, out labelText, out place) || !valid.IsMatch(value)) { continue; }
+                SourceCell labelCell, valueCell;
+                if (!ValueAfter(lines, i, label, out value, out labelText, out place, out labelCell, out valueCell) || !valid.IsMatch(value)) { continue; }
+                a.Used.Add(labelCell);
+                if (valueCell != null) { a.Used.Add(valueCell); }
                 m.Status = MatchStatus.Found;
                 m.Value = value;
                 m.SourceLabel = labelText;
@@ -528,12 +632,16 @@ namespace HofmannIT.ERechnung.Verwaltung
             for (int i = 0; i < lines.Count && i < limit; i++)
             {
                 string value, labelText, place;
-                if (!ValueAfter(lines, i, label, out value, out labelText, out place) || value.Length == 0) { continue; }
+                SourceCell labelCell, valueCell;
+                if (!ValueAfter(lines, i, label, out value, out labelText, out place, out labelCell, out valueCell) || value.Length == 0) { continue; }
                 DateTime date;
                 m.SourceLabel = labelText;
                 m.Place = place;
                 if (Values.TryDate(value, out date))
                 {
+                    // nur ein gültiges Datum gilt als übernommen; „02/26“ bleibt als Text an seinem Platz stehen
+                    a.Used.Add(labelCell);
+                    if (valueCell != null) { a.Used.Add(valueCell); }
                     m.Status = MatchStatus.Found;
                     m.Value = Values.Date(date);
                     return;
@@ -580,6 +688,8 @@ namespace HofmannIT.ERechnung.Verwaltung
                 if (c.Column != column || NotAnAddress.IsMatch(c.Text) || c.Text.Length > 60 || Regex.IsMatch(c.Text, @"\b\d{5}\b")) { break; }
                 above.Insert(0, c);
             }
+            a.Used.Add(body[best].Cells[0]);
+            foreach (SourceCell used in above) { a.Used.Add(used); }
             Set(a, InvoiceField.BuyerCity, body[best].Cells[0].Text, body[best].Cells[0].Place, candidates > 1 ? "mehrere Zeilen mit Postleitzahl, bitte prüfen" : "");
             if (above.Count == 0)
             {
@@ -611,6 +721,7 @@ namespace HofmannIT.ERechnung.Verwaltung
                 Match mail = Email.Match(body[i].Joined());
                 if (c.Column == column && mail.Success)
                 {
+                    foreach (SourceCell used in body[i].Cells) { a.Used.Add(used); }
                     Set(a, InvoiceField.BuyerEmail, mail.Value.ToLowerInvariant(), c.Place, "");
                     break;
                 }
@@ -747,6 +858,7 @@ namespace HofmannIT.ERechnung.Verwaltung
             InvoiceItem current = null;
             int i = header + 1;
             int preText = 0;
+            Use(a, body[header]);
             for (; i < body.Count; i++)
             {
                 SourceLine line = body[i];
@@ -766,6 +878,7 @@ namespace HofmannIT.ERechnung.Verwaltung
                 if (!pos.Success && description.Length == 0 && !hasQuantity && (!hasTotal || total == 0m) && (!hasPrice || price == 0m)
                     && (hasTotal || hasPrice))
                 {
+                    Use(a, line);
                     continue;
                 }
                 if (pos.Success || hasTotal)
@@ -782,6 +895,7 @@ namespace HofmannIT.ERechnung.Verwaltung
                     if (hasPrice) { current.UnitPrice = Values.Amount(price); }
                     if (hasTotal) { current.Total = Values.Amount(total); }
                     a.Items.Add(current);
+                    Use(a, line);
                     continue;
                 }
                 if (current == null)
@@ -789,6 +903,7 @@ namespace HofmannIT.ERechnung.Verwaltung
                     preText++;
                     continue;
                 }
+                Use(a, line);
                 if (hasQuantity || (!hasPrice && priceRest.Length > 0))
                 {
                     // Unterpunkt ohne eigenen Preis: als Text in die Bezeichnung (im Bestätigungsschritt änderbar)
@@ -803,7 +918,7 @@ namespace HofmannIT.ERechnung.Verwaltung
             }
             if (preText > 0 && a.Items.Count > 0)
             {
-                a.Warnings.Add(preText + " Textzeile(n) zwischen Tabellenkopf und erster Position gehören zu keiner Position und werden nicht in die Tabelle übernommen.");
+                a.Warnings.Add(preText + " Textzeile(n) zwischen Tabellenkopf und erster Position gehören zu keiner Position; sie werden über die Tabelle gesetzt.");
             }
             if (a.Items.Count == 0)
             {
@@ -842,6 +957,9 @@ namespace HofmannIT.ERechnung.Verwaltung
                 decimal amount;
                 if (!Values.LastAmount(t, out amount)) { continue; }
                 if (PaymentLine.IsMatch(t) && !PayableLine.IsMatch(t)) { continue; }
+                bool totalsLine = DeductionLine.IsMatch(t) || VatLine.IsMatch(t) || VatLineReversed.IsMatch(t) || PayableLine.IsMatch(t)
+                    || GrossLine.IsMatch(t) || NetLine.IsMatch(t) || BareAmount(body[i]);
+                if (totalsLine) { Use(a, body[i]); }
                 if (!deduction && DeductionLine.IsMatch(t))
                 {
                     deduction = true;
@@ -938,6 +1056,7 @@ namespace HofmannIT.ERechnung.Verwaltung
                     terms.Status = MatchStatus.Found;
                     terms.Value = Regex.Replace(t, @"^\s*zahlungsbedingung(en)?\s*:?\s*", "", I);
                     terms.Place = line.Place;
+                    Use(a, line);
                 }
                 Match d = DueDateText.Match(t);
                 DateTime date;

@@ -37,6 +37,7 @@ internal static class Tests
         TemplateWordLayout();
         TemplateRefusals();
         TemplateLayoutVariants();
+        TemplateExcelPlan();
         Console.WriteLine(count + " Prüfungen, " + failures + " fehlgeschlagen");
         return failures == 0 ? 0 : 1;
     }
@@ -485,5 +486,124 @@ internal static class Tests
         Equal("19 %", w.Items[0].VatRate, "Word-Variante: „19,0%“ wird zu 19 %");
         Equal("1.190,00", Field(w, InvoiceField.GrossTotal), "Word-Variante: Endbetrag");
         Equal(0, w.Warnings.Count, "Word-Variante: Summen stimmen");
+    }
+
+    private static void TemplateExcelPlan()
+    {
+        // Bauplan des neuen Excel-Blatts aus einer erkannten Rechnung (Daten erfunden)
+        SourceDocument doc = new SourceDocument();
+        doc.Excel = true;
+        doc.Lines.Add(Line(6, "Muster Glas GmbH"));
+        doc.Lines.Add(Line(6, "Telefon 0911/000000"));
+        doc.Lines.Add(Line(2, "Frau"));
+        doc.Lines.Add(Line(2, "Erika Muster"));
+        doc.Lines.Add(Line(2, "Ringweg 3"));
+        doc.Lines.Add(Line(2, "90402 Nürnberg"));
+        doc.Lines.Add(Line(2, "RECHNUNG", 5, "8001"));
+        doc.Lines.Add(Line(2, "Auftrags-Nr.:", 5, "Kunden-Nr.:", 7, "Telefon-Nr.:", 9, "Datum:"));
+        doc.Lines.Add(Line(7, "Mobil 0170/000000", 9, "05.05.2026"));
+        doc.Lines.Add(Line(2, "Bauvorhaben:", 4, "Wohnung 2. OG"));
+        doc.Lines.Add(Line(2, "Pos.", 3, "Menge", 5, "Bezeichnung", 8, "E.Preis", 9, "Ges.Preis"));
+        doc.Lines.Add(Line(2, "Pos. 1", 3, "1,00", 4, "Stck.", 5, "Glasscheibe", 8, "200,00", 9, "200,00 €"));
+        doc.Lines.Add(Line(3, "2,00", 4, "Stck.", 5, "Anfahrt"));
+        doc.Lines.Add(Line(9, "200,00 €"));
+        doc.Lines.Add(Line(7, "+19 % MWST", 9, "38,00 €"));
+        doc.Lines.Add(Line(7, "Gesamtbetrag", 8, "EUR", 9, "238,00"));
+        doc.Lines.Add(Line(2, "Mit freundlichen Grüßen"));
+        doc.Lines.Add(Line(2, "Leistungszeitpunkt 05/26"));
+        Analysis a = TemplateAnalyzer.Analyze(doc);
+        Equal(2, a.LetterheadCells.Count, "Plan: Zellen über der Anschrift sind Briefkopf");
+        Equal(2, a.ExtraLines.Count, "Plan: zwei Zusatzzeilen über der Tabelle (leere Beschriftung „Auftrags-Nr.:“ entfällt)");
+        Equal("Telefon-Nr.: Mobil 0170/000000", a.ExtraLines[0], "Plan: Beschriftung mit dem Wert darunter");
+        Equal("Bauvorhaben: Wohnung 2. OG", a.ExtraLines[1], "Plan: Beschriftung mit dem Wert daneben");
+        Equal(2, a.ClosingLines.Count, "Plan: zwei Schlusszeilen (Gruß, Leistungszeitpunkt als Text)");
+
+        FieldMatch customer = a.Get(InvoiceField.CustomerNumber);
+        customer.Enter(" 10001 ");
+        Check(customer.Status == MatchStatus.Found && customer.Value == "10001" && customer.Place.Length == 0, "Plan: eingetragene Kunden-Nr. hat keine Fundstelle");
+        a.Get(InvoiceField.BuyerEmail).Enter("kunde@beispiel.example");
+        FieldMatch number = a.Get(InvoiceField.InvoiceNumber);
+        string place = number.Place;
+        number.Enter("8001-A");
+        Equal(place, number.Place, "Plan: korrigierter Wert behält seine Fundstelle");
+        Equal(0, a.MissingRequired, "Plan: nach der Eingabe fehlt keine Pflichtangabe");
+
+        ExcelPlan p = ExcelLayout.Build(a);
+        Equal("Frau Erika Muster", p.Find("B9").Text, "Plan: Name in Zeile 9 (150 pt vom Blattrand)");
+        Equal(Mark.Yellow, p.Find("B9").Mark, "Plan: zusammengezogener Name ist gelb");
+        Equal("Ringweg 3", p.Find("B10").Text, "Plan: Straße in Zeile 10");
+        Equal("90402 Nürnberg", p.Find("B11").Text, "Plan: Ort in Zeile 11");
+        Equal("E-Mail: kunde@beispiel.example", p.Find("B12").Text, "Plan: E-Mail in Zeile 12");
+        Equal(Mark.Red, p.Find("B12").Mark, "Plan: neu eingetragene E-Mail ist rot (fehlte bisher)");
+        Equal("Rechnungsnummer:", p.Find("C17:F17").Text, "Plan: Beschriftung Rechnungsnummer");
+        Equal("8001-A", p.Find("G17:H17").Text, "Plan: Wert Rechnungsnummer");
+        Equal(Mark.Yellow, p.Find("C17:F17").Mark, "Plan: umbenannte Beschriftung ist gelb");
+        Equal("Rechnungsdatum:", p.Find("C18:F18").Text, "Plan: Rechnungsdatum folgt");
+        Equal("Kunden-Nr.:", p.Find("C19:F19").Text, "Plan: ohne gültiges Leistungsdatum folgt die Kunden-Nr.");
+        Equal(Mark.Red, p.Find("C19:F19").Mark, "Plan: neu eingetragene Kunden-Nr. ist rot");
+        Equal("Telefon-Nr.: Mobil 0170/000000", p.Find("B21:H21").Text, "Plan: Zusatzzeile über der Tabelle");
+        Equal(24, p.HeaderRow, "Plan: Kopfzeile der Tabelle");
+        Equal("Bezeichnung", p.Find("B24").Text, "Plan: Spaltenkopf");
+        Equal("1", p.Find("A25").Text, "Plan: Positionsnummer als Zahl");
+        Check(p.Find("C25").HasNumber && p.Find("C25").Number == 1m, "Plan: Menge als Zahl");
+        Equal("Stk.", p.Find("E25").Text, "Plan: Einheit");
+        Check(p.Find("F25").HasNumber && p.Find("F25").Number == 200m, "Plan: Einzelpreis als Zahl");
+        Equal("19 %", p.Find("G25").Text, "Plan: Steuersatz der Position");
+        Equal("=ROUND(C25*F25,2)", p.Find("H25").Formula, "Plan: Gesamt = RUNDEN(Menge × Einzelpreis; 2)");
+        Equal("inkl. 2 Stck. Anfahrt", p.Find("B26").Text, "Plan: Unterpunkt in der Folgezeile");
+        Equal(Mark.Yellow, p.Find("B26").Mark, "Plan: Unterpunkt ist gelb");
+        Equal(27, p.SpareRow, "Plan: Leerzeile für weitere Positionen");
+        Equal("=SUM(H25:H27)", p.Find("H29").Formula, "Plan: Summe netto schließt die Leerzeile ein");
+        Equal("Netto 19 %:", p.Find("E30:G30").Text, "Plan: Steuerbasis je Satz");
+        Equal("=ROUND(H30*0.19,2)", p.Find("H31").Formula, "Plan: USt = RUNDEN(Netto × Satz; 2)");
+        Equal("=H29", p.Find("H32").Formula, "Plan: Gesamt netto");
+        Equal("=H31", p.Find("H33").Formula, "Plan: USt gesamt");
+        Equal("=H32+H33", p.Find("H34").Formula, "Plan: Gesamtbetrag");
+        Equal(34, p.GrossRow, "Plan: Zeile des Gesamtbetrags");
+        Equal("=H34", p.Find("H35").Formula, "Plan: Zahlbetrag");
+        Equal(Mark.Red, p.Find("E35:G35").Mark, "Plan: neue Pflichtzeile Zahlbetrag ist rot");
+        Equal("Mit freundlichen Grüßen", p.Find("B37:H37").Text, "Plan: Schlusstext unter dem Summenblock");
+        Equal(39, p.LastRow, "Plan: letzte Zeile");
+        Check(p.Notes.Count == 2 && p.Notes[0].Contains("Leistungsdatum") && p.Notes[1].Contains("Zahlungsbedingungen"), "Plan: Hinweise auf Leistungsdatum und Zahlungsbedingungen");
+
+        // zwei Steuersätze: nichts wird geraten
+        SourceDocument rates = new SourceDocument();
+        rates.Excel = true;
+        rates.Lines.Add(Line(1, "Rechnung Nr. 5"));
+        rates.Lines.Add(Line(1, "Pos.", 2, "Bezeichnung", 3, "Menge", 4, "Einzelpreis", 5, "Gesamt"));
+        rates.Lines.Add(Line(1, "1", 2, "Buch", 3, "1", 4, "10,00", 5, "10,00"));
+        rates.Lines.Add(Line(1, "2", 2, "Stift", 3, "1", 4, "10,00", 5, "12,00"));
+        rates.Lines.Add(Line(4, "Summe netto", 5, "22,00"));
+        rates.Lines.Add(Line(4, "MwSt 7 %", 5, "0,70"));
+        rates.Lines.Add(Line(4, "MwSt 19 %", 5, "2,28"));
+        rates.Lines.Add(Line(4, "Rechnungsbetrag", 5, "24,98"));
+        rates.Lines.Add(Line(1, "Zahlbar bis zum 01.06.2026 ohne Abzug."));
+        ExcelPlan r = ExcelLayout.Build(TemplateAnalyzer.Analyze(rates));
+        int net = r.NetRow;
+        Equal("Gesamt netto:", r.Find("E" + (net + 1) + ":G" + (net + 1)).Text, "Zwei Sätze: keine Zeilen je Steuersatz");
+        CellOp vat = r.Find("H" + (net + 2));
+        Check(vat.Formula.Length == 0 && vat.HasNumber && vat.Number == 2.98m && vat.Mark == Mark.Red, "Zwei Sätze: Umsatzsteuer als fester, rot markierter Betrag");
+        Equal(Mark.Red, r.Find("G" + r.FirstItemRow).Mark, "Zwei Sätze: Steuersatz der Position ist rot und leer");
+        Equal(Mark.Red, r.Find("H" + (r.FirstItemRow + 1)).Mark, "Menge × Preis weicht vom bisherigen Betrag ab: rot");
+        CellOp terms = r.Find("C" + (r.GrossRow + 3) + ":H" + (r.GrossRow + 4));
+        Check(terms != null && terms.Text.EndsWith(", zahlbar bis 01.06.2026"), "Zahlungsbedingungen bekommen „zahlbar bis“ mit dem erkannten Datum");
+
+        string dir = Path.Combine(Path.GetTempPath(), "erechnung-vorlagen-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            OutputNames first = OutputNames.For(dir, "Rechnung 1.xls", ".xlsx");
+            Equal("Rechnung 1_E-Rechnung.xlsx", Path.GetFileName(first.Workbook), "Dateiname der umgebauten Rechnung");
+            Equal("Rechnung 1_E-Rechnung_markiert.xlsx", Path.GetFileName(first.Marked), "Dateiname der markierten Fassung");
+            Equal("Rechnung 1_E-Rechnung_Test.pdf", Path.GetFileName(first.Pdf), "Dateiname des Test-PDF");
+            File.WriteAllText(first.Pdf, "x");
+            OutputNames second = OutputNames.For(dir, "Rechnung 1.xls", ".xlsx");
+            Equal("Rechnung 1_E-Rechnung (2).xlsx", Path.GetFileName(second.Workbook), "Vorhandene Dateien werden nicht überschrieben");
+            Equal("Rechnung 1_E-Rechnung_Test (2).pdf", Path.GetFileName(second.Pdf), "Alle drei Namen bekommen dieselbe Nummer");
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
     }
 }

@@ -2,6 +2,7 @@
 // korrigieren. Die Quelldatei wird nur gelesen.
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Text;
@@ -13,6 +14,7 @@ namespace HofmannIT.ERechnung.Verwaltung
     public sealed class TemplateWizard : Form
     {
         private const int ReadTimeoutMillis = 120000;
+        private const int ConvertTimeoutMillis = 300000;
         private static readonly Color MissingColor = Color.FromArgb(255, 199, 206);
         private static readonly Color UncertainColor = Color.FromArgb(255, 235, 156);
 
@@ -25,6 +27,7 @@ namespace HofmannIT.ERechnung.Verwaltung
         private readonly DataGridView items = new DataGridView();
         private readonly TextBox hints = new TextBox();
         private readonly Button save = new Button();
+        private readonly Button convert = new Button();
         private readonly Button close = new Button();
 
         private SourceDocument document;
@@ -143,7 +146,11 @@ namespace HofmannIT.ERechnung.Verwaltung
             save.AutoSize = true;
             save.Enabled = false;
             save.Click += delegate { SaveReport(); };
-            buttons.Controls.AddRange(new Control[] { close, save });
+            convert.Text = "Umbauen …";
+            convert.AutoSize = true;
+            convert.Enabled = false;
+            convert.Click += delegate { Convert(); };
+            buttons.Controls.AddRange(new Control[] { close, convert, save });
             CancelButton = close;
 
             layout.Controls.Add(intro, 0, 0);
@@ -226,6 +233,7 @@ namespace HofmannIT.ERechnung.Verwaltung
             choose.Enabled = false;
             sheet.Enabled = false;
             save.Enabled = false;
+            convert.Enabled = false;
             UseWaitCursor = true;
             file.Text = path;
             summary.Text = (OfficeAutomation.IsExcelFile(path) ? "Excel" : "Word") + " liest die Datei … (kann beim ersten Mal etwas dauern)";
@@ -288,10 +296,12 @@ namespace HofmannIT.ERechnung.Verwaltung
 
         private void UpdateHints(SourceDocument doc, Analysis a)
         {
+            convert.Enabled = a.Convertible && doc.Excel && !busy;
             summary.Text = "Ergebnis: " + AnalysisReport.Summary(a);
             summary.ForeColor = a.Convertible ? SystemColors.ControlText : Color.FromArgb(156, 0, 6);
             StringBuilder b = new StringBuilder();
             foreach (string s in a.Blockers) { b.AppendLine("NICHT UMBAUBAR: " + s); }
+            if (a.Convertible && !doc.Excel) { b.AppendLine("• Der Umbau von Word-Dateien ist in dieser Fassung noch nicht enthalten (folgt). Die Analyse und der Bericht stehen bereits zur Verfügung."); }
             foreach (string s in a.Warnings) { b.AppendLine("• " + s); }
             foreach (InvoiceItem item in a.Items)
             {
@@ -345,9 +355,7 @@ namespace HofmannIT.ERechnung.Verwaltung
             FieldMatch m = analysis.Fields[rowIndex];
             string value = CellText(fields.Rows[rowIndex], 1);
             if (value == m.Value) { return; }
-            m.Value = value;
-            m.Status = value.Length > 0 ? MatchStatus.Found : MatchStatus.Missing;
-            m.Note = value.Length > 0 ? "von Ihnen eingetragen" : "";
+            m.Enter(value);
             fields.Rows[rowIndex].Cells[4].Value = StatusWithNote(m);
             PaintField(fields.Rows[rowIndex], m);
             UpdateHints(document, analysis);
@@ -370,6 +378,81 @@ namespace HofmannIT.ERechnung.Verwaltung
             item.VatRate = CellText(row, 5);
             item.Total = CellText(row, 6);
             PaintItem(row, item);
+        }
+
+        /// <summary>Baut die Excel-Datei mit den angezeigten (ggf. korrigierten) Werten um; neue Dateien neben dem Original.</summary>
+        private async void Convert()
+        {
+            if (busy || document == null || analysis == null || !analysis.Convertible || !document.Excel) { return; }
+            fields.EndEdit();
+            items.EndEdit();
+            string path = file.Text;
+            string directory = Path.GetDirectoryName(path);
+            string question = "Aus „" + document.FileName + "“ werden im selben Ordner drei neue Dateien erstellt:\r\n\r\n"
+                + "  • die umgebaute Rechnung (…_E-Rechnung.xlsx)\r\n"
+                + "  • dieselbe Datei mit farbigen Markierungen der Änderungen (…_E-Rechnung_markiert.xlsx)\r\n"
+                + "  • ein Test-PDF (…_E-Rechnung_Test.pdf)\r\n\r\n"
+                + "Ihre bisherige Datei bleibt unverändert, vorhandene Dateien werden nicht überschrieben."
+                + (analysis.MissingRequired > 0 ? "\r\n\r\n" + analysis.MissingRequired + " Pflichtangabe(n) fehlen noch. Sie werden als rot markierte leere Felder angelegt." : "")
+                + "\r\n\r\nJetzt umbauen?";
+            if (MessageBox.Show(this, question, Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) { return; }
+            busy = true;
+            choose.Enabled = false;
+            sheet.Enabled = false;
+            save.Enabled = false;
+            convert.Enabled = false;
+            UseWaitCursor = true;
+            string before = summary.Text;
+            summary.Text = "Excel baut die Datei um …";
+            ConversionResult result = null;
+            string error = null;
+            try
+            {
+                Analysis a = analysis;
+                string sheetName = document.Sheet;
+                result = await Task.Run(delegate { return TemplateConverter.ConvertExcel(path, sheetName, a, directory, ConvertTimeoutMillis); });
+            }
+            catch (OfficeException e)
+            {
+                error = e.Message;
+            }
+            catch (IOException e)
+            {
+                error = e.Message;
+            }
+            UseWaitCursor = false;
+            choose.Enabled = true;
+            sheet.Enabled = true;
+            save.Enabled = true;
+            busy = false;
+            if (IsDisposed) { return; }
+            summary.Text = before;
+            convert.Enabled = true;
+            if (result == null)
+            {
+                MessageBox.Show(this, error, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            StringBuilder b = new StringBuilder();
+            b.AppendLine("Erstellt im Ordner " + directory + ":");
+            b.AppendLine();
+            b.AppendLine("  • " + Path.GetFileName(result.Workbook));
+            b.AppendLine("  • " + Path.GetFileName(result.Marked));
+            b.AppendLine("  • " + Path.GetFileName(result.Pdf));
+            if (result.Notes.Count > 0)
+            {
+                b.AppendLine();
+                b.AppendLine("Bitte beachten:");
+                foreach (string note in result.Notes) { b.AppendLine("  • " + note); }
+            }
+            b.AppendLine();
+            b.AppendLine("Nächster Schritt: Test-PDF in der Anwendung unter Profile → Profil testen prüfen.");
+            b.AppendLine();
+            b.Append("Ordner jetzt öffnen?");
+            if (MessageBox.Show(this, b.ToString(), "Umbau abgeschlossen", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+            {
+                try { Process.Start("explorer.exe", "/select,\"" + result.Workbook + "\""); } catch (Exception) { }
+            }
         }
 
         private void SaveReport()
@@ -449,6 +532,28 @@ namespace HofmannIT.ERechnung.Verwaltung
                     File.WriteAllText(Path.Combine(output, name + ".zeilen.txt"), AnalysisReport.Lines(doc), new UTF8Encoding(true));
                     overview.AppendLine(name + ": " + AnalysisReport.Summary(a));
                     TemplateWizard.SavePreview(doc, a, Path.Combine(output, name + ".dialog.png"));
+                    if (doc.Excel && a.Convertible)
+                    {
+                        // Angaben, die im Assistenten der Benutzer einträgt: Datei <Name>.werte.txt mit Zeilen Feld=Wert
+                        string valuesFile = path + ".werte.txt";
+                        if (File.Exists(valuesFile))
+                        {
+                            foreach (string line in File.ReadAllLines(valuesFile, Encoding.UTF8))
+                            {
+                                int eq = line.IndexOf('=');
+                                InvoiceField field;
+                                if (eq > 0 && Enum.TryParse(line.Substring(0, eq).Trim(), out field)) { a.Get(field).Enter(line.Substring(eq + 1)); }
+                            }
+                        }
+                        ConversionResult result = TemplateConverter.ConvertExcel(path, doc.Sheet, a, output, 300000);
+                        StringBuilder notes = new StringBuilder();
+                        notes.AppendLine(Path.GetFileName(result.Workbook));
+                        notes.AppendLine(Path.GetFileName(result.Marked));
+                        notes.AppendLine(Path.GetFileName(result.Pdf));
+                        foreach (string note in result.Notes) { notes.AppendLine("- " + note); }
+                        File.WriteAllText(Path.Combine(output, name + ".umbau.txt"), notes.ToString(), new UTF8Encoding(true));
+                        overview.AppendLine("   umgebaut: " + Path.GetFileName(result.Workbook) + " (" + result.Notes.Count + " Hinweis(e))");
+                    }
                 }
                 catch (Exception e)
                 {

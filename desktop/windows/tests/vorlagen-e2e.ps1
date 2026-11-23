@@ -7,8 +7,10 @@
   1. Erzeugt Rechnungen in fremden Layouts (erfundene Daten) als .xlsx, .xls, .docx und .doc.
   2. Lässt die Verwaltungsanwendung sie ohne Fenster auswerten (/vorlagentest).
   3. Prüft die Berichte.
+  4. Prüft die umgebauten Excel-Dateien: Das Test-PDF muss das Profil "standard" bestehen (calibrate),
+     ein- und mehrseitig.
 
-  Vorher bauen: powershell -ExecutionPolicy Bypass -File desktop\windows\build-desktop.ps1
+  Vorher bauen: mvn -q package  und  powershell -ExecutionPolicy Bypass -File desktop\windows\build-desktop.ps1
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File desktop\windows\tests\vorlagen-e2e.ps1
@@ -17,6 +19,7 @@
 param(
     [string] $Exe = "",
     [string] $Work = "",
+    [string] $JavaHome = $(if ($env:JAVA_HOME) { $env:JAVA_HOME } else { "C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot" }),
     [switch] $KeepFixtures
 )
 $ErrorActionPreference = "Stop"
@@ -34,7 +37,9 @@ if (-not $KeepFixtures) {
     try {
         $wb = $x.Workbooks.Add()
         $ws = $wb.Worksheets.Item(1); $ws.Name = "Rechnung"
+        $ws.Columns.Item("C").ColumnWidth = 30
         $box = $ws.Shapes.AddTextbox(1, 330, 10, 180, 70)
+        $box.Placement = 3
         $box.TextFrame2.TextRange.Text = "Muster Bau GmbH`nWerkstr. 9, 80999 München`nTelefon 089/123456"
         $cells = [ordered]@{
             B8 = "Muster Bau GmbH, Werkstr. 9, 80999 München"; B9 = "Herr"; B10 = "Max Beispiel"; B11 = "Hauptstr. 5"; B12 = "80331 München"
@@ -51,12 +56,30 @@ if (-not $KeepFixtures) {
         $ws.Range("B24").Value2 = 3; $ws.Range("F24").Value2 = 10; $ws.Range("G24").Formula = "=B24*F24"
         $ws.Range("G26").Formula = "=SUM(G21:G24)"; $ws.Range("G27").Formula = "=ROUND(G26*0.19,2)"; $ws.Range("G28").Formula = "=G26+G27"
         foreach ($a in "F21", "G21", "F24", "G24", "G26", "G27", "G28") { $ws.Range($a).NumberFormatLocal = "#.##0,00 €" }
-        $ws.Columns.Item("C").ColumnWidth = 30
         [string] $p = Join-Path $Work "fremd-excel.xlsx"
         $wb.SaveAs($p, 51)
         [string] $p = Join-Path $Work "fremd-excel-alt.xls"
         $wb.SaveAs($p, 56)
+        # lange Rechnung: 45 Positionen, im Ergebnis zwei Seiten (Tabellenkopf muss sich wiederholen)
+        $ws.Range("A24:G30").ClearContents() | Out-Null
+        for ($i = 2; $i -le 45; $i++) {
+            $r = 22 + $i
+            $ws.Range("A$r").NumberFormat = "@"; $ws.Range("A$r").Value2 = "Pos. $i"; $ws.Range("B$r").Value2 = 2
+            $ws.Range("C$r").Value2 = "Montagearbeit Abschnitt $i"; $ws.Range("F$r").Value2 = 10.5; $ws.Range("G$r").Formula = "=B$r*F$r"
+            $ws.Range("F$r").NumberFormatLocal = "#.##0,00 €"; $ws.Range("G$r").NumberFormatLocal = "#.##0,00 €"
+        }
+        $ws.Range("F69").Value2 = "Summe netto"; $ws.Range("G69").Formula = "=SUM(G21:G67)"
+        $ws.Range("F70").Value2 = "+ 19 % MwSt"; $ws.Range("G70").Formula = "=ROUND(G69*0.19,2)"
+        $ws.Range("F71").Value2 = "Gesamtbetrag EUR"; $ws.Range("G71").Formula = "=G69+G70"
+        foreach ($a in "G69", "G70", "G71") { $ws.Range($a).NumberFormatLocal = "#.##0,00 €" }
+        $ws.Range("A73").Value2 = "Zahlbar innerhalb von 14 Tagen ohne Abzug."
+        [string] $p = Join-Path $Work "fremd-excel-lang.xlsx"
+        $wb.SaveAs($p, 51)
         $wb.Close($false)
+        # Angaben, die im Assistenten der Benutzer einträgt (stehen nicht auf der Rechnung)
+        foreach ($n in "fremd-excel.xlsx", "fremd-excel-alt.xls", "fremd-excel-lang.xlsx") {
+            [System.IO.File]::WriteAllText((Join-Path $Work "$n.werte.txt"), "CustomerNumber=10001`r`nBuyerEmail=kunde@beispiel.example`r`n", (New-Object System.Text.UTF8Encoding($false)))
+        }
     } finally { $x.Quit(); [void][Runtime.InteropServices.Marshal]::ReleaseComObject($x) }
 
     # ---------- Word: Kopfzeile, Textfeld, "RECHNUNG<Tab>Nr", Tabelle Pos.-Nr. | Stück | Bezeichnung | EP | GP, Summentabelle
@@ -114,6 +137,34 @@ $word = "(Word)", "7002", "26.02.2026", "10002", "Beispiel Handel SE & Co. KG", 
         "Elementmaß 1740 mm x 1350 mm", "[bisher: Gesamtsumme]", "1.098,98", "6.883,11", "12.03.2026", "Kopfzeile: Muster Fensterbau GmbH", "1 Pflichtangabe(n) fehlen"
 Expect "fremd-word.docx" $word
 Expect "fremd-word-alt.doc" $word
+Expect "fremd-excel-lang.xlsx" @("Positionen: 45", "1.436,31", "272,90", "1.709,21")
+
+# ---------- Umbau (Excel): Die erzeugten Test-PDFs müssen das Profil "standard" bestehen
+$jar = Join-Path $root "target\pdf-zu-erechnung.jar"
+if (-not (Test-Path $jar)) { throw "Dienst nicht gebaut: $jar fehlt (mvn -q package)" }
+if (-not (Test-Path "$JavaHome\bin\java.exe")) { throw "JDK nicht gefunden unter $JavaHome" }
+function ExpectConverted([string] $file, [int] $positions, [int] $pages) {
+    $stem = [System.IO.Path]::GetFileNameWithoutExtension($file) + "_E-Rechnung"
+    foreach ($n in "$stem.xlsx", "${stem}_markiert.xlsx", "${stem}_Test.pdf") {
+        if (-not (Test-Path (Join-Path $out $n))) { Write-Host "FEHLGESCHLAGEN: $file – $n wurde nicht erzeugt"; $script:failures++; return }
+    }
+    $notes = Get-Content (Join-Path $out "$file.umbau.txt") -Raw -Encoding UTF8
+    if ($notes.Contains("ACHTUNG")) { Write-Host "FEHLGESCHLAGEN: $file – neu berechnete Summen weichen ab:`n$notes"; $script:failures++ }
+    $report = Join-Path $out "${stem}_Test.kalibrierung.txt"
+    Push-Location $root
+    try {
+        & "$JavaHome\bin\java.exe" -jar $jar calibrate --samples (Join-Path $out "${stem}_Test.pdf") --profile .\profiles\standard.yaml --tenant hofmann-it --out $report > (Join-Path $out "calibrate.log") 2>&1
+        $code = $LASTEXITCODE
+    } finally { Pop-Location }
+    $text = if (Test-Path $report) { Get-Content $report -Raw -Encoding UTF8 } else { "" }
+    foreach ($t in "Seiten: $pages", "Positionen: $positions", "bestanden", "10001", "kunde@beispiel.example", "Herr Max Beispiel", "Hauptstr. 5", "5001") {
+        if (-not $text.Contains($t)) { Write-Host "FEHLGESCHLAGEN: $file (umgebaut) – Profilprüfung, erwartet: $t"; $script:failures++ }
+    }
+    if ($code -ne 0 -or $text.Contains("NICHT bestanden")) { Write-Host "FEHLGESCHLAGEN: $file (umgebaut) – Profilprüfung nicht bestanden (Bericht: $report)"; $script:failures++ }
+}
+ExpectConverted "fremd-excel.xlsx" 2 1
+ExpectConverted "fremd-excel-alt.xls" 2 1
+ExpectConverted "fremd-excel-lang.xlsx" 45 2
 Get-Content (Join-Path $out "uebersicht.txt") -Encoding UTF8
 if ($proc.ExitCode -ne 0) { Write-Host "FEHLGESCHLAGEN: /vorlagentest endete mit $($proc.ExitCode)"; $failures++ }
 if ($failures -gt 0) { throw "$failures Prüfung(en) des Vorlagen-Assistenten fehlgeschlagen (Berichte: $out)" }

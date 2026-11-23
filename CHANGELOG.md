@@ -5,6 +5,19 @@ Die Versionsnummer steht im `pom.xml` und wird im Seitenfuß, im Systemstatus un
 
 ## [Unveröffentlicht] – 1.2.0 in Arbeit (Vorlagen-Assistent, ADR 0016)
 
+### Phase 2 – Umbau von Excel-Dateien (2026-11-23)
+- Schaltfläche **„Umbauen …"** im Assistenten: Aus einer Excel-Rechnung (`.xlsx`, `.xls`) entstehen neben
+  dem Original die umgebaute Datei, eine farbig markierte Fassung mit Kommentaren und ein Test-PDF.
+  Vorhandene Dateien werden nicht überschrieben, das Original bleibt unverändert.
+- Logo, Bilder, Formen und Textfelder behalten ihre Druckposition; Zelltexte des Briefkopfs werden zu
+  Textfeldern an gleicher Stelle. Der Rechnungsteil steht im Aufbau des Profils `standard` (Anschrift,
+  Beschriftungen, Spalten, Summenblock mit Formeln, wiederholter Tabellenkopf).
+- Fehlende Pflichtangaben werden als rot markierte leere Felder angelegt; im Assistenten eingetragene
+  Werte werden übernommen. Zusatzzeilen (z. B. „Bauvorhaben: …") und Schlusstexte bleiben erhalten.
+- Die neu berechneten Summen werden mit der bisherigen Rechnung verglichen; Abweichungen werden gemeldet.
+- Einschränkungen: Der Rechnungsteil wird in Arial 10 gesetzt; das Test-PDF ist kein PDF/A (Excel bietet
+  dafür keine Automatisierung). Word-Dateien folgen in Phase 3.
+
 ### Phase 1 – Import und Analyse (2026-11-23)
 - Verwaltungsanwendung: neuer Befehl **„Vorlage importieren …"** (Leiste und Menü im
   Infobereich). Der Assistent liest eine bestehende Rechnung aus Word (`.docx`, `.doc`) oder Excel
@@ -13,7 +26,7 @@ Die Versionsnummer steht im `pom.xml` und wird im Seitenfuß, im Systemstatus un
   Werte und Positionen lassen sich korrigieren; der Bericht kann gespeichert werden.
 - Abgelehnt mit Begründung werden Abschlags-/Teil-/Schlussrechnungen, § 13b UStG und Abzüge
   (Rabatt, Skonto) im Summenblock.
-- **Noch keine Konvertierung** – sie folgt in Phase 2 (Excel) und 3 (Word).
+- Die Konvertierung folgt in Phase 2 (Excel) und 3 (Word).
 - Befehlszeile `/vorlagentest <Ordner>` (Diagnose), Tests `desktop/windows/tests/vorlagen-e2e.ps1`.
 - Der Dienst ist unverändert; `build-desktop.ps1` verweist zusätzlich auf `Microsoft.CSharp.dll`
   (Teil von .NET Framework 4.8).
