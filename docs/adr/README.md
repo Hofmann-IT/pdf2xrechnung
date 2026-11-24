@@ -20,7 +20,7 @@ Ein ADR wird nie umgeschrieben; Änderungen erfolgen durch ein neues ADR, das da
 | 0013 | [V5: Einrichtungs-Assistent, Admin-Passwort, Mandanten neu laden](0013-einrichtungs-assistent.md) | Akzeptiert |
 | 0014 | [Windows-Installationspaket mit eigener Laufzeit](0014-installationspaket-windows.md) | Akzeptiert |
 | 0015 | [Anmeldung für alle Funktionen, Netzbetrieb, Windows-Verwaltungsanwendung](0015-anmeldung-netzbetrieb-verwaltungsanwendung.md) | Akzeptiert |
-| 0016 | [Vorlagen-Assistent: Word-/Excel-Rechnung importieren und in den Standardaufbau bringen](0016-vorlagen-assistent.md) | Akzeptiert, Phasen 1–3 umgesetzt |
+| 0016 | [Vorlagen-Assistent: Word-/Excel-Rechnung importieren und in den Standardaufbau bringen](0016-vorlagen-assistent.md) | Akzeptiert |
 
 ## Modulabhängigkeiten (verbindlich, geprüft durch `ModuleDependencyTest`)
 

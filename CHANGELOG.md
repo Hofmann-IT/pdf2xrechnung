@@ -3,7 +3,25 @@
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach SemVer.
 Die Versionsnummer steht im `pom.xml` und wird im Seitenfuß, im Systemstatus und je Verarbeitungslauf im Ledger angezeigt.
 
-## [Unveröffentlicht] – 1.2.0 in Arbeit (Vorlagen-Assistent, ADR 0016)
+## [1.2.0] – 2026-11-23 (Vorlagen-Assistent, ADR 0016)
+
+Neue Funktion der Windows-Verwaltungsanwendung; der Dienst ist gegenüber 1.1.1 unverändert (keine
+Schemaänderung, keine geänderte Konfiguration, keine neue Laufzeitabhängigkeit). Der Assistent
+braucht Word bzw. Excel auf dem Arbeitsplatz. Läuft der Dienst unter einem eigenen Benutzerkonto,
+nach dem Update die Dienstanmeldung prüfen.
+
+### Phase 4 – Profiltest im Fenster, Handbuch, Version (2026-11-23)
+- Nach dem Umbau prüft **„Test-PDF jetzt prüfen"** das Test-PDF gegen den Dienst: Das Fenster lädt es
+  in der angemeldeten Sitzung über die vorhandene Funktion „Profil testen" hoch (mit CSRF-Schutz) und
+  zeigt „Bestanden" oder die fehlenden Angaben. Der Dienst speichert dabei nichts; bei mehreren
+  Mandanten fragt die Anwendung nach dem Mandanten. Ohne Anmeldung oder Verbindung gibt es eine
+  verständliche Meldung statt eines Fehlers.
+- Handbuch: neuer Abschnitt „Bestehende Rechnung aus Word oder Excel übernehmen", Fehlersuche ergänzt;
+  Anleitung „Rechnungsvorlage anpassen" verweist auf den Assistenten.
+- Diagnose: `/selbsttest <ordner> /testpdf <pdf>` führt den Profiltest im Fenster aus; ein Testzugang
+  kann dafür nur über die Umgebungsvariablen `ERECHNUNG_SELBSTTEST_BENUTZER`/`_PASSWORT` übergeben
+  werden (nur im Diagnoselauf). Skript `desktop/windows/tests/profiltest-diagnose.ps1`.
+- Version 1.2.0.
 
 ### Phase 3 – Umbau von Word-Dateien (2026-11-23)
 - „Umbauen …" funktioniert jetzt auch für Word (`.docx`, `.doc`): Ersetzt wird nur der Rechnungsteil;

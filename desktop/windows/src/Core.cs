@@ -369,6 +369,8 @@ namespace HofmannIT.ERechnung.Verwaltung
         public string SelfTestDirectory = "";
         /// <summary>Vorlagen-Assistent ohne Fenster: alle Word-/Excel-Dateien dieses Ordners auswerten (Diagnose, Tests).</summary>
         public string TemplateTestDirectory = "";
+        /// <summary>Nur mit /selbsttest: dieses PDF über das Fenster gegen das Profil prüfen (Diagnose des Profiltests).</summary>
+        public string SelfTestPdf = "";
         public readonly List<string> Unknown = new List<string>();
 
         public static CommandLine Parse(string[] args)
@@ -392,6 +394,10 @@ namespace HofmannIT.ERechnung.Verwaltung
                 else if (a == "/vorlagentest" && i + 1 < args.Length)
                 {
                     c.TemplateTestDirectory = args[++i];
+                }
+                else if (a == "/testpdf" && i + 1 < args.Length)
+                {
+                    c.SelfTestPdf = args[++i];
                 }
                 else
                 {

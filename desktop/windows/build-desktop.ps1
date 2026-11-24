@@ -138,7 +138,7 @@ if (-not $SkipTests) {
     $testExe = Join-Path $obj "Tests.exe"
     & $csc /nologo /utf8output /codepage:65001 /warnaserror /target:exe /platform:x64 "/out:$testExe" `
         /r:System.dll /r:System.Core.dll /r:System.ServiceProcess.dll `
-        (Join-Path $src "Core.cs") (Join-Path $src "ServiceControl.cs") (Join-Path $src "TemplateModel.cs") (Join-Path $src "TemplateLayout.cs") (Join-Path $PSScriptRoot "tests\Tests.cs")
+        (Join-Path $src "Core.cs") (Join-Path $src "ServiceControl.cs") (Join-Path $src "TemplateModel.cs") (Join-Path $src "TemplateLayout.cs") (Join-Path $src "ProfileTest.cs") (Join-Path $PSScriptRoot "tests\Tests.cs")
     if ($LASTEXITCODE -ne 0) { throw "Tests konnten nicht übersetzt werden" }
     & $testExe
     if ($LASTEXITCODE -ne 0) { throw "Tests der Verwaltungsanwendung fehlgeschlagen" }

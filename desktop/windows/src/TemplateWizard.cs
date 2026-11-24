@@ -30,13 +30,20 @@ namespace HofmannIT.ERechnung.Verwaltung
         private readonly Button convert = new Button();
         private readonly Button close = new Button();
 
+        private readonly Func<IWin32Window, string, Task<ProfileTestOutcome>> tester;
         private SourceDocument document;
         private Analysis analysis;
         private bool loading;
         private bool busy;
 
-        public TemplateWizard()
+        public TemplateWizard() : this(null)
         {
+        }
+
+        /// <param name="tester">Prüft ein PDF gegen das Profil des Dienstes (Hauptfenster); null = kein Test möglich.</param>
+        public TemplateWizard(Func<IWin32Window, string, Task<ProfileTestOutcome>> tester)
+        {
+            this.tester = tester;
             Text = "Vorlage importieren – PDF-zu-E-Rechnung";
             StartPosition = FormStartPosition.CenterParent;
             ShowInTaskbar = false;
@@ -451,12 +458,10 @@ namespace HofmannIT.ERechnung.Verwaltung
                 foreach (string note in result.Notes) { b.AppendLine("  • " + note); }
             }
             b.AppendLine();
-            b.AppendLine("Nächster Schritt: Test-PDF in der Anwendung unter Profile → Profil testen prüfen.");
-            b.AppendLine();
-            b.Append("Ordner jetzt öffnen?");
-            if (MessageBox.Show(this, b.ToString(), "Umbau abgeschlossen", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+            b.AppendLine("Nächster Schritt: „Test-PDF jetzt prüfen“ – die Anwendung prüft das Test-PDF gegen das Profil des Dienstes.");
+            using (ConversionResultDialog dialog = new ConversionResultDialog(b.ToString(), result, tester))
             {
-                try { Process.Start("explorer.exe", "/select,\"" + result.Workbook + "\""); } catch (Exception) { }
+                dialog.ShowDialog(this);
             }
         }
 
@@ -513,6 +518,158 @@ namespace HofmannIT.ERechnung.Verwaltung
         }
     }
 
+    /// <summary>Ergebnis des Umbaus mit der Möglichkeit, das Test-PDF sofort gegen das Profil des Dienstes zu prüfen.</summary>
+    public sealed class ConversionResultDialog : Form
+    {
+        private readonly TextBox text = new TextBox();
+        private readonly Button test = new Button();
+        private readonly Button folder = new Button();
+        private readonly Button close = new Button();
+        private readonly ConversionResult result;
+        private readonly Func<IWin32Window, string, Task<ProfileTestOutcome>> tester;
+        private bool busy;
+
+        public ConversionResultDialog(string message, ConversionResult result, Func<IWin32Window, string, Task<ProfileTestOutcome>> tester)
+        {
+            this.result = result;
+            this.tester = tester;
+            Text = "Umbau abgeschlossen – PDF-zu-E-Rechnung";
+            StartPosition = FormStartPosition.CenterParent;
+            ShowInTaskbar = false;
+            MinimizeBox = false;
+            Font = SystemFonts.MessageBoxFont;
+            AutoScaleMode = AutoScaleMode.Dpi;
+            ClientSize = new Size(760, 520);
+            MinimumSize = new Size(560, 360);
+
+            text.Multiline = true;
+            text.ReadOnly = true;
+            text.ScrollBars = ScrollBars.Vertical;
+            text.Dock = DockStyle.Fill;
+            text.BackColor = SystemColors.Window;
+            text.Text = message;
+            text.Select(0, 0);
+
+            FlowLayoutPanel buttons = new FlowLayoutPanel();
+            buttons.FlowDirection = FlowDirection.RightToLeft;
+            buttons.AutoSize = true;
+            buttons.Dock = DockStyle.Bottom;
+            buttons.Padding = new Padding(0, 8, 0, 0);
+            close.Text = "Schließen";
+            close.AutoSize = true;
+            close.DialogResult = DialogResult.Cancel;
+            folder.Text = "Ordner öffnen";
+            folder.AutoSize = true;
+            folder.Click += delegate
+            {
+                try { Process.Start("explorer.exe", "/select,\"" + this.result.Workbook + "\""); } catch (Exception) { }
+            };
+            test.Text = "Test-PDF jetzt prüfen";
+            test.AutoSize = true;
+            test.Enabled = tester != null;
+            test.Click += delegate { RunTest(); };
+            buttons.Controls.AddRange(new Control[] { close, folder, test });
+            CancelButton = close;
+            AcceptButton = test;
+
+            Panel panel = new Panel();
+            panel.Dock = DockStyle.Fill;
+            panel.Padding = new Padding(12);
+            panel.Controls.Add(text);
+            panel.Controls.Add(buttons);
+            Controls.Add(panel);
+        }
+
+        /// <summary>Diagnose (/vorlagentest): Bild des Dialogs speichern.</summary>
+        public static void SavePreview(string message, ConversionResult result, string pngPath)
+        {
+            using (ConversionResultDialog dialog = new ConversionResultDialog(message, result, null))
+            {
+                dialog.StartPosition = FormStartPosition.Manual;
+                dialog.Location = new Point(-4000, -4000);
+                dialog.Show();
+                dialog.text.AppendText("\r\n\r\n──────── Profiltest: Beispiel ────────\r\n"
+                    + ProfileTestOutcome.Failed(ProfileTestOutcome.Offline, "").Describe() + "\r\n");
+                Application.DoEvents();
+                using (Bitmap image = new Bitmap(dialog.Width, dialog.Height))
+                {
+                    dialog.DrawToBitmap(image, new Rectangle(0, 0, dialog.Width, dialog.Height));
+                    image.Save(pngPath, System.Drawing.Imaging.ImageFormat.Png);
+                }
+                dialog.Close();
+            }
+        }
+
+        private async void RunTest()
+        {
+            if (busy || tester == null) { return; }
+            busy = true;
+            test.Enabled = false;
+            UseWaitCursor = true;
+            ProfileTestOutcome outcome;
+            try
+            {
+                outcome = await tester(this, result.Pdf);
+            }
+            catch (Exception e)
+            {
+                outcome = ProfileTestOutcome.Failed("error", e.Message);
+            }
+            UseWaitCursor = false;
+            busy = false;
+            if (IsDisposed) { return; }
+            test.Enabled = true;
+            text.AppendText("\r\n\r\n──────── Profiltest: " + Path.GetFileName(result.Pdf) + " ────────\r\n" + outcome.Describe().Replace("\r\n", "\n").Replace("\n", "\r\n") + "\r\n");
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (busy) { e.Cancel = true; }
+            base.OnFormClosing(e);
+        }
+    }
+
+    /// <summary>Auswahl des Mandanten, wenn der Dienst mehrere führt.</summary>
+    public static class TenantDialog
+    {
+        /// <returns>Kennung des gewählten Mandanten; null bei Abbruch.</returns>
+        public static string Choose(IWin32Window owner, List<KeyValuePair<string, string>> tenants)
+        {
+            using (Form form = new Form())
+            {
+                form.Text = "Mandant wählen";
+                form.FormBorderStyle = FormBorderStyle.FixedDialog;
+                form.MaximizeBox = false;
+                form.MinimizeBox = false;
+                form.ShowInTaskbar = false;
+                form.StartPosition = FormStartPosition.CenterParent;
+                form.Font = SystemFonts.MessageBoxFont;
+                form.ClientSize = new Size(420, 260);
+                Label label = new Label();
+                label.Text = "Für welchen Mandanten soll das Test-PDF geprüft werden?";
+                label.SetBounds(12, 12, 396, 20);
+                ListBox list = new ListBox();
+                list.SetBounds(12, 38, 396, 170);
+                foreach (KeyValuePair<string, string> t in tenants) { list.Items.Add(t.Value + "  (" + t.Key + ")"); }
+                list.SelectedIndex = 0;
+                Button ok = new Button();
+                ok.Text = "Prüfen";
+                ok.SetBounds(216, 220, 92, 28);
+                ok.DialogResult = DialogResult.OK;
+                Button cancel = new Button();
+                cancel.Text = "Abbrechen";
+                cancel.SetBounds(316, 220, 92, 28);
+                cancel.DialogResult = DialogResult.Cancel;
+                form.AcceptButton = ok;
+                form.CancelButton = cancel;
+                form.Controls.AddRange(new Control[] { label, list, ok, cancel });
+                list.DoubleClick += delegate { form.DialogResult = DialogResult.OK; };
+                if (form.ShowDialog(owner) != DialogResult.OK || list.SelectedIndex < 0) { return null; }
+                return tenants[list.SelectedIndex].Key;
+            }
+        }
+    }
+
     /// <summary>Vorlagen-Assistent ohne Fenster (/vorlagentest): wertet alle Word-/Excel-Dateien eines Ordners aus.</summary>
     public static class TemplateBatch
     {
@@ -558,6 +715,7 @@ namespace HofmannIT.ERechnung.Verwaltung
                         notes.AppendLine(Path.GetFileName(result.Pdf));
                         foreach (string note in result.Notes) { notes.AppendLine("- " + note); }
                         File.WriteAllText(Path.Combine(output, name + ".umbau.txt"), notes.ToString(), new UTF8Encoding(true));
+                        ConversionResultDialog.SavePreview(notes.ToString(), result, Path.Combine(output, name + ".ergebnis.png"));
                         overview.AppendLine("   umgebaut: " + Path.GetFileName(result.Workbook) + " (" + result.Notes.Count + " Hinweis(e))");
                     }
                 }

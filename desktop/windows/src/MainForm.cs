@@ -68,6 +68,7 @@ namespace HofmannIT.ERechnung.Verwaltung
         private bool serviceActionRunning;
         private bool certificateRejected;
         private bool templateOpen;
+        private readonly Dictionary<string, TaskCompletionSource<string>> pendingMessages = new Dictionary<string, TaskCompletionSource<string>>();
         private DateTime lastDownload = DateTime.MinValue;
         private string lastSaveDirectory = "";
 
@@ -313,6 +314,7 @@ namespace HofmannIT.ERechnung.Verwaltung
             core.NewWindowRequested += OnNewWindowRequested;
             core.DownloadStarting += OnDownloadStarting;
             core.ServerCertificateErrorDetected += OnServerCertificateError;
+            core.WebMessageReceived += OnWebMessage;
             core.DocumentTitleChanged += delegate { Text = string.IsNullOrEmpty(core.DocumentTitle) ? AppTitle : core.DocumentTitle; };
             core.HistoryChanged += delegate { backButton.Enabled = core.CanGoBack; };
             core.ProcessFailed += delegate
@@ -428,7 +430,7 @@ namespace HofmannIT.ERechnung.Verwaltung
             templateOpen = true;
             try
             {
-                using (TemplateWizard wizard = new TemplateWizard())
+                using (TemplateWizard wizard = new TemplateWizard(TestPdfAsync))
                 {
                     wizard.ShowDialog(this);
                 }
@@ -437,6 +439,99 @@ namespace HofmannIT.ERechnung.Verwaltung
             {
                 templateOpen = false;
             }
+        }
+
+        // ---- Profiltest für den Vorlagen-Assistenten (ADR 0016, Phase 4) -------------------------
+
+        /// <summary>Antworten des Profiltest-Skripts; angenommen werden nur Nachrichten von Seiten des verbundenen Dienstes.</summary>
+        private void OnWebMessage(object sender, CoreWebView2WebMessageReceivedEventArgs e)
+        {
+            if (target == null || !target.IsInternal(e.Source))
+            {
+                return;
+            }
+            string text;
+            try
+            {
+                text = e.TryGetWebMessageAsString();
+            }
+            catch (ArgumentException)
+            {
+                return;   // keine Zeichenkette
+            }
+            string id = ProfileTestOutcome.MessageId(text);
+            TaskCompletionSource<string> waiting;
+            if (id.Length > 0 && pendingMessages.TryGetValue(id, out waiting))
+            {
+                pendingMessages.Remove(id);
+                waiting.TrySetResult(text);
+            }
+        }
+
+        private async Task<ProfileTestOutcome> AskPageAsync(Func<string, string> script, int timeoutMillis)
+        {
+            string id = Guid.NewGuid().ToString("N");
+            TaskCompletionSource<string> waiting = new TaskCompletionSource<string>();
+            pendingMessages[id] = waiting;
+            try
+            {
+                await web.CoreWebView2.ExecuteScriptAsync(script(id));
+                Task finished = await Task.WhenAny(waiting.Task, Task.Delay(timeoutMillis));
+                if (finished != waiting.Task)
+                {
+                    return ProfileTestOutcome.Failed("timeout", "Der Dienst hat nicht rechtzeitig geantwortet.");
+                }
+                return ProfileTestOutcome.Parse(waiting.Task.Result);
+            }
+            finally
+            {
+                pendingMessages.Remove(id);
+            }
+        }
+
+        /// <summary>
+        /// Prüft ein PDF mit der Funktion „Profil testen“ des Dienstes, in der Sitzung des angemeldeten Benutzers.
+        /// Die angezeigte Seite bleibt, wie sie ist; der Dienst speichert dabei nichts.
+        /// </summary>
+        internal async Task<ProfileTestOutcome> TestPdfAsync(IWin32Window owner, string pdfPath)
+        {
+            if (!started || !webReady || messageKind != MessageKind.None || target == null || !target.IsInternal(web.CoreWebView2.Source))
+            {
+                return ProfileTestOutcome.Failed(ProfileTestOutcome.Offline, messageKind == MessageKind.None ? "" : messageTitle.Text);
+            }
+            byte[] pdf;
+            try
+            {
+                pdf = File.ReadAllBytes(pdfPath);
+            }
+            catch (IOException ex)
+            {
+                return ProfileTestOutcome.Failed("error", ex.Message);
+            }
+            if (pdf.Length > 20 * 1024 * 1024)
+            {
+                return ProfileTestOutcome.Failed("error", "Das PDF ist für den Test im Fenster zu groß (über 20 MB).");
+            }
+            ProfileTestOutcome tenants = await AskPageAsync(ProfileTestScript.ListTenants, 20000);
+            if (tenants.State != ProfileTestOutcome.Tenants)
+            {
+                return tenants;
+            }
+            if (tenants.TenantList.Count == 0)
+            {
+                return ProfileTestOutcome.Failed(ProfileTestOutcome.Unavailable, "");
+            }
+            string tenant = tenants.TenantList[0].Key;
+            if (tenants.TenantList.Count > 1 && !selfTest)
+            {
+                tenant = TenantDialog.Choose(owner, tenants.TenantList);
+                if (tenant == null)
+                {
+                    return ProfileTestOutcome.Failed("error", "Es wurde kein Mandant gewählt.");
+                }
+            }
+            string name = Path.GetFileName(pdfPath);
+            return await AskPageAsync(delegate(string id) { return ProfileTestScript.Test(id, pdf, name, tenant); }, 120000);
         }
 
         // ---- Ereignisse des Browsers ----------------------------------------------------------
@@ -966,6 +1061,26 @@ namespace HofmannIT.ERechnung.Verwaltung
                     using (FileStream png = File.Create(Path.Combine(commandLine.SelfTestDirectory, "seite.png")))
                     {
                         await web.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, png);
+                    }
+                    if (commandLine.SelfTestPdf.Length > 0)
+                    {
+                        // Nur im Diagnoselauf: Anmeldung mit einem Testzugang aus Umgebungsvariablen (nie aus Dateien,
+                        // nie im normalen Betrieb), damit der Profiltest gegen eine Test-Instanz geprüft werden kann
+                        string user = Environment.GetEnvironmentVariable("ERECHNUNG_SELBSTTEST_BENUTZER");
+                        string password = Environment.GetEnvironmentVariable("ERECHNUNG_SELBSTTEST_PASSWORT");
+                        if (!string.IsNullOrEmpty(user) && !string.IsNullOrEmpty(password) && field.Contains("| true | "))
+                        {
+                            await web.CoreWebView2.ExecuteScriptAsync("(function(){var u=document.querySelector('input[name=benutzer]');"
+                                + "u.value=" + ProfileTestScript.JsString(user) + ";u.form.querySelector('input[name=passwort]').value="
+                                + ProfileTestScript.JsString(password) + ";u.form.submit();})()");
+                            await Task.Delay(3000);
+                            Log("Anmeldung im Diagnoselauf, Seite danach: " + web.CoreWebView2.Source);
+                        }
+                        ProfileTestOutcome outcome = await TestPdfAsync(this, commandLine.SelfTestPdf);
+                        Log("Profiltest: Zustand „" + outcome.State + "“\r\n" + outcome.Describe());
+                        // das Skript zum Nachvollziehen ablegen (leerer Mandant = erster Mandant des Dienstes)
+                        File.WriteAllText(Path.Combine(commandLine.SelfTestDirectory, "profiltest.js"),
+                            ProfileTestScript.Test("diagnose", File.ReadAllBytes(commandLine.SelfTestPdf), Path.GetFileName(commandLine.SelfTestPdf), ""), new UTF8Encoding(false));
                     }
                     // Fremde Adressen dürfen das Fenster nicht übernehmen (wird vor jeder Netzanfrage abgebrochen)
                     await web.CoreWebView2.ExecuteScriptAsync("window.open('https://fremd.invalid/fenster')");

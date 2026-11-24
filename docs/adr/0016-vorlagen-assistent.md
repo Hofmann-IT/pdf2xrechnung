@@ -2,7 +2,7 @@
 
 - Status: Akzeptiert (2026-11-23); Freigaben F1–F5 vom Auftraggeber mit dem Plan „Vorlagen-Assistent
   (Version 1.2.0)" erteilt. Umsetzung in vier Phasen; dieser ADR wird je Phase fortgeschrieben.
-  **Stand: Phasen 1 bis 3 umgesetzt (Analyse, Umbau von Excel- und Word-Dateien); offen ist Phase 4 (automatischer Test, Handbuch, Version 1.2.0).**
+  **Stand: alle vier Phasen umgesetzt, Version 1.2.0.**
 - Betrifft: `desktop/windows/` (Verwaltungsanwendung). Der Dienst (Java), das Profil `standard`,
   die Datenbank und der Installer bleiben unverändert.
 
@@ -125,6 +125,23 @@ Profils `standard` bringt, ohne Logo, Bilder, Briefkopf und Fußzeile zu veränd
 - Das Test-PDF aus Word ist PDF/A (`UseISO19005_1`). Die markierte Fassung erhält Schattierungen und eine
   Legende auf einer eigenen Seite am Ende.
 
+### Phase 4 – Profiltest im Fenster
+
+- `ProfileTest.cs` (ohne Fenster, getestet): erzeugt das Skript, das in der Seite des Dienstes läuft, und
+  wertet dessen Antwort aus. Das Skript holt `/profile` (Mandantenliste, CSRF-Wert des Formulars), lädt das
+  PDF per `fetch` als `multipart/form-data` nach `/profile/test` hoch (`HX-Request`, damit der Dienst nur das
+  Ergebnis liefert) und liest Profil, Klassifizierung, Seiten, Positionen, Plausibilität und Angaben mit
+  Fehler oder Warnung aus der Antwort. Es spricht nur relative Adressen des verbundenen Dienstes an.
+- Der Test läuft in der **Sitzung des angemeldeten Benutzers**; die Anwendung speichert und kennt weiterhin
+  keine Zugangsdaten. Der Dienst wurde dafür nicht geändert und speichert bei diesem Test nichts.
+- Rückweg über `window.chrome.webview.postMessage`; `MainForm` nimmt nur Nachrichten von Seiten des
+  verbundenen Dienstes mit der erwarteten, je Aufruf neuen Kennung an. Die angezeigte Seite bleibt, wie sie ist.
+- „Bestanden" heißt: Profil erkannt, keine Angabe mit Fehler oder Warnung, Plausibilität bestanden.
+- `ConversionResultDialog`: Ergebnis des Umbaus mit „Test-PDF jetzt prüfen" und „Ordner öffnen".
+- Diagnose `/selbsttest <ordner> /testpdf <pdf>`: führt den Profiltest im Fenster aus. Nur in diesem
+  Diagnoselauf kann ein Testzugang über die Umgebungsvariablen `ERECHNUNG_SELBSTTEST_BENUTZER` und
+  `ERECHNUNG_SELBSTTEST_PASSWORT` übergeben werden (nie aus Dateien, nie im normalen Betrieb).
+
 ## Tests
 
 - `tests/Tests.cs` (bei jedem Bau): Erkennung an nachgebauten Fremd-Layouts mit erfundenen Daten,
@@ -133,6 +150,8 @@ Profils `standard` bringt, ohne Logo, Bilder, Briefkopf und Fußzeile zu veränd
   `.xlsx`, `.xls`, `.docx`, `.doc`, wertet sie über `/vorlagentest` aus und prüft die Berichte. Die
   Excel- und Word-Dateien werden umgebaut; ihr Test-PDF muss mit `calibrate` gegen `profiles/standard.yaml`
   bestehen (richtige Anschrift, Nummer, Positionen, Beträge; Excel zusätzlich zweiseitig mit 45 Positionen).
+- `tests/profiltest-diagnose.ps1` (braucht einen laufenden Dienst): Anmeldung, Hochladen und Auswertung im
+  echten Fenster; geprüft mit einem bestehenden und einem nicht bestehenden Test-PDF.
 - Kundendateien werden nur lokal geprüft und nicht ins Repository übernommen.
 
 ## Konsequenzen und Grenzen

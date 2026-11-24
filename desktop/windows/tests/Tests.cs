@@ -38,6 +38,7 @@ internal static class Tests
         TemplateRefusals();
         TemplateLayoutVariants();
         TemplateExcelPlan();
+        ProfileTests();
         Console.WriteLine(count + " Prüfungen, " + failures + " fehlgeschlagen");
         return failures == 0 ? 0 : 1;
     }
@@ -486,6 +487,46 @@ internal static class Tests
         Equal("19 %", w.Items[0].VatRate, "Word-Variante: „19,0%“ wird zu 19 %");
         Equal("1.190,00", Field(w, InvoiceField.GrossTotal), "Word-Variante: Endbetrag");
         Equal(0, w.Warnings.Count, "Word-Variante: Summen stimmen");
+    }
+
+    private static void ProfileTests()
+    {
+        // Antwort des Skripts, das im Fenster die Funktion „Profil testen“ des Dienstes aufruft
+        string ok = ProfileTestOutcome.Marker + "\tabc123\nstate\tok\npages\t1\nprofile\tstandard\nclassification\tINVOICE, Geschäftsfall DOMESTIC_STANDARD\n"
+            + "plausibility\tbestanden\npositions\t3";
+        Equal("abc123", ProfileTestOutcome.MessageId(ok), "Profiltest: Kennung der Nachricht");
+        Equal("", ProfileTestOutcome.MessageId("etwas anderes\tabc"), "Profiltest: fremde Nachricht hat keine Kennung");
+        Equal("", ProfileTestOutcome.MessageId(null), "Profiltest: leere Nachricht");
+        ProfileTestOutcome passed = ProfileTestOutcome.Parse(ok);
+        Check(passed.Passed, "Profiltest: bestanden");
+        Equal("standard", passed.Profile, "Profiltest: erkanntes Profil");
+        Equal("3", passed.Positions, "Profiltest: Positionen");
+        Check(passed.Describe().StartsWith("BESTANDEN") && passed.Describe().Contains("Positionen: 3"), "Profiltest: Text bei bestandenem Test");
+
+        ProfileTestOutcome failed = ProfileTestOutcome.Parse(ProfileTestOutcome.Marker + "\tx\nstate\tok\npages\t1\nprofile\tstandard\nplausibility\tbestanden\npositions\t1\n"
+            + "problem\tBT-10 Käuferreferenz: Pflichtfeld nicht gefunden\nproblem\tBT-49 Elektronische Adresse des Käufers: Pflichtfeld nicht gefunden");
+        Check(!failed.Passed, "Profiltest: fehlendes Pflichtfeld ist nicht bestanden, auch wenn die Plausibilität passt");
+        Equal(2, failed.Problems.Count, "Profiltest: zwei Angaben mit Fehler");
+        Check(failed.Describe().StartsWith("NICHT BESTANDEN") && failed.Describe().Contains("BT-49"), "Profiltest: Text nennt die fehlenden Angaben");
+
+        ProfileTestOutcome sums = ProfileTestOutcome.Parse(ProfileTestOutcome.Marker + "\tx\nstate\tok\nplausibility\tnicht bestanden\nissue\tLINE_SUM: Summe der Positionen weicht ab");
+        Check(!sums.Passed && sums.Issues.Count == 1, "Profiltest: Plausibilität nicht bestanden");
+        Check(!ProfileTestOutcome.Parse(ProfileTestOutcome.Marker + "\tx\nstate\tok\nerror\tBitte eine PDF-Datei auswählen.").Passed, "Profiltest: Meldung des Dienstes");
+        Check(ProfileTestOutcome.Parse(ProfileTestOutcome.Marker + "\tx\nstate\tlogin").Describe().Contains("nicht angemeldet"), "Profiltest: nicht angemeldet");
+        Check(ProfileTestOutcome.Failed(ProfileTestOutcome.Offline, "").Describe().Contains("nicht mit dem Dienst verbunden"), "Profiltest: keine Verbindung");
+        ProfileTestOutcome tenants = ProfileTestOutcome.Parse(ProfileTestOutcome.Marker + "\tx\nstate\ttenants\ntenant\thofmann-it|Hofmann IT\ntenant\tzwei|Zweite Firma | Nord");
+        Equal(2, tenants.TenantList.Count, "Profiltest: Mandantenliste");
+        Equal("hofmann-it", tenants.TenantList[0].Key, "Profiltest: Kennung des Mandanten");
+        Equal("Zweite Firma | Nord", tenants.TenantList[1].Value, "Profiltest: Name mit Trennzeichen");
+
+        Equal("'a\\'b\\\\c\\n\\u003cscript\\u003e'", ProfileTestScript.JsString("a'b\\c\n<script>"), "Profiltest: Zeichenkette sicher in das Skript einsetzen");
+        Equal("''", ProfileTestScript.JsString(null), "Profiltest: leere Zeichenkette");
+        string script = ProfileTestScript.Test("id1", new byte[] { 0x25, 0x50, 0x44, 0x46 }, "Rechnung 'Test'.pdf", "hofmann-it");
+        Check(script.Contains("atob('JVBERg==')") && script.Contains("'Rechnung \\'Test\\'.pdf'") && script.Contains("fetch('/profile/test'")
+            && script.Contains("'_csrf'") && script.Contains("'HX-Request'"), "Profiltest: Skript lädt das PDF mit Sitzung und CSRF-Schutz hoch");
+        Check(!script.Contains("http://") && !script.Contains("https://"), "Profiltest: Skript spricht nur die verbundene Adresse an");
+        Check(ProfileTestScript.ListTenants("id2").Contains("state\\ttenants"), "Profiltest: Skript für die Mandantenliste");
+        Equal(@"C:\t\a.pdf", CommandLine.Parse(new string[] { "/selbsttest", @"C:\t", "/testpdf", @"C:\t\a.pdf" }).SelfTestPdf, "PDF für den Diagnoselauf des Profiltests");
     }
 
     private static void TemplateExcelPlan()

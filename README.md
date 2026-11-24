@@ -689,3 +689,25 @@ Build ab). Diagnose ohne Bedienung: `PdfZuERechnung.Verwaltung.exe /einstellunge
 /selbsttest <ordner>` verbindet sich, legt `ergebnis.txt` und Bildschirmfotos ab und beendet
 sich, ohne Einstellungen zu ändern.
 
+**Vorlagen-Assistent** (ADR 0016): „Vorlage importieren …" liest eine Word- oder Excel-Rechnung über
+das lokal installierte Office, zeigt die erkannten Angaben und baut den Rechnungsteil in den Aufbau
+des Profils `standard` um (`TemplateModel.cs` Erkennung, `TemplateLayout.cs` Bauplan,
+`TemplateConverter.cs` Excel, `WordConverter.cs` Word, `ProfileTest.cs` Prüfung des Test-PDF über
+die Seite „Profil testen" in der angemeldeten Sitzung). Erkennung und Baupläne sind in
+`tests/Tests.cs` abgedeckt. Zwei Skripte brauchen Office bzw. einen laufenden Dienst und gehören
+deshalb nicht zum normalen Build:
+
+```powershell
+# erzeugt Fremd-Layouts (.xlsx, .xls, .docx, .doc), baut sie um und prüft die Test-PDFs mit calibrate
+powershell -ExecutionPolicy Bypass -File desktop\windows\tests\vorlagen-e2e.ps1
+# prüft den Profiltest im echten Fenster gegen eine Test-Instanz (Testzugang nur über Umgebungsvariablen)
+powershell -ExecutionPolicy Bypass -File desktop\windows\tests\profiltest-diagnose.ps1 -Port 8093 -Pdf <test.pdf> -Zugang <datei>
+```
+
+`/vorlagentest <ordner>` wertet alle Word-/Excel-Dateien eines Ordners ohne Fenster aus und legt
+Berichte, Rohansicht, Bilder der Dialoge und – wenn umbaubar – die umgebauten Dateien nach
+`<ordner>\ergebnis`. Eine Datei `<name>.werte.txt` mit Zeilen `Feld=Wert` (z. B.
+`CustomerNumber=10001`, `BuyerEmail=…`) steht für die Eingaben des Benutzers. Neue Schreibweisen
+von Beschriftungen werden als Synonym in `TemplateModel.cs` ergänzt und mit einem Test abgesichert.
+Kundendateien gehören nie ins Repository; Tests verwenden erfundene Daten.
+
