@@ -35,6 +35,7 @@ namespace HofmannIT.ERechnung.Verwaltung
         private readonly ToolStripButton reloadButton = new ToolStripButton("Neu laden");
         private readonly ToolStripButton templateButton = new ToolStripButton("Vorlage importieren …");
         private readonly ToolStripButton connectButton = new ToolStripButton("Verbindung …");
+        private readonly ToolStripButton infoButton = new ToolStripButton("Info");
         private readonly ToolStripLabel statusLabel = new ToolStripLabel("");
 
         private readonly Panel messagePanel = new Panel();
@@ -128,11 +129,14 @@ namespace HofmannIT.ERechnung.Verwaltung
             reloadButton.Click += delegate { if (webReady && messageKind == MessageKind.None) { web.CoreWebView2.Reload(); } else { Reconnect(); } };
             templateButton.ToolTipText = "Bestehende Rechnung aus Word oder Excel prüfen und an die Standardvorlage anpassen";
             templateButton.Click += delegate { ImportTemplate(); };
+            infoButton.Alignment = ToolStripItemAlignment.Right;
+            infoButton.ToolTipText = "Version und Kontakt zum Hersteller";
+            infoButton.Click += delegate { ShowInfo(); };
             connectButton.Alignment = ToolStripItemAlignment.Right;
             connectButton.Click += delegate { ChangeConnection(); };
             statusLabel.Alignment = ToolStripItemAlignment.Right;
             statusLabel.ForeColor = SystemColors.GrayText;
-            bar.Items.AddRange(new ToolStripItem[] { backButton, homeButton, reloadButton, new ToolStripSeparator(), templateButton, connectButton, new ToolStripSeparator { Alignment = ToolStripItemAlignment.Right }, statusLabel });
+            bar.Items.AddRange(new ToolStripItem[] { backButton, homeButton, reloadButton, new ToolStripSeparator(), templateButton, infoButton, connectButton, new ToolStripSeparator { Alignment = ToolStripItemAlignment.Right }, statusLabel });
         }
 
         private void BuildMessagePanel()
@@ -186,10 +190,12 @@ namespace HofmannIT.ERechnung.Verwaltung
             connection.Click += delegate { ShowFromTray(); ChangeConnection(); };
             ToolStripMenuItem template = new ToolStripMenuItem("Vorlage importieren …");
             template.Click += delegate { ShowFromTray(); ImportTemplate(); };
+            ToolStripMenuItem info = new ToolStripMenuItem("Info …");
+            info.Click += delegate { ShowFromTray(); ShowInfo(); };
             ToolStripMenuItem exit = new ToolStripMenuItem("Beenden");
             exit.Click += delegate { ExitApplication(); };
             menu.Items.AddRange(new ToolStripItem[] { open, trayStatus, new ToolStripSeparator(), trayStart, trayStop, trayRestart,
-                new ToolStripSeparator(), template, trayLogs, trayManual, connection, new ToolStripSeparator(), exit });
+                new ToolStripSeparator(), template, trayLogs, trayManual, connection, info, new ToolStripSeparator(), exit });
             menu.Opening += delegate
             {
                 trayLogs.Visible = Directory.Exists(LogDirectory());
@@ -418,6 +424,19 @@ namespace HofmannIT.ERechnung.Verwaltung
                 RefreshStatus();
                 Reconnect();
             }
+        }
+
+        /// <summary>Version und Kontakt zum Hersteller – die einzige Stelle im Programm, die ihn nennt.</summary>
+        internal static string InfoText()
+        {
+            return AppTitle + " – Converter und E-Rechnungs-Validator\r\nVersion " + Application.ProductVersion
+                + "\r\n\r\nEntwicklung und Support:\r\nHofmann IT\r\nwww.hofmann-it.de";
+        }
+
+        private void ShowInfo()
+        {
+            if (selfTest) { return; }
+            MessageBox.Show(this, InfoText(), "Info – " + AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         /// <summary>Vorlagen-Assistent (ADR 0016): arbeitet mit dem lokal installierten Word/Excel, unabhängig vom Dienst.</summary>

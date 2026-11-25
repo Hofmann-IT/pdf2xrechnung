@@ -533,13 +533,13 @@ namespace HofmannIT.ERechnung.Verwaltung
                 {
                     reverse = true;
                     a.Blockers.Add("Hinweis auf § 13b UStG / Steuerschuldnerschaft des Leistungsempfängers (" + line.Place
-                        + "). Solche Rechnungen deckt die Standardvorlage nicht ab; bitte mit Hofmann IT klären.");
+                        + "). Solche Rechnungen deckt die Standardvorlage nicht ab; bitte mit dem Hersteller klären (Kontakt unter „Info“).");
                 }
                 if (!partial && PartialInvoice.IsMatch(t))
                 {
                     partial = true;
                     a.Blockers.Add("Abschlags-, Teil- oder Schlussrechnung (" + line.Place
-                        + "). Solche Rechnungen deckt die Standardvorlage nicht ab; bitte mit Hofmann IT klären.");
+                        + "). Solche Rechnungen deckt die Standardvorlage nicht ab; bitte mit dem Hersteller klären (Kontakt unter „Info“).");
                 }
             }
         }
@@ -581,7 +581,7 @@ namespace HofmannIT.ERechnung.Verwaltung
                     a.TableHeaderPlace = body[i].Place;
                     if (progress)
                     {
-                        a.Blockers.Add("Die Positionstabelle hat eine Spalte „LS. %“ (Leistungsstand). Das ist eine Abschlagsrechnung; bitte mit Hofmann IT klären.");
+                        a.Blockers.Add("Die Positionstabelle hat eine Spalte „LS. %“ (Leistungsstand). Das ist eine Abschlagsrechnung; bitte mit dem Hersteller klären (Kontakt unter „Info“).");
                     }
                     return i;
                 }
@@ -992,7 +992,7 @@ namespace HofmannIT.ERechnung.Verwaltung
                 {
                     deduction = true;
                     a.Blockers.Add("Im Summenblock steht ein Abzug oder eine Anrechnung (" + body[i].Place + ": „" + Shorten(t)
-                        + "“). Rabatt, Skonto und Abschläge im Summenblock deckt die Standardvorlage nicht ab; bitte mit Hofmann IT klären.");
+                        + "“). Rabatt, Skonto und Abschläge im Summenblock deckt die Standardvorlage nicht ab; bitte mit dem Hersteller klären (Kontakt unter „Info“).");
                     continue;
                 }
                 Match vat = VatLine.Match(t);

@@ -40,7 +40,7 @@ class InvoiceTemplateFilesTest {
         String strings = entry("Rechnungsvorlage.xlsx", "xl/sharedStrings.xml");
         assertThat(strings).contains("Pos.", "Bezeichnung", "Rechnungsnummer:", "Kunden-Nr.:", "E-Mail:", "Summe netto:", "Gesamt netto:",
                 "USt gesamt:", "Gesamtbetrag:", "Zahlbetrag:", "Zahlungsbedingungen:");
-        assertThat(entry("Rechnungsvorlage.xlsx", "docProps/core.xml")).contains("<dc:creator>Hofmann IT</dc:creator>");
+        assertThat(entry("Rechnungsvorlage.xlsx", "docProps/core.xml")).contains("<dc:creator>Rechnungsvorlage</dc:creator>");
         assertThat(names("Rechnungsvorlage.xlsx")).doesNotContain("printerSettings").doesNotContain("vbaProject");
     }
 

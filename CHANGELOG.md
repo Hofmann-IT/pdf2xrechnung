@@ -3,6 +3,17 @@
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach SemVer.
 Die Versionsnummer steht im `pom.xml` und wird im Seitenfuß, im Systemstatus und je Verarbeitungslauf im Ledger angezeigt.
 
+## [1.2.1] – 2026-11-25 (Neutrale Rechnungsvorlagen, Info-Dialog)
+
+- Die mitgelieferten Rechnungsvorlagen (Word, Excel), die Feldübersicht und die Anleitung
+  „Rechnungsvorlage anpassen" nennen den Hersteller nicht mehr: Der Beispiel-Absender heißt jetzt
+  „Ihre Firma GmbH", die Dateieigenschaften nennen „Rechnungsvorlage" als Verfasser.
+- Profil `standard`: Der Mustertext der Versand-E-Mail endet mit „Mit freundlichen Grüßen" ohne
+  Firmennamen (Versand ist im Auslieferungszustand ausgeschaltet).
+- Verwaltungsanwendung: neuer Befehl **„Info"** (Leiste und Menü im Infobereich) mit Version und
+  Kontakt zum Hersteller. Die Hinweise des Vorlagen-Assistenten verweisen darauf.
+- Dienst sonst unverändert: keine Schemaänderung, keine neue Laufzeitabhängigkeit.
+
 ## [1.2.0] – 2026-11-23 (Vorlagen-Assistent, ADR 0016)
 
 Neue Funktion der Windows-Verwaltungsanwendung; der Dienst ist gegenüber 1.1.1 unverändert (keine

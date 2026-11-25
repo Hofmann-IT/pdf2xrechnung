@@ -555,7 +555,7 @@ postProcess:
     to: []
     cc: []
     subjectTemplate: "Rechnung {invoiceNumber} vom {invoiceDate:dd.MM.yyyy}"
-    bodyTemplate: "Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie die Rechnung {invoiceNumber}.\n\nMit freundlichen Grüßen\nHofmann IT"
+    bodyTemplate: "Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie die Rechnung {invoiceNumber}.\n\nMit freundlichen Grüßen"
     attachments:
       - ZUGFERD_PDF
   command:
